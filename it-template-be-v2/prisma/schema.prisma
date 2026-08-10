@@ -1,0 +1,129 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  // previewFeatures = ["relationJoins"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// TODO: Identity
+/// Login Info
+enum Role {
+  PTPL_IT
+  PTPL_QA
+  PTPL_PROD
+  VENDOR
+  GUEST
+  EMPLOYEE
+  SUPERSAIYAN
+}
+
+/// Login Info
+enum UserStatus {
+  active
+  pending
+  banned
+  rejected
+}
+
+model User {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  email           String     @unique @db.VarChar(255)
+  password        String     @db.Text
+  status          UserStatus @default(active)
+  role            Role       @default(EMPLOYEE)
+  name            String     @db.VarChar(255)
+  jobTitle        String?
+  photoUrl        String?
+  idamanId        String?
+  webAuthnId      String     @unique @db.VarChar(255)
+  phone           String?
+  encryptedSecret String?
+  hashBackupCode  String?
+
+  Position Position? @relation(fields: [positionId], references: [id])
+
+  positionId       String?
+  QrLoginToken     QrLoginToken[]
+
+  @@index([role])
+  @@index([positionId])
+}
+
+model QrLoginToken {
+  id        String        @id @default(uuid())
+  token     String        @unique @db.VarChar(255)
+  status    QrTokenStatus @default(PENDING)
+  user      User?         @relation(fields: [userId], references: [id])
+  userId    String? // terisi setelah user approve
+  createdAt DateTime      @default(now())
+  expiresAt DateTime // otomatis expired
+  usedAt    DateTime?
+
+  @@index([token])
+}
+
+enum QrTokenStatus {
+  PENDING
+  APPROVED
+  USED
+  EXPIRED
+}
+
+model UserLog {
+  id        String   @id @default(uuid())
+  userId    String // ID user yang memanggil
+  endpoint  String // misalnya: "me"
+  timestamp DateTime @default(now())
+  ip        String? // jika kamu ingin log IP
+  userAgent String? // jika ingin log UA
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  isPublished Boolean @default(false)
+
+  name        String
+  companyCode String
+
+  positions Position[] @relation(name: "PositionOrganization")
+  teams     Position[] @relation(name: "PositionTeam")
+
+  child    Organization[] @relation("org")
+  Parent   Organization?  @relation("org", fields: [parentId], references: [id])
+  parentId String?
+}
+
+model Position {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name String
+
+  teamId               String? // team id is calculated id by idaman
+  organizationId       String
+  organizationParentId String?
+  isChief              Boolean
+  isHead               Boolean
+  isOwner              Boolean
+  isPublished          Boolean
+  isSync               Boolean
+
+  User         User[]
+  Organization Organization  @relation(fields: [organizationId], references: [id], name: "PositionOrganization")
+  Team         Organization? @relation(fields: [teamId], references: [id], name: "PositionTeam")
+}

@@ -1,0 +1,31 @@
+# Dockerfile.staging
+
+# Base image with Node.js
+FROM node:lts
+
+# Update npm
+RUN npm i -g npm@latest
+
+# Set working directory
+WORKDIR /app
+
+# Copy only package files first (for better caching)
+COPY package*.json ./
+
+# Install serve globally (for static file serving)
+RUN npm i -g serve
+
+# Install dependencies
+RUN npm install --legacy-peer-deps --verbose
+
+# Copy all source files (including .env.staging if present)
+COPY . .
+
+# Build the app using Vite with staging mode
+RUN npm run build -- --mode staging
+
+# Expose ports for Cloud Run (you can remove 80 if unused)
+EXPOSE 8080
+
+# Serve the built files
+CMD ["serve", "-s", "dist", "-l", "8080"]

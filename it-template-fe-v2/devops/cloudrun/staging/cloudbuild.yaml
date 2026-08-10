@@ -1,0 +1,38 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
+
+steps:
+  # Build Docker image (staging/dev)
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'buildx',
+        'build',
+        '--platform=linux/amd64',
+        '-t',
+        'asia-southeast2-docker.pkg.dev/ptpl-playground/docker/post-it-fe-dev:latest',
+        '-f',
+        'devops/Dockerfile.staging',
+        '.',
+      ]
+
+  # Push Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'asia-southeast2-docker.pkg.dev/ptpl-playground/docker/post-it-fe-dev:latest']
+
+  # Deploy to Cloud Run (staging/dev)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - -c
+      - |
+        gcloud run deploy plasset-it-fe \
+          --image asia-southeast2-docker.pkg.dev/ptpl-playground/docker/post-it-fe-dev:latest \
+          --platform managed \
+          --region asia-southeast2 \
+          --project ptpl-playground \
+          --allow-unauthenticated
+
+images:
+  - 'asia-southeast2-docker.pkg.dev/ptpl-playground/docker/post-it-fe-dev:latest'

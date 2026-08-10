@@ -1,0 +1,20 @@
+{
+  "name": "Pertamina On Single Tab",
+  "short_name": "POST IT",
+  "display": "standalone",
+  "start_url": "/",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "favicon/android-chrome-192x192.png",
+      "sizes": "212x212",
+      "type": "image/png"
+    },
+    {
+      "src": "favicon/android-chrome-512x512.png",
+      "sizes": "532x532",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
+
+steps:
+  # Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'buildx',
+        'build',
+        '--platform=linux/amd64',
+        '-t',
+        'asia-southeast2-docker.pkg.dev/ptpl-devops-prod/docker-prod/post-it-fe-prod:latest',
+        '-f',
+        'devops/Dockerfile',
+        '.',
+      ]
+
+  # Push Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      ['push', 'asia-southeast2-docker.pkg.dev/ptpl-devops-prod/docker-prod/post-it-fe-prod:latest']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - -c
+      - |
+        gcloud run deploy plasset-it-fe \
+          --image=asia-southeast2-docker.pkg.dev/ptpl-devops-prod/docker-prod/post-it-fe-prod:latest \
+          --service-account=postit@ptpl-devops-prod.iam.gserviceaccount.com \
+          --region=asia-southeast2 \
+          --project=ptpl-devops-prod
+        gcloud run services update-traffic plasset-it-fe \
+          --region=asia-southeast2 \
+          --to-latest
+
+images:
+  - 'asia-southeast2-docker.pkg.dev/ptpl-devops-prod/docker-prod/post-it-fe-prod:latest'

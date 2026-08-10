@@ -1,0 +1,247 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// TODO: Identity
+/// Login Info
+model User {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  email    String @unique @db.VarChar(255)
+  password String @db.Text
+  role     String /// itptpl, vendor, qa, prod, guest
+  name     String @db.VarChar(255)
+
+  Vendor   Vendor? @relation(fields: [vendorId], references: [id])
+  vendorId Int?
+
+  VendorPlan VendorPlan[]
+  VendorReal VendorReal[]
+  ProdUsage  ProdUsage[]
+  QACheck    QACheck[]
+
+  @@index([role])
+  @@index([vendorId])
+}
+
+model Vendor {
+  id        Int      @id /// ID Vendor SAP
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name    String
+  address String?
+
+  User       User[]
+  Plan       VendorPlan[]
+  VendorReal VendorReal[]
+}
+
+///-------------------------------------------------------------------------------------------------
+
+/// TODO: ITPTPL Section
+/// Master Data QR Codes
+model QRMaster {
+  qr        String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// 0:available, 1:booked, 2:planned, 3:created, 4:broken, 5:producted
+  status Int @default(0)
+
+  VendorPlanDetail VendorPlanDetail?
+  ProdUsageDetail  ProdUsageDetail?
+  VendorRealDetail VendorRealDetail?
+  QACheckDetail    QACheckDetail?
+
+  @@index([status])
+}
+
+///-------------------------------------------------------------------------------------------------
+
+/// TODO: Vendor Section
+/// Rencana Pemakaian QR (General)
+model VendorPlan {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name    String /// Sequence
+  reqDate DateTime @default(now()) @db.Date
+  dlTimes Int      @default(0) /// 0:never used, 1-3:warning, 4:locked, 5:expired
+
+  Vendor   Vendor @relation(fields: [vendorId], references: [id])
+  vendorId Int
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  Detail VendorPlanDetail[]
+
+  @@unique([vendorId, reqDate, name])
+  @@index([vendorId])
+  @@index([vendorId, reqDate])
+}
+
+/// Rencana Pemakaian QR (Detail)
+model VendorPlanDetail {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  qr String   @unique
+  QR QRMaster @relation(fields: [qr], references: [qr])
+
+  Ref   VendorPlan @relation(fields: [refId], references: [id])
+  refId Int
+
+  VendorRealDetail VendorRealDetail?
+  ProdUsageDetail  ProdUsageDetail?
+
+  @@index([refId])
+}
+
+/// Realisasi Produksi oleh Vendor
+model VendorReal {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prodDate DateTime @db.Date
+  prodNum  String
+  kimap    String
+
+  Vendor   Vendor @relation(fields: [vendorId], references: [id])
+  vendorId Int
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  Detail VendorRealDetail[]
+
+  QACheck QACheck[]
+
+  @@unique([vendorId, prodNum])
+  @@index([vendorId, prodDate])
+}
+
+model VendorRealDetail {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Ref   VendorReal @relation(fields: [refId], references: [id])
+  refId Int
+
+  QRMasterUsed  QRMaster         @relation(fields: [qrUsed], references: [qr], map: "QR_Master")
+  QRPlannedUsed VendorPlanDetail @relation(fields: [qrUsed], references: [qr], map: "Vendor_Planned")
+  qrUsed        String           @unique
+
+  QACheckDetail QACheckDetail?
+
+  @@index([refId])
+}
+
+///-------------------------------------------------------------------------------------------------
+
+/// TODO: QA Check Section
+model QACheck {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  notes     String?
+
+  checkDate DateTime
+  plant     String
+  kimap     String
+  status    Int      @default(0) /// 0:drafted, 1:passed, 2:rejected, 3:pending
+
+  VendorReal   VendorReal @relation(fields: [vendorRealId], references: [id])
+  vendorRealId Int
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  Detail QACheckDetail[]
+
+  ProdUsage ProdUsage[]
+
+  @@index([plant, kimap])
+  @@index([plant, kimap, status])
+  @@index([kimap, status])
+}
+
+model QACheckDetail {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  notes     String?
+
+  Ref   QACheck @relation(fields: [refId], references: [id])
+  refId Int
+
+  QRMasterUsed QRMaster         @relation(fields: [qrChecked], references: [qr], map: "QR_Master")
+  QRReal       VendorRealDetail @relation(fields: [qrChecked], references: [qrUsed], map: "Vendor_Real")
+  qrChecked    String           @unique
+
+  @@index([refId])
+}
+
+///-------------------------------------------------------------------------------------------------
+
+/// TODO: Prod PTPL Section
+/// Realisasi Pemakaian QR (General)
+model ProdUsage {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prodDate DateTime @db.Date
+  plant    String   @db.VarChar(4)
+  kimap    String /// Product
+  batch    String?  @db.VarChar(8)
+  notes    String?
+
+  QAChecked QACheck[]
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  Detail ProdUsageDetail[]
+
+  @@index([kimap])
+  @@index([plant])
+  @@index([plant, kimap])
+  @@index([plant, kimap, prodDate])
+  @@index([plant, prodDate])
+}
+
+/// Realisasi Pemakaian QR (Detail)
+model ProdUsageDetail {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  notes     String?
+
+  Ref   ProdUsage @relation(fields: [refId], references: [id])
+  refId Int
+
+  QRMasterUsed  QRMaster         @relation(fields: [qrUsed], references: [qr], map: "QR_Master")
+  QRPlannedUsed VendorPlanDetail @relation(fields: [qrUsed], references: [qr], map: "Vendor_Planned")
+  qrUsed        String           @unique
+
+  @@index([refId])
+}
