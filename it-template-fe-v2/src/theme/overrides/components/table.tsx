@@ -33,13 +33,14 @@ export function table(theme: Theme) {
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderBottomStyle: 'dashed',
+          borderBottomStyle: 'solid',
+          borderColor: alpha(theme.palette.grey[500], 0.15),
         },
         head: {
           fontSize: 14,
-          color: theme.palette.text.secondary,
+          color: theme.palette.primary.darker, // Use Pertamina dark blue for table headers
           fontWeight: theme.typography.fontWeightSemiBold,
-          backgroundColor: theme.palette.background.neutral,
+          backgroundColor: alpha(theme.palette.primary.main, 0.05), // Subtle blue tint
         },
         stickyHeader: {
           backgroundColor: theme.palette.background.paper,

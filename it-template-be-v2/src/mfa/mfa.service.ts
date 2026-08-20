@@ -184,7 +184,7 @@ export class MfaService {
         where: { id: adminUserId },
       });
 
-      if (check.role !== 'PTPL_IT') {
+      if (check.role !== 'SUPERSAIYAN') {
         throw new UnauthorizedException('You are not admin!');
       }
 

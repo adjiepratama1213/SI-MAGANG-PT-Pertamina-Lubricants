@@ -121,6 +121,35 @@ export type IUserItem = {
       name: string;
     };
   };
+  employeeProfile?: {
+    id: string;
+    employeeId: string | null;
+    jabatan: string | null;
+    direktorat: string | null;
+    fungsi: string | null;
+    subFungsi?: string | null;
+    gender?: any;
+  };
+  internProfile?: {
+    id: string;
+    internId: string | null;
+    university: string | null;
+    gender: 'PRIA' | 'WANITA' | null;
+    dateOfBirth: Date | string | null;
+    major: string | null;
+    startDate: Date | string | null;
+    endDate: Date | string | null;
+    program: string | null;
+    documentUrls?: string[];
+    mentorProfileId: string | null;
+    mentor?: {
+      id: string;
+      user?: {
+        name: string;
+        email: string;
+      };
+    };
+  };
 };
 
 export type IUserAccount = {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useTheme } from '@mui/material/styles';
 import { 
   Container, Typography, Card, Box, Grid, Stack, 
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
@@ -7,6 +8,7 @@ import {
   Dialog, DialogTitle, DialogContent, IconButton, LinearProgress, Divider
 } from '@mui/material';
 import Iconify from 'src/components/iconify';
+import Chart, { useChart } from 'src/components/chart';
 
 const DUMMY_DATA = [
   { 
@@ -18,6 +20,7 @@ const DUMMY_DATA = [
     program: 'PKL', 
     direktorat: 'Direktorat Finance & Business Support', 
     fungsi: 'Human Capital', 
+    subFungsi: 'Pengembangan SDM',
     mentor: 'Mentor', 
     nilai: '84.43', 
     kategori: 'Memuaskan', 
@@ -43,6 +46,7 @@ const DUMMY_DATA = [
     program: 'PKL', 
     direktorat: 'Direktorat Utama & Pengawasan', 
     fungsi: 'HSSE', 
+    subFungsi: 'K3',
     mentor: '-', 
     nilai: '-', 
     kategori: '-', 
@@ -54,8 +58,33 @@ const DUMMY_DATA = [
 ];
 
 export default function Page() {
+  const theme = useTheme();
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedPenilaian, setSelectedPenilaian] = useState<any>(null);
+
+  // --- Chart 1: Rata-rata per Mentor ---
+  const mentorSeries = [{ name: 'Rata-rata Nilai', data: [88, 92, 85, 90, 87] }];
+  const mentorOptions = useChart({
+    colors: [theme.palette.primary.main],
+    chart: { type: 'bar', toolbar: { show: false } },
+    plotOptions: { bar: { columnWidth: '40%', borderRadius: 4 } },
+    xaxis: { categories: ['Kareem', 'Budi S', 'Gaston', 'Siti', 'Jovanz'] },
+    tooltip: { y: { formatter: (value: number) => `${value} Poin` } },
+  });
+
+  // --- Chart 2: Status Penilaian ---
+  const statusSeries = [3, 2];
+  const statusOptions = useChart({
+    colors: [theme.palette.success.main, theme.palette.warning.main],
+    labels: ['Sudah Dinilai', 'Belum Dinilai'],
+    stroke: { colors: [theme.palette.background.paper] },
+    legend: { floating: false, horizontalAlign: 'center', position: 'bottom' },
+    tooltip: {
+      fillSeriesColor: false,
+      y: { formatter: (value: number) => `${value} Peserta` },
+    },
+    plotOptions: { pie: { donut: { size: '80%' } } },
+  });
 
   const handleOpenDialog = (data: any) => {
     setSelectedPenilaian(data);
@@ -66,6 +95,27 @@ export default function Page() {
     setOpenDialog(false);
     setSelectedPenilaian(null);
   };
+
+  const chartOptions1: any = {
+    chart: { type: 'bar', toolbar: { show: false } },
+    plotOptions: { bar: { borderRadius: 4, columnWidth: '40%' } },
+    dataLabels: { enabled: false },
+    xaxis: { categories: ['Budi Santoso', 'Kareem Graham', 'Siti Aminah', 'Andi Wijaya'] },
+    yaxis: { title: { text: 'Nilai Rata-rata' }, max: 100 },
+    fill: { opacity: 1, colors: ['#004F9F'] },
+    tooltip: { y: { formatter: (val: number) => val + " Poin" } }
+  };
+  const chartSeries1 = [{ name: 'Rata-rata Nilai', data: [85, 92, 78, 88] }];
+
+  const chartOptions2: any = {
+    chart: { type: 'donut' },
+    labels: ['Sudah Dinilai', 'Belum Dinilai'],
+    colors: ['#22c55e', '#eab308'],
+    plotOptions: { pie: { donut: { size: '75%' } } },
+    dataLabels: { enabled: false },
+    legend: { position: 'bottom' }
+  };
+  const chartSeries2 = [3, 1];
 
   const renderProgressBar = (value: number) => {
     // Warna progress bar (hijau jika >= 85, kuning jika < 85)
@@ -89,97 +139,125 @@ export default function Page() {
       </Helmet>
 
       <Container maxWidth="xl">
-        <Box sx={{ p: 4, mb: 3, borderRadius: 2, bgcolor: '#6941C6', color: 'white', textAlign: 'center' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
-            <Iconify icon="solar:star-bold-duotone" width={32} sx={{ mr: 2 }} />
-            <Box textAlign="left">
-              <Typography variant="h5">Data Penilaian Peserta</Typography>
-              <Typography variant="body2">Kelola dan analisis hasil penilaian magang seluruh peserta.</Typography>
+        <Box sx={{ p: 4, mb: 3, borderRadius: 2, background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Iconify icon="solar:star-bold-duotone" width={28} />
+            </Box>
+            <Box>
+              <Typography variant="h5" fontWeight="bold">Data Penilaian Peserta</Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>Kelola dan analisis hasil penilaian magang seluruh peserta.</Typography>
             </Box>
           </Box>
-          <Button variant="contained" color="primary" sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: '100%', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}>
+          <Button variant="contained" sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9' }, fontWeight: 'bold' }}>
             <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Rekap Penilaian
           </Button>
         </Box>
 
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} md={4}>
-            <Card sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <Iconify icon="solar:users-group-rounded-bold-duotone" width={40} sx={{ color: 'primary.main', mb: 1 }} />
-              <Typography variant="subtitle2" color="text.secondary">Total Peserta Dinilai</Typography>
-              <Typography variant="h3" color="primary.main">3</Typography>
+            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #004F9F', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(0, 79, 159, 0.1)', color: '#004F9F', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
+                  <Iconify icon="solar:users-group-rounded-bold-duotone" width={24} />
+                </Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>Total Peserta Dinilai</Typography>
+              </Box>
+              <Typography variant="h3" sx={{ color: '#004F9F', fontWeight: 'bold' }}>3</Typography>
             </Card>
           </Grid>
           <Grid item xs={12} md={4}>
-            <Card sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <Iconify icon="solar:chart-line-bold-duotone" width={40} sx={{ color: 'success.main', mb: 1 }} />
-              <Typography variant="subtitle2" color="text.secondary">Rata-rata Nilai Keseluruhan</Typography>
-              <Typography variant="h3" color="success.main">88.5</Typography>
+            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #8CC63F', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(140, 198, 63, 0.1)', color: '#8CC63F', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
+                  <Iconify icon="solar:medal-star-bold-duotone" width={24} />
+                </Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>Rata-rata Nilai Keseluruhan</Typography>
+              </Box>
+              <Typography variant="h3" sx={{ color: '#8CC63F', fontWeight: 'bold' }}>88.5</Typography>
             </Card>
           </Grid>
           <Grid item xs={12} md={4}>
-            <Card sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <Iconify icon="solar:user-id-bold-duotone" width={40} sx={{ color: 'secondary.main', mb: 1 }} />
-              <Typography variant="subtitle2" color="text.secondary">Mentor Aktif</Typography>
-              <Typography variant="h3" color="secondary.main">2</Typography>
+            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #FFAB00', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(255, 171, 0, 0.1)', color: '#FFAB00', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
+                  <Iconify icon="solar:user-id-bold-duotone" width={24} />
+                </Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>Mentor Aktif</Typography>
+              </Box>
+              <Typography variant="h3" sx={{ color: '#FFAB00', fontWeight: 'bold' }}>2</Typography>
             </Card>
           </Grid>
         </Grid>
 
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} md={6}>
-            <Card sx={{ height: 300 }}>
+            <Card sx={{ height: 340 }}>
                 <CardHeader title="Rata-rata Nilai Peserta per Mentor" />
-                <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
-                    <Typography variant="body2" color="text.secondary">Chart Area Placeholder</Typography>
+                <Box sx={{ p: 3, height: 260 }} dir="ltr">
+                    <Chart type="bar" series={mentorSeries} options={mentorOptions} height={240} />
                 </Box>
             </Card>
           </Grid>
           <Grid item xs={12} md={6}>
-            <Card sx={{ height: 300 }}>
+            <Card sx={{ height: 340 }}>
                 <CardHeader title="Status Penilaian Keseluruhan" />
-                <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
-                    <Typography variant="body2" color="text.secondary">Chart Area Placeholder</Typography>
+                <Box sx={{ p: 3, height: 260 }} dir="ltr">
+                    <Chart type="donut" series={statusSeries} options={statusOptions} height={240} />
                 </Box>
             </Card>
           </Grid>
         </Grid>
 
-        <Card sx={{ p: 3, mb: 3 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth size="small"><InputLabel>Program</InputLabel><Select label="Program" defaultValue="all"><MenuItem value="all">Semua</MenuItem></Select></FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth size="small"><InputLabel>Mentor</InputLabel><Select label="Mentor" defaultValue="all"><MenuItem value="all">Semua</MenuItem></Select></FormControl>
+        <Box sx={{ p: 2.5, mb: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #f1f5f9' }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Program</InputLabel><Select label="Program" defaultValue="all"><MenuItem value="all">Semua Program</MenuItem></Select></FormControl>
             </Grid>
             <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small"><InputLabel>Direktorat</InputLabel><Select label="Direktorat" defaultValue="all"><MenuItem value="all">Semua</MenuItem></Select></FormControl>
+              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Direktorat</InputLabel><Select label="Direktorat" defaultValue="all"><MenuItem value="all">Semua Direktorat</MenuItem></Select></FormControl>
             </Grid>
             <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small"><InputLabel>Fungsi</InputLabel><Select label="Fungsi" defaultValue="all"><MenuItem value="all">Semua</MenuItem></Select></FormControl>
+              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Fungsi</InputLabel><Select label="Fungsi" defaultValue="all"><MenuItem value="all">Semua Fungsi</MenuItem></Select></FormControl>
             </Grid>
             <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small"><InputLabel>Status Penilaian</InputLabel><Select label="Status Penilaian" defaultValue="all"><MenuItem value="all">Semua</MenuItem></Select></FormControl>
+              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Sub Fungsi</InputLabel><Select label="Sub Fungsi" defaultValue="all"><MenuItem value="all">Semua Sub Fungsi</MenuItem></Select></FormControl>
             </Grid>
-            <Grid item xs={12}>
-              <TextField fullWidth size="small" placeholder="Cari nama peserta..." />
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Mentor</InputLabel><Select label="Mentor" defaultValue="all"><MenuItem value="all">Semua Mentor</MenuItem></Select></FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Status Penilaian</InputLabel><Select label="Status Penilaian" defaultValue="all"><MenuItem value="all">Semua Status</MenuItem></Select></FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={12} sx={{ display: 'flex', gap: 1 }}>
+              <TextField fullWidth size="small" placeholder="Cari nama peserta..." sx={{ bgcolor: 'white' }} />
+              <Button variant="contained" color="primary" sx={{ px: 3, boxShadow: 'none' }}>
+                <Iconify icon="eva:search-fill" />
+              </Button>
+              <Button variant="outlined" sx={{ px: 3, borderColor: '#94a3b8', color: 'text.primary', fontWeight: 'bold', '&:hover': { borderColor: '#64748b', bgcolor: '#f8fafc' } }}>
+                Reset
+              </Button>
             </Grid>
           </Grid>
-        </Card>
+        </Box>
 
         <Card sx={{ p: 3 }}>
-          <TableContainer>
+          {/* TABLE */}
+          <Typography variant="subtitle1" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+            <Iconify icon="solar:list-bold-duotone" sx={{ mr: 1 }} /> Daftar Penilaian Peserta
+          </Typography>
+          <TableContainer sx={{ minHeight: 400 }}>
             <Table size="small">
               <TableHead sx={{ bgcolor: '#f4f6f8' }}>
                 <TableRow>
                   <TableCell>Nama Peserta</TableCell>
                   <TableCell>ID Peserta</TableCell>
                   <TableCell>Asal Instansi</TableCell>
-                  <TableCell>Jurusan</TableCell>
                   <TableCell>Program</TableCell>
                   <TableCell>Direktorat</TableCell>
                   <TableCell>Fungsi</TableCell>
+                  <TableCell>Sub Fungsi</TableCell>
                   <TableCell>Mentor</TableCell>
                   <TableCell>Nilai Akhir</TableCell>
                   <TableCell>Kategori</TableCell>
@@ -193,10 +271,10 @@ export default function Page() {
                     <TableCell>{row.name}</TableCell>
                     <TableCell>{row.nim}</TableCell>
                     <TableCell>{row.instansi}</TableCell>
-                    <TableCell>{row.jurusan}</TableCell>
                     <TableCell>{row.program}</TableCell>
                     <TableCell>{row.direktorat}</TableCell>
                     <TableCell>{row.fungsi}</TableCell>
+                    <TableCell>{row.subFungsi}</TableCell>
                     <TableCell>{row.mentor}</TableCell>
                     <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>{row.nilai}</TableCell>
                     <TableCell>
@@ -205,9 +283,9 @@ export default function Page() {
                     <TableCell>
                        <Chip label={row.status} size="small" color={row.status === 'Sudah Dinilai' ? 'success' : 'warning'} variant="soft" />
                     </TableCell>
-                    <TableCell align="center">
-                      <Button variant="contained" size="small" color="primary" sx={{ mr: 1, mb: 1 }} onClick={() => handleOpenDialog(row)} disabled={row.status === 'Belum Dinilai'}>Lihat</Button>
-                      <Button variant="contained" size="small" color="error" sx={{ mb: 1 }}>Hapus</Button>
+                    <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                      <Button variant="outlined" size="small" color="primary" sx={{ mr: 1, minWidth: 'auto', px: 1.5, py: 0.5, borderRadius: 1 }} onClick={() => handleOpenDialog(row)}>Detail</Button>
+                      <Button variant="outlined" size="small" color="error" sx={{ minWidth: 'auto', px: 1.5, py: 0.5, borderRadius: 1 }}>Hapus</Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -221,10 +299,10 @@ export default function Page() {
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}>
         {selectedPenilaian && selectedPenilaian.detailNilai && (
           <>
-            {/* Header dengan Gradient Ungu-Pink */}
+            {/* Header dengan Gradient Ungu-Pink -> Biru Pertamina */}
             <DialogTitle sx={{ 
               m: 0, p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-              background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)', 
+              background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', 
               color: 'white' 
             }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -246,110 +324,114 @@ export default function Page() {
             <DialogContent sx={{ p: 4, bgcolor: '#f8fafc' }}>
               
               {/* Data Peserta */}
-              <Box sx={{ bgcolor: 'white', p: 3, borderRadius: 2, mb: 3, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', mb: 2, color: '#334155' }}>
-                  <Iconify icon="solar:user-id-bold-duotone" sx={{ mr: 1, color: '#6366f1' }} /> Data Peserta
+              <Box sx={{ mb: 2.5, mt: 1 }}>
+                <Typography variant="subtitle2" color="primary.main" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                  <Iconify icon="solar:user-id-bold-duotone" sx={{ mr: 1 }} /> Data Peserta
                 </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <Box sx={{ display: 'flex', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 120 }}>Nama:</Typography>
-                      <Typography variant="body2" fontWeight="bold" color="text.primary">{selectedPenilaian.name}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 120 }}>Asal Instansi:</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedPenilaian.instansi}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex' }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 120 }}>Mentor:</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedPenilaian.mentor}</Typography>
-                    </Box>
+                <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0', boxShadow: '0px 2px 4px rgba(0,0,0,0.02)' }}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Nama Lengkap</Typography>
+                      <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>{selectedPenilaian.name}</Typography>
+
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Asal Instansi</Typography>
+                      <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>{selectedPenilaian.instansi}</Typography>
+
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Direktorat</Typography>
+                      <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>{selectedPenilaian.direktorat}</Typography>
+
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Fungsi</Typography>
+                      <Typography variant="body2" fontWeight="bold">{selectedPenilaian.fungsi}</Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">ID Peserta</Typography>
+                      <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>{selectedPenilaian.nim}</Typography>
+
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Jurusan</Typography>
+                      <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>{selectedPenilaian.jurusan}</Typography>
+
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Mentor</Typography>
+                      <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>{selectedPenilaian.mentor}</Typography>
+
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Sub Fungsi</Typography>
+                      <Typography variant="body2" fontWeight="bold">{selectedPenilaian.subFungsi}</Typography>
+                    </Grid>
                   </Grid>
-                  <Grid item xs={6}>
-                    <Box sx={{ display: 'flex', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 120 }}>ID Peserta:</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedPenilaian.nim}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 120 }}>Jurusan:</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedPenilaian.jurusan}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex' }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 120 }}>Direktorat:</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedPenilaian.direktorat}</Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
+                </Box>
               </Box>
 
               {/* Detail Penilaian (Progress Bars) */}
-              <Box sx={{ bgcolor: 'white', p: 3, borderRadius: 2, mb: 3, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', mb: 3, color: '#334155' }}>
-                  <Iconify icon="solar:checklist-bold-duotone" sx={{ mr: 1, color: '#6366f1' }} /> Detail Penilaian
+              <Box sx={{ mb: 2.5 }}>
+                <Typography variant="subtitle2" color="primary.main" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                  <Iconify icon="solar:checklist-bold-duotone" sx={{ mr: 1 }} /> Detail Penilaian
                 </Typography>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} display="flex" alignItems="center">
-                    <Typography variant="body2" sx={{ width: '40%' }}>1. Integritas (Etika, moral, dan kesungguhan)</Typography>
-                    <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.integritas)}</Box>
+                <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0', boxShadow: '0px 2px 4px rgba(0,0,0,0.02)' }}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} display="flex" alignItems="center">
+                      <Typography variant="body2" sx={{ width: '40%' }}>1. Integritas (Etika, moral, dan kesungguhan)</Typography>
+                      <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.integritas)}</Box>
+                    </Grid>
+                    <Grid item xs={12} display="flex" alignItems="center">
+                      <Typography variant="body2" sx={{ width: '40%' }}>2. Ketepatan waktu dalam bekerja</Typography>
+                      <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.ketepatanWaktu)}</Box>
+                    </Grid>
+                    <Grid item xs={12} display="flex" alignItems="center">
+                      <Typography variant="body2" sx={{ width: '40%' }}>3. Keahlian berdasarkan bidang ilmu</Typography>
+                      <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.keahlian)}</Box>
+                    </Grid>
+                    <Grid item xs={12} display="flex" alignItems="center">
+                      <Typography variant="body2" sx={{ width: '40%' }}>4. Kerjasama dalam tim</Typography>
+                      <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.kerjasama)}</Box>
+                    </Grid>
+                    <Grid item xs={12} display="flex" alignItems="center">
+                      <Typography variant="body2" sx={{ width: '40%' }}>5. Komunikasi</Typography>
+                      <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.komunikasi)}</Box>
+                    </Grid>
+                    <Grid item xs={12} display="flex" alignItems="center">
+                      <Typography variant="body2" sx={{ width: '40%' }}>6. Penggunaan teknologi informasi</Typography>
+                      <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.penggunaanTI)}</Box>
+                    </Grid>
+                    <Grid item xs={12} display="flex" alignItems="center">
+                      <Typography variant="body2" sx={{ width: '40%' }}>7. Pengembangan diri</Typography>
+                      <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.pengembanganDiri)}</Box>
+                    </Grid>
                   </Grid>
-                  <Grid item xs={12} display="flex" alignItems="center">
-                    <Typography variant="body2" sx={{ width: '40%' }}>2. Ketepatan waktu dalam bekerja</Typography>
-                    <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.ketepatanWaktu)}</Box>
-                  </Grid>
-                  <Grid item xs={12} display="flex" alignItems="center">
-                    <Typography variant="body2" sx={{ width: '40%' }}>3. Keahlian berdasarkan bidang ilmu</Typography>
-                    <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.keahlian)}</Box>
-                  </Grid>
-                  <Grid item xs={12} display="flex" alignItems="center">
-                    <Typography variant="body2" sx={{ width: '40%' }}>4. Kerjasama dalam tim</Typography>
-                    <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.kerjasama)}</Box>
-                  </Grid>
-                  <Grid item xs={12} display="flex" alignItems="center">
-                    <Typography variant="body2" sx={{ width: '40%' }}>5. Komunikasi</Typography>
-                    <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.komunikasi)}</Box>
-                  </Grid>
-                  <Grid item xs={12} display="flex" alignItems="center">
-                    <Typography variant="body2" sx={{ width: '40%' }}>6. Penggunaan teknologi informasi</Typography>
-                    <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.penggunaanTI)}</Box>
-                  </Grid>
-                  <Grid item xs={12} display="flex" alignItems="center">
-                    <Typography variant="body2" sx={{ width: '40%' }}>7. Pengembangan diri</Typography>
-                    <Box sx={{ width: '60%' }}>{renderProgressBar(selectedPenilaian.detailNilai.pengembanganDiri)}</Box>
-                  </Grid>
-                </Grid>
+                </Box>
               </Box>
 
               {/* Nilai Akhir & Keterangan Cards */}
-              <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid container spacing={2} sx={{ mb: 2.5 }}>
                 <Grid item xs={6}>
-                  <Box sx={{ p: 3, borderRadius: 2, background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)', color: 'white' }}>
-                    <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>Nilai Akhir</Typography>
-                    <Typography variant="h3" fontWeight="bold">{selectedPenilaian.nilai}</Typography>
+                  <Box sx={{ p: 2, borderRadius: 2, background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: 90 }}>
+                    <Typography variant="caption" sx={{ opacity: 0.9, textTransform: 'uppercase', letterSpacing: 1 }}>Nilai Akhir</Typography>
+                    <Typography variant="h4" fontWeight="bold">{selectedPenilaian.nilai}</Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={6}>
-                  <Box sx={{ p: 3, borderRadius: 2, background: 'linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)', color: 'white' }}>
-                    <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>Keterangan</Typography>
-                    <Typography variant="h4" fontWeight="bold" sx={{ mt: 1 }}>{selectedPenilaian.kategori}</Typography>
+                  <Box sx={{ p: 2, borderRadius: 2, background: 'linear-gradient(135deg, #8CC63F 0%, #6da12c 100%)', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: 90 }}>
+                    <Typography variant="caption" sx={{ opacity: 0.9, textTransform: 'uppercase', letterSpacing: 1 }}>Keterangan</Typography>
+                    <Typography variant="h4" fontWeight="bold">{selectedPenilaian.kategori}</Typography>
                   </Box>
                 </Grid>
               </Grid>
 
               {/* Penilaian Keseluruhan & Catatan */}
-              <Box sx={{ bgcolor: 'white', p: 3, borderRadius: 2, mb: 3, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
-                <Typography variant="subtitle2" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', mb: 1, color: '#334155' }}>
-                  <Iconify icon="solar:like-bold-duotone" sx={{ mr: 1, color: '#3b82f6' }} /> Penilaian Keseluruhan
+              <Box sx={{ mb: 2.5 }}>
+                <Typography variant="subtitle2" color="primary.main" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                  <Iconify icon="solar:like-bold-duotone" sx={{ mr: 1 }} /> Kesimpulan Penilaian
                 </Typography>
-                <Typography variant="body2" sx={{ ml: 3 }}>{selectedPenilaian.rekomendasi}</Typography>
+                <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0', boxShadow: '0px 2px 4px rgba(0,0,0,0.02)' }}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Status Rekomendasi</Typography>
+                      <Typography variant="body2" fontWeight="bold" sx={{ mb: 1.5 }}>{selectedPenilaian.rekomendasi}</Typography>
+                      
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Catatan / Feedback</Typography>
+                      <Typography variant="body2" fontWeight="bold">{selectedPenilaian.catatan}</Typography>
+                    </Grid>
+                  </Grid>
+                </Box>
               </Box>
-
-              <Box sx={{ bgcolor: 'white', p: 3, borderRadius: 2, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
-                <Typography variant="subtitle2" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', mb: 1, color: '#334155' }}>
-                  <Iconify icon="solar:chat-line-bold-duotone" sx={{ mr: 1, color: '#8b5cf6' }} /> Catatan / Feedback
-                </Typography>
-                <Typography variant="body2" sx={{ ml: 3 }}>{selectedPenilaian.catatan}</Typography>
-              </Box>
-
             </DialogContent>
           </>
         )}

@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import * as Yup from 'yup';
 // @mui
 import LoadingButton from '@mui/lab/LoadingButton';
-import Card from '@mui/material/Card';
+import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import Stack from '@mui/material/Stack';
@@ -21,10 +21,12 @@ import { useParams } from 'src/hooks/use-params';
 
 // ----------------------------------------------------------------------
 
-export default function AccountChangePassword() {
+type Props = {
+  userId: string;
+};
+
+export default function AccountChangePassword({ userId }: Props) {
   const password = useBoolean();
-  const params = useParams();
-  const userId = params.id ?? '';
   const { user } = useAuthContext();
   const currentRole = user?.role; // admin;
 
@@ -70,50 +72,52 @@ export default function AccountChangePassword() {
 
   return (
     <FormProvider methods={methods} onSubmit={onSubmit}>
-      <Stack component={Card} spacing={3} sx={{ p: 3 }}>
-        <RHFTextField name="userId" label="User ID" type="text" disabled />
+      <Box sx={{ p: 3 }}>
+        <Stack spacing={3}>
+          <RHFTextField name="userId" label="User ID" type="text" disabled />
 
-        <RHFTextField
-          name="newPassword"
-          label="New Password"
-          type={password.value ? 'text' : 'password'}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton onClick={password.onToggle} edge="end">
-                  <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-          helperText={
-            <Stack component="span" direction="row" alignItems="center">
-              <Iconify icon="eva:info-fill" width={16} sx={{ mr: 0.5 }} />
-              Password must be at least 12 characters, including uppercase, lowercase, number, and
-              special character.
-            </Stack>
-          }
-        />
+          <RHFTextField
+            name="newPassword"
+            label="New Password"
+            type={password.value ? 'text' : 'password'}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={password.onToggle} edge="end">
+                    <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+            helperText={
+              <Stack component="span" direction="row" alignItems="center">
+                <Iconify icon="eva:info-fill" width={16} sx={{ mr: 0.5 }} />
+                Password must be at least 12 characters, including uppercase, lowercase, number, and
+                special character.
+              </Stack>
+            }
+          />
 
-        <RHFTextField
-          name="confirmNewPassword"
-          type={password.value ? 'text' : 'password'}
-          label="Confirm New Password"
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton onClick={password.onToggle} edge="end">
-                  <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
+          <RHFTextField
+            name="confirmNewPassword"
+            type={password.value ? 'text' : 'password'}
+            label="Confirm New Password"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={password.onToggle} edge="end">
+                    <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
 
-        <LoadingButton type="submit" variant="contained" loading={isSubmitting} sx={{ ml: 'auto' }}>
-          Change Password
-        </LoadingButton>
-      </Stack>
+          <LoadingButton type="submit" variant="contained" loading={isSubmitting} sx={{ ml: 'auto' }}>
+            Change Password
+          </LoadingButton>
+        </Stack>
+      </Box>
     </FormProvider>
   );
 }

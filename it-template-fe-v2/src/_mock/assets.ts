@@ -239,13 +239,10 @@ export const _phoneNumbers = [
 // ----------------------------------------------------------------------
 
 export const _roles = [
-  'PTPL_IT',
-  'PTPL_QA',
-  'PTPL_PROD',
-  'VENDOR',
-  'GUEST',
-  'EMPLOYEE',
   'SUPERSAIYAN',
+  'EMPLOYEE',
+  'PESERTA',
+  'EMPLOYEESTAFF',
 ];
 
 // ----------------------------------------------------------------------

@@ -8,8 +8,7 @@ import { LoadingScreen } from 'src/components/loading-screen';
 
 import DashboardLayout from '../dashboard/layout';
 import ListPage from './list';
-import UserCreatePage from './new';
-import UserEditPage from './edit';
+
 
 // ----------------------------------------------------------------------
 
@@ -27,9 +26,11 @@ export const userMgmtRoutes: RouteObject[] = [
       </AuthGuard>
     ),
     children: [
-      { element: <ListPage />, index: true },
-      { path: 'new', element: <UserCreatePage /> },
-      { path: 'edit/:id', element: <UserEditPage /> },
+      { path: 'admin', element: <ListPage defaultRole="SUPERSAIYAN" /> },
+      { path: 'vp', element: <ListPage defaultRole="EMPLOYEE" /> },
+      { path: 'mentor', element: <ListPage defaultRole="EMPLOYEESTAFF" /> },
+      { path: 'peserta', element: <ListPage defaultRole="PESERTA" /> },
+
       // { path: 'settings', element: <PageSettings /> },
       // { path: 'settings', element: <PageSettings /> },
     ],

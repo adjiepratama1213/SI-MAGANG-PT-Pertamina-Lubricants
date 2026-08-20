@@ -17,6 +17,8 @@ import { MfaModule } from './mfa/mfa.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { BqueryModule } from './bquery/bquery.module';
 import { GcpItemModule } from './gcp-item/gcp-item.module';
+import { EmployeeProfileModule } from './employee-profile/employee-profile.module';
+import { InternProfileModule } from './intern-profile/intern-profile.module';
 
 @Module({
   imports: [
@@ -42,6 +44,8 @@ import { GcpItemModule } from './gcp-item/gcp-item.module';
     MfaModule,
     DashboardModule,
     BqueryModule,
+    EmployeeProfileModule,
+    InternProfileModule,
   ],
   controllers: [AppController],
   providers: [

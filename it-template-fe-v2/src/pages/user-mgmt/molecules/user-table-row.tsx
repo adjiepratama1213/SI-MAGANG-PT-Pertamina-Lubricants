@@ -7,6 +7,7 @@ import Checkbox from '@mui/material/Checkbox';
 import TableCell from '@mui/material/TableCell';
 import IconButton from '@mui/material/IconButton';
 import ListItemText from '@mui/material/ListItemText';
+import Box from '@mui/material/Box';
 // hooks
 import { useBoolean } from 'src/hooks/use-boolean';
 // types
@@ -17,7 +18,7 @@ import Iconify from 'src/components/iconify';
 import CustomPopover, { usePopover } from 'src/components/custom-popover';
 import { ConfirmDialog } from 'src/components/custom-dialog';
 //
-import UserQuickEditForm from './user-quick-edit-form';
+import UserEditDialog from './user-edit-dialog';
 
 // ----------------------------------------------------------------------
 
@@ -36,12 +37,11 @@ export default function UserTableRow({
   onSelectRow,
   onDeleteRow,
 }: Props) {
-  const { name, avatarUrl, Position, role, status, email } = row;
+  const { name, Position, role, status, email } = row;
 
   const confirm = useBoolean();
-
-  const quickEdit = useBoolean();
-
+  const editPopup = useBoolean();
+  const quickView = useBoolean();
   const popover = usePopover();
 
   return (
@@ -52,7 +52,9 @@ export default function UserTableRow({
         </TableCell>
 
         <TableCell sx={{ display: 'flex', alignItems: 'center' }}>
-          <Avatar alt={name} src={avatarUrl} sx={{ mr: 2 }} />
+          <Box sx={{ width: 36, height: 36, borderRadius: '50%', bgcolor: 'primary.light', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: 14 }}>
+            {name ? name.substring(0, 2).toUpperCase() : 'US'}
+          </Box>
 
           <ListItemText
             primary={name}
@@ -65,7 +67,7 @@ export default function UserTableRow({
           />
         </TableCell>
 
-        <TableCell sx={{ whiteSpace: 'nowrap' }}>{Position?.Team?.name}</TableCell>
+        <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 'medium' }}>{Position?.Team?.name || '-'}</TableCell>
         {/* <TableCell sx={{ whiteSpace: 'nowrap' }}>{email}</TableCell> */}
 
         <TableCell>
@@ -96,42 +98,23 @@ export default function UserTableRow({
           </Label>
         </TableCell>
 
-        <TableCell align="right" sx={{ px: 1, whiteSpace: 'nowrap' }}>
-          <IconButton color={popover.open ? 'inherit' : 'default'} onClick={popover.onOpen}>
-            <Iconify icon="eva:more-vertical-fill" />
+        <TableCell align="center" sx={{ px: 1, whiteSpace: 'nowrap' }}>
+          <IconButton color="default" onClick={quickView.onTrue} sx={{ '&:hover': { color: 'primary.main', bgcolor: 'primary.lighter' } }}>
+            <Iconify icon="solar:eye-bold" />
+          </IconButton>
+          <IconButton color="info" onClick={editPopup.onTrue} sx={{ '&:hover': { color: 'info.main', bgcolor: 'info.lighter' } }}>
+            <Iconify icon="solar:pen-bold" />
+          </IconButton>
+          <IconButton color="error" onClick={confirm.onTrue} sx={{ '&:hover': { color: 'error.main', bgcolor: 'error.lighter' } }}>
+            <Iconify icon="solar:trash-bin-trash-bold" />
           </IconButton>
         </TableCell>
       </TableRow>
 
-      <UserQuickEditForm currentUser={row} open={quickEdit.value} onClose={quickEdit.onFalse} />
+      <UserEditDialog userId={row.id} open={quickView.value} onClose={quickView.onFalse} isViewOnly />
+      <UserEditDialog userId={row.id} open={editPopup.value} onClose={editPopup.onFalse} />
 
-      <CustomPopover
-        open={popover.open}
-        onClose={popover.onClose}
-        arrow="right-top"
-        sx={{ width: 140 }}
-      >
-        <MenuItem
-          onClick={() => {
-            confirm.onTrue();
-            popover.onClose();
-          }}
-          sx={{ color: 'error.main' }}
-        >
-          <Iconify icon="solar:trash-bin-trash-bold" />
-          Block
-        </MenuItem>
 
-        <MenuItem
-          onClick={() => {
-            onEditRow();
-            popover.onClose();
-          }}
-        >
-          <Iconify icon="solar:pen-bold" />
-          Edit
-        </MenuItem>
-      </CustomPopover>
 
       <ConfirmDialog
         open={confirm.value}
@@ -139,7 +122,7 @@ export default function UserTableRow({
         title="Delete"
         content="Are you sure want to delete?"
         action={
-          <Button variant="contained" color="error" onClick={onDeleteRow}>
+          <Button variant="contained" color="error" onClick={() => { onDeleteRow(); confirm.onFalse(); }}>
             Delete
           </Button>
         }

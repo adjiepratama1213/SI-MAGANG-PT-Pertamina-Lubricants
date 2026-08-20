@@ -10,9 +10,9 @@ import Chart, { useChart } from 'src/components/chart';
 
 // ----------------------------------------------------------------------
 
-const CHART_HEIGHT = 480;
+const CHART_HEIGHT = 320;
 
-const LEGEND_HEIGHT = 102;
+const LEGEND_HEIGHT = 72;
 
 const StyledChart = styled(Chart)(({ theme }) => ({
   height: CHART_HEIGHT,
@@ -51,12 +51,15 @@ export default function AppCurrentDownload({ title, subheader, chart, ...other }
   const chartOptions = useChart({
     chart: {
       sparkline: {
-        enabled: true,
+        enabled: false,
       },
     },
     colors,
     labels: series.map((i) => i.label),
     stroke: { colors: [theme.palette.background.paper] },
+    grid: {
+      padding: { top: 0, bottom: 80, left: 0, right: 0 },
+    },
     tooltip: {
       fillSeriesColor: false,
       y: {
@@ -77,6 +80,7 @@ export default function AppCurrentDownload({ title, subheader, chart, ...other }
     },
     plotOptions: {
       pie: {
+        offsetY: 0,
         donut: {
           size: '60%',
           labels: {
@@ -98,14 +102,14 @@ export default function AppCurrentDownload({ title, subheader, chart, ...other }
 
   return (
     <Card {...other}>
-      <CardHeader title={title} subheader={subheader} sx={{ mb: 5 }} />
+      <CardHeader title={title} subheader={subheader} sx={{ mb: 2 }} />
 
       <StyledChart
         dir="ltr"
         type="donut"
         series={chartSeries}
         options={chartOptions}
-        height={350}
+        height={320}
       />
     </Card>
   );

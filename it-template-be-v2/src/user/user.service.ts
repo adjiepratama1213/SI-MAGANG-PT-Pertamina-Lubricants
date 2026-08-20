@@ -32,13 +32,21 @@ export class UserService {
         // cursor,
         orderBy,
         include: {
-          // Position: { select: { name: true } },
           Position: {
             include: {
               Team: true,
             },
           },
-          // _count: { select: { QRCodes: true } },
+          employeeProfile: true,
+          internProfile: {
+            include: {
+              mentor: {
+                include: {
+                  user: { select: { name: true, email: true } },
+                },
+              },
+            },
+          },
         },
         // include: {
         //   // FavoritePerson: { select: { name: true, avatarUrl: true } },
@@ -81,6 +89,16 @@ export class UserService {
           status: true,
           positionId: true,
           createdAt: true,
+          employeeProfile: true,
+          internProfile: {
+            include: {
+              mentor: {
+                include: {
+                  user: { select: { name: true, email: true } },
+                },
+              },
+            },
+          },
         },
       });
     } catch (error) {

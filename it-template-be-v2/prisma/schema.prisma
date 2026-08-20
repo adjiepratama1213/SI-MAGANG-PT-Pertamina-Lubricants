@@ -16,13 +16,10 @@ datasource db {
 /// TODO: Identity
 /// Login Info
 enum Role {
-  PTPL_IT
-  PTPL_QA
-  PTPL_PROD
-  VENDOR
-  GUEST
-  EMPLOYEE
   SUPERSAIYAN
+  EMPLOYEE
+  PESERTA
+  EMPLOYEESTAFF
 }
 
 /// Login Info
@@ -55,6 +52,12 @@ model User {
 
   positionId       String?
   QrLoginToken     QrLoginToken[]
+
+  // Relasi ke profil karyawan internal (VP, Mentor, Admin)
+  employeeProfile EmployeeProfile? @relation("UserToEmployeeProfile")
+
+  // Relasi ke profil peserta magang
+  internProfile   InternProfile?   @relation("UserToInternProfile")
 
   @@index([role])
   @@index([positionId])
@@ -126,4 +129,59 @@ model Position {
   User         User[]
   Organization Organization  @relation(fields: [organizationId], references: [id], name: "PositionOrganization")
   Team         Organization? @relation(fields: [teamId], references: [id], name: "PositionTeam")
+}
+
+// ----------------------------------------------------
+// PROFIL KARYAWAN INTERNAL (VP, Mentor, Admin)
+// Skala Pertamina Wide — Jabatan, Direktorat, Fungsi
+// ----------------------------------------------------
+enum Gender {
+  PRIA
+  WANITA
+}
+
+model EmployeeProfile {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId     String @unique
+  user       User   @relation("UserToEmployeeProfile", fields: [userId], references: [id], onDelete: Cascade)
+
+  employeeId String? @unique // NIP / ID Pegawai Pertamina
+  jabatan    String? // Jabatan (Konteks Pertamina)
+  direktorat String? // Direktorat
+  fungsi     String? // Fungsi
+  subFungsi  String? // Sub Fungsi
+  gender     Gender? // Jenis Kelamin
+
+  // Jika karyawan ini bertindak sebagai Mentor, dia punya relasi ke anak magang
+  internsMentored InternProfile[] @relation("MentorToIntern")
+}
+
+// ----------------------------------------------------
+// PROFIL PESERTA MAGANG
+// ----------------------------------------------------
+model InternProfile {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation("UserToInternProfile", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Data Spesifik Peserta
+  internId    String?   @unique // Id Peserta / NIM
+  university  String?   // Asal Instansi
+  gender      Gender?   // Jenis Kelamin
+  dateOfBirth DateTime? // Tanggal Lahir
+  major       String?   // Jurusan
+  startDate   DateTime? // Tanggal Mulai Magang
+  endDate     DateTime? // Tanggal Selesai Magang
+  program     String?   // Program Magang
+  documentUrls String[] @default([])   // Berkas (Multiple Links)
+
+  // Relasi ke Karyawan yang menjadi Mentor
+  mentorProfileId String?
+  mentor          EmployeeProfile? @relation("MentorToIntern", fields: [mentorProfileId], references: [id])
 }

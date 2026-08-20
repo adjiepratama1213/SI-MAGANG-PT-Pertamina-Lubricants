@@ -190,4 +190,18 @@ export const endpoints = {
     details: '/product/details',
     search: '/product/search',
   },
+
+  employeeProfile: {
+    list: '/employee-profile',
+    search: '/employee-profile/search',
+    details: (id: string) => `/employee-profile/${id}`,
+    byUser: (userId: string) => `/employee-profile/by-user/${userId}`,
+  },
+
+  internProfile: {
+    list: '/intern-profile',
+    search: '/intern-profile/search',
+    details: (id: string) => `/intern-profile/${id}`,
+    byUser: (userId: string) => `/intern-profile/by-user/${userId}`,
+  },
 };

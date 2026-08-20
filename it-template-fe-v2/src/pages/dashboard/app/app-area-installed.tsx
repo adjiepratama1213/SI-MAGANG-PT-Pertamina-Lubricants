@@ -78,7 +78,7 @@ export default function AppAreaInstalled({ height, title, subheader, chart, ...o
       offsetY: 10,
       markers: {
         radius: 12,
-      },
+      } as any,
     },
     ...options,
   });
@@ -128,7 +128,7 @@ export default function AppAreaInstalled({ height, title, subheader, chart, ...o
                 type="area"
                 series={item.data}
                 options={chartOptions}
-                height={height ?? 564}
+                height={height ?? 340}
               />
             )}
           </Box>

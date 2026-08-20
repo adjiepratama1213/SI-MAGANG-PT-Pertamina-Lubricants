@@ -25,15 +25,6 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   try {
-    // const createPlant = await prisma.plant.createMany({
-    //   skipDuplicates: true,
-    //   data: [
-    //     { id: 'LP01', name: 'Production Unit Jakarta', address: 'Jakarta' },
-    //     { id: 'LP02', name: 'Production Unit Cilacap', address: 'Cilacap' },
-    //     { id: 'LP03', name: 'Production Unit Gresik', address: 'Gresik' },
-    //   ],
-    // });
-
     const createOrganization = await prisma.organization.createMany({
       skipDuplicates: true,
       data: [{ id: '30305042', name: 'Production Unit Jakarta', companyCode: '2508' }],
@@ -56,32 +47,131 @@ async function main() {
       ],
     });
 
-    const createUsers = await prisma.user.createMany({
-      skipDuplicates: true,
-      data: [
-        {
-          name: 'Admin',
-          email: 'coroo.wicaksono@gmail.com',
-          password: await bcrypt.hash(`sandi123`, roundsOfHashing),
-          role: 'SUPERSAIYAN',
-          positionId: '30305042',
-          webAuthnId: '987154236501',
-        },
-        {
-          name: 'PTPL IT',
-          email: 'kuncoro.wicaksono.adi.baroto@gmail.com',
-          password: await bcrypt.hash(`ptplit123`, roundsOfHashing),
-          role: 'PTPL_IT',
-          positionId: '30305042',
-          webAuthnId: '214398675104',
-        },
-      ],
+    // Upsert users satu-satu agar kita dapat ID-nya untuk relasi profil
+    const adminUser = await prisma.user.upsert({
+      where: { email: 'admin@example.com' },
+      update: { phone: '081200000001' },
+      create: {
+        name: 'Admin',
+        email: 'admin@example.com',
+        password: await bcrypt.hash('admin', roundsOfHashing),
+        role: 'SUPERSAIYAN',
+        positionId: '30305042',
+        webAuthnId: 'admin_webauthn_id_1',
+        phone: '081200000001',
+      },
+    });
+
+    const vpUser = await prisma.user.upsert({
+      where: { email: 'vp@example.com' },
+      update: { phone: '081200000002' },
+      create: {
+        name: 'VP',
+        email: 'vp@example.com',
+        password: await bcrypt.hash('admin', roundsOfHashing),
+        role: 'EMPLOYEE',
+        positionId: '30305042',
+        webAuthnId: 'vp_webauthn_id_1',
+        phone: '081200000002',
+      },
+    });
+
+    const mentorUser = await prisma.user.upsert({
+      where: { email: 'mentor@example.com' },
+      update: { phone: '081200000003' },
+      create: {
+        name: 'Mentor',
+        email: 'mentor@example.com',
+        password: await bcrypt.hash('mentor123', roundsOfHashing),
+        role: 'EMPLOYEESTAFF',
+        positionId: '30305042',
+        webAuthnId: 'mentor_webauthn_id_1',
+        phone: '081200000003',
+      },
+    });
+
+    const pesertaUser = await prisma.user.upsert({
+      where: { email: 'peserta@example.com' },
+      update: { phone: '081200000004' },
+      create: {
+        name: 'Peserta',
+        email: 'peserta@example.com',
+        password: await bcrypt.hash('peserta', roundsOfHashing),
+        role: 'PESERTA',
+        positionId: '30305042',
+        webAuthnId: 'peserta_webauthn_id_1',
+        phone: '081200000004',
+      },
+    });
+
+    // Buat EmployeeProfile untuk Admin
+    const adminProfile = await prisma.employeeProfile.upsert({
+      where: { userId: adminUser.id },
+      update: { subFungsi: 'IT Support', gender: 'PRIA' },
+      create: {
+        userId: adminUser.id,
+        employeeId: 'NIP-ADMIN-001',
+        jabatan: 'IT Administrator',
+        direktorat: 'Direktorat Keuangan',
+        fungsi: 'Teknologi Informasi',
+        subFungsi: 'IT Support',
+        gender: 'PRIA',
+      },
+    });
+
+    // Buat EmployeeProfile untuk VP
+    const vpProfile = await prisma.employeeProfile.upsert({
+      where: { userId: vpUser.id },
+      update: { subFungsi: 'Strategi Operasi', gender: 'PRIA' },
+      create: {
+        userId: vpUser.id,
+        employeeId: 'NIP-VP-001',
+        jabatan: 'Vice President',
+        direktorat: 'Direktorat Operasi',
+        fungsi: 'Perencanaan Operasi',
+        subFungsi: 'Strategi Operasi',
+        gender: 'PRIA',
+      },
+    });
+
+    // Buat EmployeeProfile untuk Mentor
+    const mentorProfile = await prisma.employeeProfile.upsert({
+      where: { userId: mentorUser.id },
+      update: { subFungsi: 'Development', gender: 'PRIA' },
+      create: {
+        userId: mentorUser.id,
+        employeeId: 'NIP-MENTOR-001',
+        jabatan: 'Staff IT',
+        direktorat: 'Direktorat Keuangan',
+        fungsi: 'Teknologi Informasi',
+        subFungsi: 'Development',
+        gender: 'PRIA',
+      },
+    });
+
+    // Buat InternProfile untuk Peserta — hubungkan ke Mentor
+    const internProfile = await prisma.internProfile.upsert({
+      where: { userId: pesertaUser.id },
+      update: {},
+      create: {
+        userId: pesertaUser.id,
+        internId: 'PST-2026-001',
+        university: 'Universitas Indonesia',
+        gender: 'PRIA',
+        dateOfBirth: new Date('2003-05-15'),
+        major: 'Teknik Informatika',
+        startDate: new Date('2026-08-01'),
+        endDate: new Date('2027-01-31'),
+        program: 'PKL',
+        mentorProfileId: mentorProfile.id,
+      },
     });
 
     console.log({
       createOrganization,
       createPosition,
-      createUsers,
+      users: { adminUser: adminUser.id, vpUser: vpUser.id, mentorUser: mentorUser.id, pesertaUser: pesertaUser.id },
+      profiles: { adminProfile: adminProfile.id, vpProfile: vpProfile.id, mentorProfile: mentorProfile.id, internProfile: internProfile.id },
     });
   } catch (error) {
     console.error(error);

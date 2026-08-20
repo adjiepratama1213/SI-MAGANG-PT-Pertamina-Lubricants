@@ -5,7 +5,6 @@ import { yupResolver } from '@hookform/resolvers/yup';
 // @mui
 import LoadingButton from '@mui/lab/LoadingButton';
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Switch from '@mui/material/Switch';
@@ -20,7 +19,6 @@ import { useRouter } from 'src/hooks/use-router';
 // types
 import { IUserItem } from 'src/types/user';
 // components
-import Label from 'src/components/label';
 import FormProvider, {
   RHFSwitch,
   RHFTextField,
@@ -43,9 +41,11 @@ import { USER_STATUS_OPTIONS } from 'src/_mock';
 
 type Props = {
   currentUser?: IUserItem;
+  isViewOnly?: boolean;
+  onClose?: VoidFunction;
 };
 
-export default function UserNewEditForm({ currentUser }: Props) {
+export default function UserNewEditForm({ currentUser, isViewOnly, onClose }: Props) {
   const router = useRouter();
   const password = useBoolean();
   const queryClient = useQueryClient();
@@ -74,7 +74,7 @@ export default function UserNewEditForm({ currentUser }: Props) {
     () => ({
       id: currentUser?.id || '',
       name: currentUser?.name || '',
-      password: currentUser?.password || '',
+      password: '',
       role: currentUser?.role || '',
       email: currentUser?.email || '',
       jobTitle: currentUser?.jobTitle || '',
@@ -130,10 +130,14 @@ export default function UserNewEditForm({ currentUser }: Props) {
       reset();
 
       await queryClient.invalidateQueries({
-        queryKey: ['getUserRequestByTeam', res.data],
+        queryKey: ['getUserRequestByTeam'],
       });
 
-      router.push(paths.userManagement.root);
+      if (onClose) {
+        onClose();
+      } else {
+        router.push(paths.userManagement.root);
+      }
     } catch (error) {
       console.error(error);
       toast.update(toastId, {
@@ -181,20 +185,7 @@ export default function UserNewEditForm({ currentUser }: Props) {
     <FormProvider methods={methods} onSubmit={onSubmit}>
       <Grid container spacing={3}>
         <Grid xs={12} md={4}>
-          <Card sx={{ pt: 10, pb: 5, px: 3 }}>
-            {currentUser && (
-              <Label
-                color={
-                  (values.status === 'active' && 'success') ||
-                  (values.status === 'banned' && 'error') ||
-                  'warning'
-                }
-                sx={{ position: 'absolute', top: 24, right: 24 }}
-              >
-                {values.status}
-              </Label>
-            )}
-
+          <Box sx={{ pt: 5, pb: 5, px: 3 }}>
             <Box sx={{ mb: 5 }}>
               <RHFUploadAvatar
                 name="photoUrl"
@@ -273,11 +264,11 @@ export default function UserNewEditForm({ currentUser }: Props) {
                 </Button>
               </Stack>
             )}
-          </Card>
+          </Box>
         </Grid>
 
         <Grid xs={12} md={8}>
-          <Card sx={{ p: 3 }}>
+          <Box sx={{ p: 3 }}>
             <Box
               rowGap={3}
               columnGap={2}
@@ -350,6 +341,7 @@ export default function UserNewEditForm({ currentUser }: Props) {
                 options={userRoles.map((role) => role.code)}
                 getOptionLabel={(option) => option}
                 isOptionEqualToValue={(option, value) => option === value}
+                disabled
                 renderOption={(props, option) => {
                   const { code, label } = userRoles.filter((role) => role.code === option)[0];
 
@@ -390,7 +382,7 @@ export default function UserNewEditForm({ currentUser }: Props) {
                 {!currentUser ? 'Create User' : 'Save Changes'}
               </LoadingButton>
             </Stack>
-          </Card>
+          </Box>
         </Grid>
       </Grid>
     </FormProvider>

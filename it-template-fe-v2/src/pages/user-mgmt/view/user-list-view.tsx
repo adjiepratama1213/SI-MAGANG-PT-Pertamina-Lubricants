@@ -15,6 +15,8 @@ import TableContainer from '@mui/material/TableContainer';
 // routes
 import { useRouter } from 'src/hooks/use-router';
 import { RouterLink } from 'src/components/router-link';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'react-toastify';
 // _mock
 import { _roles, USER_STATUS_OPTIONS } from 'src/_mock';
 // hooks
@@ -40,36 +42,45 @@ import {
 import { IUserItem, IUserTableFilters, IUserTableFilterValue } from 'src/types/user';
 //
 import { useDebounce } from 'src/hooks/use-debounce';
-import { Stack } from '@mui/material';
+import { Stack, Box, Typography } from '@mui/material';
 import axiosInstance from 'src/utils/axios';
 import { endpoints } from 'src/utils/endpoints';
 import UserTableRow from '../molecules/user-table-row';
 import UserTableToolbar from '../molecules/user-table-toolbar';
 import UserTableFiltersResult from '../molecules/user-table-filters-result';
+import UserCreateDialog from '../molecules/user-create-dialog';
 import { useSearchUsers } from '../query';
 import { paths } from '../../paths';
 
 // ----------------------------------------------------------------------
 
-const STATUS_OPTIONS = [{ value: 'all', label: 'All' }, ...USER_STATUS_OPTIONS];
-
-const TABLE_HEAD = [
-  { id: 'name', label: 'Name' },
-  { id: 'Team', label: 'Team', width: 220 },
-  { id: 'role', label: 'Role', width: 180 },
-  { id: 'status', label: 'Status', width: 100 },
-  { id: '', width: 88 },
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'Semua' },
+  { value: 'active', label: 'Aktif' },
+  { value: 'pending', label: 'Menunggu' },
+  { value: 'banned', label: 'Diblokir' },
+  { value: 'rejected', label: 'Ditolak' }
 ];
 
-const defaultFilters: IUserTableFilters = {
-  name: '',
-  role: [],
-  status: 'all',
+const TABLE_HEAD = [
+  { id: 'name', label: 'Nama Pengguna' },
+  { id: 'Team', label: 'Tim / Bagian', width: 220 },
+  { id: 'role', label: 'Peran (Role)', width: 180 },
+  { id: 'status', label: 'Status', width: 100 },
+  { id: 'aksi', label: 'Aksi', width: 140, align: 'center' },
+];
+
+type Props = {
+  defaultRole?: string;
 };
 
-// ----------------------------------------------------------------------
+export default function UserListView({ defaultRole }: Props) {
+  const defaultFilters: IUserTableFilters = {
+    name: '',
+    role: [],
+    status: 'all',
+  };
 
-export default function UserListView() {
   const table = useTable();
 
   const settings = useSettingsContext();
@@ -77,6 +88,7 @@ export default function UserListView() {
   const router = useRouter();
 
   const confirm = useBoolean();
+  const createPopup = useBoolean();
   const [syncLoading, setSyncLoading] = useState(false);
 
   const debouncedQuery = useDebounce('');
@@ -88,6 +100,7 @@ export default function UserListView() {
     inputData: userSearchData,
     comparator: getComparator(table.order, table.orderBy),
     filters,
+    defaultRole,
   });
 
   const denseHeight = table.dense ? 52 : 72;
@@ -138,54 +151,99 @@ export default function UserListView() {
     setSyncLoading(false);
   };
 
+  const queryClient = useQueryClient();
+
+  const handleDeleteRow = useCallback(
+    async (id: string) => {
+      try {
+        await axiosInstance.delete(endpoints.user.edit(id));
+        table.onUpdatePageDeleteRow(dataFiltered.length);
+        queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
+        toast.success('Pengguna berhasil dihapus');
+      } catch (error) {
+        console.error(error);
+        toast.error('Gagal menghapus pengguna');
+      }
+    },
+    [dataFiltered.length, table, queryClient]
+  );
+
+  const handleDeleteRows = useCallback(async () => {
+    try {
+      await Promise.all(
+        table.selected.map((id) => axiosInstance.delete(endpoints.user.edit(id)))
+      );
+      table.onUpdatePageDeleteRows({
+        totalRows: userSearchData.length,
+        totalRowsInPage: dataFiltered.length,
+        totalRowsFiltered: dataFiltered.length,
+      });
+      queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
+      confirm.onFalse();
+      toast.success('Beberapa pengguna berhasil dihapus');
+    } catch (error) {
+      console.error(error);
+      toast.error('Gagal menghapus pengguna');
+    }
+  }, [dataFiltered.length, table, userSearchData.length, confirm, queryClient]);
+
+
+
   return (
     <>
-      <Container maxWidth={settings.themeStretch ? false : 'lg'}>
-        <CustomBreadcrumbs
-          heading="List"
-          links={[{ name: 'User', href: paths.userManagement.root }, { name: 'List' }]}
-          action={
-            <Stack direction="row" spacing={1}>
-              <Button
-                component={RouterLink}
-                onClick={handleSyncIdaman}
-                variant="contained"
-                disabled={syncLoading}
-                startIcon={
-                  syncLoading ? (
-                    <Iconify
-                      icon="mingcute:refresh-3-fill"
-                      width={20}
-                      height={20}
-                      sx={{
-                        animation: 'rotation 1s linear infinite',
-                        '@keyframes rotation': {
-                          from: { transform: 'rotate(0deg)' },
-                          to: { transform: 'rotate(360deg)' },
-                        },
-                      }}
-                    />
-                  ) : (
-                    <Iconify icon="mingcute:refresh-3-fill" width={20} height={20} />
-                  )
-                }
-              >
-                {syncLoading ? 'Syncing data...' : 'Sync Idaman'}
-              </Button>
-              <Button
-                component={RouterLink}
-                href={paths.userManagement.new}
-                variant="contained"
-                startIcon={<Iconify icon="mingcute:add-line" />}
-              >
-                New User
-              </Button>
-            </Stack>
-          }
-          sx={{
-            mb: { xs: 3, md: 5 },
-          }}
-        />
+      <Container maxWidth="xl" sx={{ pb: 10, minHeight: '120vh' }}>
+        {/* HEADER */}
+        <Box sx={{ p: 4, mb: 3, borderRadius: 2, background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Iconify icon="solar:users-group-two-rounded-bold-duotone" width={28} />
+            </Box>
+            <Box>
+              <Typography variant="h5" fontWeight="bold">
+                {defaultRole ? `Manajemen ${defaultRole.replace('SUPERSAIYAN', 'Admin').replace('EMPLOYEESTAFF', 'Mentor')}` : 'Manajemen Pengguna'}
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                {defaultRole ? `Kelola data ${defaultRole.replace('SUPERSAIYAN', 'Admin').replace('EMPLOYEESTAFF', 'Mentor')} sistem` : 'Kelola seluruh akses, peran, dan data pengguna sistem'}
+              </Typography>
+            </Box>
+          </Box>
+          <Stack direction="row" spacing={2}>
+            <Button
+              onClick={handleSyncIdaman}
+              variant="outlined"
+              disabled={syncLoading}
+              sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.5)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' }, fontWeight: 'bold', px: 3 }}
+              startIcon={
+                syncLoading ? (
+                  <Iconify
+                    icon="mingcute:refresh-3-fill"
+                    width={20}
+                    height={20}
+                    sx={{
+                      animation: 'rotation 1s linear infinite',
+                      '@keyframes rotation': {
+                        from: { transform: 'rotate(0deg)' },
+                        to: { transform: 'rotate(360deg)' },
+                      },
+                    }}
+                  />
+                ) : (
+                  <Iconify icon="mingcute:refresh-3-fill" width={20} height={20} />
+                )
+              }
+            >
+              {syncLoading ? 'Syncing...' : 'Sync Idaman'}
+            </Button>
+            <Button
+              onClick={createPopup.onTrue}
+              variant="contained"
+              sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9', boxShadow: '0px 4px 12px rgba(255,255,255,0.2)' }, fontWeight: 'bold', px: 3 }}
+              startIcon={<Iconify icon="mingcute:add-line" width={20} />}
+            >
+              Pengguna Baru
+            </Button>
+          </Stack>
+        </Box>
 
         <Card>
           <Tabs
@@ -196,7 +254,9 @@ export default function UserListView() {
               boxShadow: (theme) => `inset 0 -2px 0 0 ${alpha(theme.palette.grey[500], 0.08)}`,
             }}
           >
-            {STATUS_OPTIONS.map((tab) => (
+            {STATUS_OPTIONS.map((tab) => {
+              const roleFilteredData = userSearchData.filter((user) => defaultRole ? user.role === defaultRole : true);
+              return (
               <Tab
                 key={tab.value}
                 iconPosition="end"
@@ -214,20 +274,20 @@ export default function UserListView() {
                       'default'
                     }
                   >
-                    {tab.value === 'all' && dataFiltered.length}
+                    {tab.value === 'all' && roleFilteredData.length}
                     {tab.value === 'active' &&
-                      dataFiltered.filter((user) => user.status === 'active').length}
+                      roleFilteredData.filter((user) => user.status === 'active').length}
 
                     {tab.value === 'pending' &&
-                      dataFiltered.filter((user) => user.status === 'pending').length}
+                      roleFilteredData.filter((user) => user.status === 'pending').length}
                     {tab.value === 'banned' &&
-                      dataFiltered.filter((user) => user.status === 'banned').length}
+                      roleFilteredData.filter((user) => user.status === 'banned').length}
                     {tab.value === 'rejected' &&
-                      dataFiltered.filter((user) => user.status === 'rejected').length}
+                      roleFilteredData.filter((user) => user.status === 'rejected').length}
                   </Label>
                 }
               />
-            ))}
+            )})}
           </Tabs>
 
           <UserTableToolbar
@@ -237,17 +297,7 @@ export default function UserListView() {
             roleOptions={_roles}
           />
 
-          {canReset && (
-            <UserTableFiltersResult
-              filters={filters}
-              onFilters={handleFilters}
-              //
-              onResetFilters={handleResetFilters}
-              //
-              results={dataFiltered.length}
-              sx={{ p: 2.5, pt: 0 }}
-            />
-          )}
+
 
           <TableContainer sx={{ position: 'relative', overflow: 'unset' }}>
             <TableSelectedAction
@@ -299,6 +349,7 @@ export default function UserListView() {
                         selected={table.selected.includes(row.id)}
                         onSelectRow={() => table.onSelectRow(row.id)}
                         onEditRow={() => handleEditRow(row.id)}
+                        onDeleteRow={() => handleDeleteRow(row.id)}
                       />
                     ))}
 
@@ -339,14 +390,14 @@ export default function UserListView() {
           <Button
             variant="contained"
             color="error"
-            onClick={() => {
-              confirm.onFalse();
-            }}
+            onClick={handleDeleteRows}
           >
             Delete
           </Button>
         }
       />
+
+      <UserCreateDialog open={createPopup.value} onClose={createPopup.onFalse} defaultRole={defaultRole} />
     </>
   );
 }
@@ -357,10 +408,12 @@ function applyFilter({
   inputData,
   comparator,
   filters,
+  defaultRole,
 }: {
   inputData: IUserItem[];
   comparator: (a: any, b: any) => number;
   filters: IUserTableFilters;
+  defaultRole?: string;
 }) {
   const { name, status, role } = filters;
 
@@ -384,7 +437,9 @@ function applyFilter({
     inputData = inputData.filter((user) => user.status === status);
   }
 
-  if (role.length) {
+  if (defaultRole) {
+    inputData = inputData.filter((user) => user.role === defaultRole);
+  } else if (role.length) {
     inputData = inputData.filter((user) => role.includes(user.role));
   }
 

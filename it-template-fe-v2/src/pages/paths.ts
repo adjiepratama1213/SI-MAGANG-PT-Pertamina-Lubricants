@@ -89,7 +89,10 @@ export const paths = {
 
   userManagement: {
     root: `${ROOTS.USERMANAGEMENT}`,
-    new: `${ROOTS.USERMANAGEMENT}/new`,
+    admin: `${ROOTS.USERMANAGEMENT}/admin`,
+    vp: `${ROOTS.USERMANAGEMENT}/vp`,
+    mentor: `${ROOTS.USERMANAGEMENT}/mentor`,
+    peserta: `${ROOTS.USERMANAGEMENT}/peserta`,
     details: (id: string) => `${ROOTS.USERMANAGEMENT}/detail/${paramCase(id)}`,
     edit: (id: string) => `${ROOTS.USERMANAGEMENT}/edit/${paramCase(id)}`,
   },

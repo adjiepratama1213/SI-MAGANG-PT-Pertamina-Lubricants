@@ -21,6 +21,7 @@ const DUMMY_DATA = [
     program: 'PKL',
     direktorat: 'Dir. Finance & Business Support',
     fungsi: 'Human Capital',
+    subFungsi: 'Pengembangan SDM',
     fileLaporan: 'Laporan_Akhir_Alyssa_2025.pdf',
     filePresentasi: 'Presentasi_Alyssa_2025.pdf',
     statusApproval: 'Menunggu Persetujuan'
@@ -37,6 +38,7 @@ const DUMMY_DATA = [
     program: 'Internship',
     direktorat: 'Dir. Operasi',
     fungsi: 'Unit Produksi',
+    subFungsi: 'K3',
     fileLaporan: 'Laporan_Akhir_Gaston_2025.pdf',
     filePresentasi: '-',
     statusApproval: 'Belum Submit'
@@ -64,76 +66,88 @@ export default function Page() {
       </Helmet>
 
       <Container maxWidth="xl">
-        <Box sx={{ p: 4, mb: 3, borderRadius: 2, bgcolor: '#6941C6', color: 'white' }}>
+        <Box sx={{ p: 4, mb: 3, borderRadius: 2, background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Iconify icon="solar:document-text-bold-duotone" width={32} sx={{ mr: 2 }} />
+            <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Iconify icon="solar:document-text-bold-duotone" width={28} />
+            </Box>
             <Box>
-              <Typography variant="h5">Laporan Magang</Typography>
-              <Typography variant="body2">Rekap laporan data peserta, presensi, dan penilaian</Typography>
+              <Typography variant="h5" fontWeight="bold">Laporan Magang</Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>Rekap laporan data peserta, presensi, dan penilaian</Typography>
             </Box>
           </Box>
         </Box>
 
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ p: 3, display: 'flex', alignItems: 'center' }}>
-              <Iconify icon="solar:users-group-rounded-bold-duotone" width={40} sx={{ color: 'primary.main', mr: 2 }} />
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">Total Peserta</Typography>
-                <Typography variant="h4">23</Typography>
+            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #004F9F', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(0, 79, 159, 0.1)', color: '#004F9F', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
+                  <Iconify icon="solar:users-group-rounded-bold-duotone" width={24} />
+                </Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>Total Peserta</Typography>
               </Box>
+              <Typography variant="h3" sx={{ color: '#004F9F', fontWeight: 'bold' }}>23</Typography>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ p: 3, display: 'flex', alignItems: 'center' }}>
-              <Iconify icon="solar:document-add-bold-duotone" width={40} sx={{ color: 'success.main', mr: 2 }} />
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">Laporan Terkirim</Typography>
-                <Typography variant="h4">3</Typography>
+            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #8CC63F', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(140, 198, 63, 0.1)', color: '#8CC63F', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
+                  <Iconify icon="solar:document-add-bold-duotone" width={24} />
+                </Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>Laporan Terkirim</Typography>
               </Box>
+              <Typography variant="h3" sx={{ color: '#8CC63F', fontWeight: 'bold' }}>3</Typography>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ p: 3, display: 'flex', alignItems: 'center' }}>
-              <Iconify icon="solar:clock-circle-bold-duotone" width={40} sx={{ color: 'warning.main', mr: 2 }} />
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">Menunggu Approval</Typography>
-                <Typography variant="h4">0</Typography>
+            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #FFAB00', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(255, 171, 0, 0.1)', color: '#FFAB00', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
+                  <Iconify icon="solar:clock-circle-bold-duotone" width={24} />
+                </Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>Menunggu Approval</Typography>
               </Box>
+              <Typography variant="h3" sx={{ color: '#FFAB00', fontWeight: 'bold' }}>0</Typography>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ p: 3, display: 'flex', alignItems: 'center' }}>
-              <Iconify icon="solar:check-circle-bold-duotone" width={40} sx={{ color: 'success.dark', mr: 2 }} />
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">Disetujui</Typography>
-                <Typography variant="h4">0</Typography>
+            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #22c55e', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
+                  <Iconify icon="solar:check-circle-bold-duotone" width={24} />
+                </Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>Disetujui</Typography>
               </Box>
+              <Typography variant="h3" sx={{ color: '#22c55e', fontWeight: 'bold' }}>0</Typography>
             </Card>
           </Grid>
         </Grid>
 
-        <Card sx={{ p: 3, mb: 3 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth size="small" type="date" label="Filter Periode" InputLabelProps={{ shrink: true }} />
+        <Box sx={{ p: 2.5, mb: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #f1f5f9' }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={3}>
+              <TextField fullWidth size="small" type="date" label="Filter Periode" InputLabelProps={{ shrink: true }} sx={{ bgcolor: 'white' }} />
             </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small"><InputLabel>Status Laporan</InputLabel><Select label="Status Laporan" defaultValue="all"><MenuItem value="all">Semua Status</MenuItem></Select></FormControl>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Status Laporan</InputLabel><Select label="Status Laporan" defaultValue="all"><MenuItem value="all">Semua Status</MenuItem></Select></FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth size="small" placeholder="Cari nama atau ID peserta..." />
-            </Grid>
-            <Grid item xs={12}>
-              <Button variant="contained" color="primary" sx={{ mr: 1 }}>Filter</Button>
-              <Button variant="outlined">Reset</Button>
+            <Grid item xs={12} md={6} sx={{ display: 'flex', gap: 1 }}>
+              <TextField fullWidth size="small" placeholder="Cari nama atau ID peserta..." sx={{ bgcolor: 'white' }} />
+              <Button variant="contained" color="primary" sx={{ px: 3, boxShadow: 'none' }}>
+                <Iconify icon="eva:search-fill" />
+              </Button>
+              <Button variant="outlined" sx={{ px: 3, borderColor: '#94a3b8', color: 'text.primary', fontWeight: 'bold', '&:hover': { borderColor: '#64748b', bgcolor: '#f8fafc' } }}>
+                Reset
+              </Button>
             </Grid>
           </Grid>
-        </Card>
+        </Box>
 
         <Card sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 3 }}>Tabel Rekap Laporan</Typography>
-          <TableContainer>
+          <TableContainer sx={{ minHeight: 400 }}>
             <Table size="small">
               <TableHead sx={{ bgcolor: '#f4f6f8' }}>
                 <TableRow>
@@ -166,7 +180,7 @@ export default function Page() {
                       )}
                     </TableCell>
                     <TableCell align="center">
-                      <Button variant="contained" size="small" color="primary" sx={{ borderRadius: 1 }} onClick={() => handleOpenDialog(row)}>
+                      <Button variant="outlined" size="small" color="primary" sx={{ whiteSpace: 'nowrap', minWidth: 'auto', px: 1.5, py: 0.5, borderRadius: 1 }} onClick={() => handleOpenDialog(row)}>
                         {row.status}
                       </Button>
                     </TableCell>
@@ -182,132 +196,153 @@ export default function Page() {
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         {selectedLaporan && (
           <>
-            {/* Header Dialog dengan background ungu */}
-            <DialogTitle sx={{ m: 0, p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#8b5cf6', color: 'white' }}>
+            {/* Header Dialog dengan background biru pertamina */}
+            <DialogTitle sx={{ m: 0, p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white' }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Iconify icon="solar:document-bold" width={24} />
+                <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Iconify icon="solar:document-bold" width={28} />
                 </Box>
                 <Box>
-                  <Typography variant="h6">Detail Laporan Peserta</Typography>
-                  <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                  <Typography variant="h6" fontWeight="bold">Detail Laporan Peserta</Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
                     Informasi lengkap laporan magang
                   </Typography>
                 </Box>
               </Box>
-              <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
+              <IconButton onClick={handleCloseDialog} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}>
                 <Iconify icon="eva:close-fill" />
               </IconButton>
             </DialogTitle>
-            
-            <DialogContent sx={{ p: 4 }}>
+            <DialogContent dividers sx={{ p: 4 }}>
               
               {/* Informasi Peserta */}
               <Box sx={{ mb: 4 }}>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
-                  Informasi Peserta
+                <Typography variant="subtitle1" fontWeight="bold" color="primary.main" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                  <Iconify icon="solar:user-id-bold-duotone" sx={{ mr: 1 }} /> Informasi Peserta
                 </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <Box sx={{ display: 'flex', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 100 }}>Nama:</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedLaporan.name}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 100 }}>ID Peserta:</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedLaporan.nim}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 100 }}>Asal Instansi:</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedLaporan.instansi}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex' }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 100 }}>Jurusan:</Typography>
+                <Box sx={{ p: 2.5, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #f1f5f9' }}>
+                  <Grid container spacing={3}>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Nama Lengkap</Typography>
+                      <Typography variant="body2" fontWeight="bold" sx={{ mb: 1.5 }}>{selectedLaporan.name}</Typography>
+                      
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">ID Peserta / NIM</Typography>
+                      <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedLaporan.nim}</Typography>
+                      
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Asal Instansi</Typography>
+                      <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedLaporan.instansi}</Typography>
+
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Jurusan</Typography>
                       <Typography variant="body2" fontWeight="medium">{selectedLaporan.jurusan}</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Box sx={{ display: 'flex', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 100 }}>Program:</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedLaporan.program}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 100 }}>Direktorat:</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedLaporan.direktorat}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 100 }}>Fungsi:</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedLaporan.fungsi}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex' }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 100 }}>Mentor:</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Program</Typography>
+                      <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedLaporan.program}</Typography>
+
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Direktorat</Typography>
+                      <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedLaporan.direktorat}</Typography>
+                      
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Fungsi</Typography>
+                      <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedLaporan.fungsi}</Typography>
+
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Sub Fungsi</Typography>
+                      <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedLaporan.subFungsi}</Typography>
+
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Mentor</Typography>
                       <Typography variant="body2" fontWeight="medium">{selectedLaporan.mentor}</Typography>
-                    </Box>
+                    </Grid>
                   </Grid>
-                </Grid>
+                </Box>
+              </Box>
+
+              <Divider sx={{ mb: 4, borderStyle: 'dashed' }} />
+
+              {/* Rekap Kehadiran */}
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="subtitle1" fontWeight="bold" color="primary.main" sx={{ mb: 1.5, display: 'flex', alignItems: 'center' }}>
+                  <Iconify icon="solar:calendar-date-bold-duotone" sx={{ mr: 1 }} /> Rekap Kehadiran
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: 'success.lighter', px: 2, py: 1, borderRadius: 1, border: '1px solid', borderColor: 'success.light' }}>
+                    <Typography variant="caption" color="success.main" fontWeight="bold" textTransform="uppercase" sx={{ mr: 1 }}>Hadir:</Typography>
+                    <Typography variant="subtitle2" color="success.darker">{selectedLaporan.hadir} Hari</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: 'warning.lighter', px: 2, py: 1, borderRadius: 1, border: '1px solid', borderColor: 'warning.light' }}>
+                    <Typography variant="caption" color="warning.main" fontWeight="bold" textTransform="uppercase" sx={{ mr: 1 }}>Izin:</Typography>
+                    <Typography variant="subtitle2" color="warning.darker">{selectedLaporan.izin} Hari</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: 'error.lighter', px: 2, py: 1, borderRadius: 1, border: '1px solid', borderColor: 'error.light' }}>
+                    <Typography variant="caption" color="error.main" fontWeight="bold" textTransform="uppercase" sx={{ mr: 1 }}>Alpha:</Typography>
+                    <Typography variant="subtitle2" color="error.darker">{selectedLaporan.alpha} Hari</Typography>
+                  </Box>
+                </Box>
               </Box>
 
               <Divider sx={{ mb: 4, borderStyle: 'dashed' }} />
 
               {/* File Laporan */}
               <Box sx={{ mb: 4 }}>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
-                  File Laporan
+                <Typography variant="subtitle1" fontWeight="bold" color="primary.main" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                  <Iconify icon="solar:folder-with-files-bold-duotone" sx={{ mr: 1 }} /> File Dokumen
                 </Typography>
-                <Stack spacing={2}>
-                  
+                <Grid container spacing={2}>
                   {/* File 1: Laporan Akhir */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Iconify icon="vscode-icons:file-type-pdf2" width={32} sx={{ mr: 2 }} />
-                      <Box>
-                        <Typography variant="subtitle2">Laporan Akhir</Typography>
-                        <Typography variant="caption" color="text.secondary">{selectedLaporan.fileLaporan}</Typography>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, border: '1px solid #e2e8f0', borderRadius: 2, '&:hover': { borderColor: '#004F9F', bgcolor: '#f8fafc' } }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Iconify icon="vscode-icons:file-type-pdf2" width={32} sx={{ mr: 1.5 }} />
+                        <Box>
+                          <Typography variant="subtitle2" fontWeight="bold">Laporan Akhir</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedLaporan.fileLaporan}</Typography>
+                        </Box>
                       </Box>
+                      <Button variant="contained" size="small" sx={{ bgcolor: '#004F9F', boxShadow: 'none', px: 2, '&:hover': { bgcolor: '#003366' } }}>
+                        Unduh
+                      </Button>
                     </Box>
-                    <Button variant="contained" size="small" color="primary" sx={{ bgcolor: '#8b5cf6', '&:hover': { bgcolor: '#7c3aed' } }}>
-                      <Iconify icon="eva:download-fill" sx={{ mr: 1 }} /> Download
-                    </Button>
-                  </Box>
+                  </Grid>
 
                   {/* File 2: Presentasi */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Iconify icon="vscode-icons:file-type-pdf2" width={32} sx={{ mr: 2 }} />
-                      <Box>
-                        <Typography variant="subtitle2">Presentasi</Typography>
-                        <Typography variant="caption" color="text.secondary">{selectedLaporan.filePresentasi}</Typography>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, border: '1px solid #e2e8f0', borderRadius: 2, '&:hover': { borderColor: '#004F9F', bgcolor: '#f8fafc' } }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Iconify icon="vscode-icons:file-type-pdf2" width={32} sx={{ mr: 1.5 }} />
+                        <Box>
+                          <Typography variant="subtitle2" fontWeight="bold">Presentasi</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedLaporan.filePresentasi}</Typography>
+                        </Box>
                       </Box>
+                      <Button variant="contained" size="small" disabled={selectedLaporan.filePresentasi === '-'} sx={{ bgcolor: '#004F9F', boxShadow: 'none', px: 2, '&:hover': { bgcolor: '#003366' } }}>
+                        Unduh
+                      </Button>
                     </Box>
-                    <Button variant="contained" size="small" color="primary" disabled={selectedLaporan.filePresentasi === '-'} sx={{ bgcolor: '#8b5cf6', '&:hover': { bgcolor: '#7c3aed' } }}>
-                      <Iconify icon="eva:download-fill" sx={{ mr: 1 }} /> Download
-                    </Button>
-                  </Box>
-
-                </Stack>
+                  </Grid>
+                </Grid>
               </Box>
 
               <Divider sx={{ mb: 4, borderStyle: 'dashed' }} />
 
               {/* Status dan Nilai */}
               <Box>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
-                  Status dan Nilai
+                <Typography variant="subtitle1" fontWeight="bold" color="primary.main" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                  <Iconify icon="solar:verified-check-bold-duotone" sx={{ mr: 1 }} /> Evaluasi Laporan
                 </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 60 }}>Status:</Typography>
-                      <Chip label={selectedLaporan.statusApproval} size="small" color="warning" sx={{ bgcolor: '#fef08a', color: '#854d0e', fontWeight: 'bold' }} />
+                <Box sx={{ p: 2.5, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase" sx={{ display: 'block', mb: 1 }}>Status Persetujuan</Typography>
+                      <Chip 
+                        label={selectedLaporan.statusApproval} 
+                        color={selectedLaporan.statusApproval === 'Menunggu Persetujuan' ? 'warning' : selectedLaporan.statusApproval === 'Disetujui' ? 'success' : 'default'}
+                        variant="soft"
+                        sx={{ fontWeight: 'bold' }}
+                      />
                     </Box>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 60 }}>Nilai:</Typography>
-                      <Typography variant="body2" fontWeight="bold" color="primary.main">{selectedLaporan.nilai}</Typography>
+                    <Box sx={{ height: 40, width: '1px', bgcolor: 'divider' }} />
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase" sx={{ display: 'block', mb: 0.5 }}>Nilai Akhir</Typography>
+                      <Typography variant="h4" fontWeight="bold" color={selectedLaporan.nilai !== '-' ? "primary.main" : "text.disabled"}>{selectedLaporan.nilai}</Typography>
                     </Box>
-                  </Grid>
-                </Grid>
+                </Box>
               </Box>
 
             </DialogContent>

@@ -34,20 +34,20 @@ const GREY = {
 };
 
 const PRIMARY = {
-  lighter: '#C8FAD6',
-  light: '#5BE49B',
-  main: '#00A76F',
-  dark: '#007867',
-  darker: '#004B50',
+  lighter: '#D1E4F9',
+  light: '#73A9E0',
+  main: '#004F9F',
+  dark: '#003366',
+  darker: '#001A33',
   contrastText: '#FFFFFF',
 };
 
 const SECONDARY = {
-  lighter: '#EFD6FF',
-  light: '#C684FF',
-  main: '#8E33FF',
-  dark: '#5119B7',
-  darker: '#27097A',
+  lighter: '#FCE0E2',
+  light: '#F48E96',
+  main: '#EC2028',
+  dark: '#A5161C',
+  darker: '#5E0C10',
   contrastText: '#FFFFFF',
 };
 
@@ -61,20 +61,20 @@ const INFO = {
 };
 
 const PERTAMINA = {
-  lighter: '#d35056',
-  light: '#B9313A',
-  main: '#3C6DB2',
-  dark: '#003768',
-  darker: '#003768',
+  lighter: '#D1E4F9',
+  light: '#73A9E0',
+  main: '#004F9F',
+  dark: '#003366',
+  darker: '#001A33',
   contrastText: '#FFFFFF',
 };
 
 const SUCCESS = {
-  lighter: '#D3FCD2',
-  light: '#77ED8B',
-  main: '#22C55E',
-  dark: '#118D57',
-  darker: '#065E49',
+  lighter: '#E6F6D6',
+  light: '#BCE486',
+  main: '#8CC63F',
+  dark: '#5D8526',
+  darker: '#2E4213',
   contrastText: '#ffffff',
 };
 

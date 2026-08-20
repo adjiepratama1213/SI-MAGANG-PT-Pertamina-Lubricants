@@ -105,6 +105,7 @@ export type ITeamItem = {
   country: string;
   zipCode: string;
   company: string;
+  avatar?: string;
   avatarUrl: string;
   phoneNumber: string;
   positionId: string;

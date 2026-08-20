@@ -224,6 +224,7 @@ export default function TeamListView() {
                         selected={table.selected.includes(row.id)}
                         onSelectRow={() => table.onSelectRow(row.id)}
                         onEditRow={() => handleEditRow(row.id)}
+                        onDeleteRow={() => {}}
                       />
                     ))}
 

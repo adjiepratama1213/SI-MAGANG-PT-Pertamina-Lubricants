@@ -35,7 +35,7 @@ type Payload = {
     status?: TAuthStatus;
   };
   [Types.VALIDATE]: {
-    user: AuthUserType;
+    user?: AuthUserType;
     status: TAuthStatus;
   };
   [Types.REGISTER]: {
@@ -57,12 +57,12 @@ const initialState: AuthStateType = {
 
 const reducer = (state: AuthStateType, action: ActionsType) => {
   if (action.type === Types.INITIAL) {
-    return {
-      // ...state,
-      loading: action.payload.loading,
-      user: action.payload.user,
-      status: action.payload.status,
-    };
+      return {
+        ...state,
+        user: action.payload.user ?? null,
+        loading: action.payload.loading ?? state.loading,
+        status: action.payload.status,
+      };
   }
   if (action.type === Types.LOGIN) {
     return {

@@ -29,9 +29,10 @@ type Props = {
   open: boolean;
   onClose: VoidFunction;
   currentUser?: IUserItem;
+  isReadOnly?: boolean;
 };
 
-export default function UserQuickEditForm({ currentUser, open, onClose }: Props) {
+export default function UserQuickEditForm({ currentUser, open, onClose, isReadOnly }: Props) {
   const { enqueueSnackbar } = useSnackbar();
 
   const NewUserSchema = Yup.object().shape({
@@ -97,7 +98,7 @@ export default function UserQuickEditForm({ currentUser, open, onClose }: Props)
       }}
     >
       <FormProvider methods={methods} onSubmit={onSubmit}>
-        <DialogTitle>Quick Update</DialogTitle>
+        <DialogTitle>{isReadOnly ? 'User Detail' : 'Quick Update'}</DialogTitle>
 
         <DialogContent>
           <Alert variant="outlined" severity="info" sx={{ mb: 3 }}>
@@ -113,7 +114,7 @@ export default function UserQuickEditForm({ currentUser, open, onClose }: Props)
               sm: 'repeat(2, 1fr)',
             }}
           >
-            <RHFSelect name="status" label="Status">
+            <RHFSelect name="status" label="Status" disabled={isReadOnly}>
               {USER_STATUS_OPTIONS.map((status) => (
                 <MenuItem key={status.value} value={status.value}>
                   {status.label}
@@ -123,13 +124,14 @@ export default function UserQuickEditForm({ currentUser, open, onClose }: Props)
 
             <Box sx={{ display: { xs: 'none', sm: 'block' } }} />
 
-            <RHFTextField name="name" label="Full Name" />
-            <RHFTextField name="email" label="Email Address" />
-            <RHFTextField name="phoneNumber" label="Phone Number" />
+            <RHFTextField name="name" label="Full Name" disabled={isReadOnly} />
+            <RHFTextField name="email" label="Email Address" disabled={isReadOnly} />
+            <RHFTextField name="phoneNumber" label="Phone Number" disabled={isReadOnly} />
 
             <RHFAutocomplete
               name="country"
               label="Country"
+              disabled={isReadOnly}
               options={countries.map((country) => country.label)}
               getOptionLabel={(option) => option}
               renderOption={(props, option) => {
@@ -155,23 +157,25 @@ export default function UserQuickEditForm({ currentUser, open, onClose }: Props)
               }}
             />
 
-            <RHFTextField name="state" label="State/Region" />
-            <RHFTextField name="city" label="City" />
-            <RHFTextField name="address" label="Address" />
-            <RHFTextField name="zipCode" label="Zip/Code" />
-            <RHFTextField name="company" label="Company" />
-            <RHFTextField name="role" label="Role" />
+            <RHFTextField name="state" label="State/Region" disabled={isReadOnly} />
+            <RHFTextField name="city" label="City" disabled={isReadOnly} />
+            <RHFTextField name="address" label="Address" disabled={isReadOnly} />
+            <RHFTextField name="zipCode" label="Zip/Code" disabled={isReadOnly} />
+            <RHFTextField name="company" label="Company" disabled={isReadOnly} />
+            <RHFTextField name="role" label="Role" disabled={isReadOnly} />
           </Box>
         </DialogContent>
 
         <DialogActions>
           <Button variant="outlined" onClick={onClose}>
-            Cancel
+            {isReadOnly ? 'Close' : 'Cancel'}
           </Button>
 
-          <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
-            Update
-          </LoadingButton>
+          {!isReadOnly && (
+            <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
+              Update
+            </LoadingButton>
+          )}
         </DialogActions>
       </FormProvider>
     </Dialog>

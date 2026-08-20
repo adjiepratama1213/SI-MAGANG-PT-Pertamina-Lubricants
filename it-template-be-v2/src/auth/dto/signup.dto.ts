@@ -49,4 +49,9 @@ export class SignUpDto {
   @ApiProperty()
   @IsString()
   jobTitle: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  role?: string;
 }

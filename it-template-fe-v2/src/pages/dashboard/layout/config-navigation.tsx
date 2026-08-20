@@ -47,43 +47,42 @@ const navItem: {
   subheader: string;
   items: NavListProps[];
 }[] = [
-  // MAIN MENU
-  // ----------------------------------------------------------------------
-  {
-    subheader: 'Main',
-    items: [
-      { title: 'Dashboard', path: paths.dashboard.root, icon: ICONS.dashboard, roles: rolePTPL },
-      { title: 'Peserta Magang', path: paths.dashboard.peserta, icon: <Iconify icon="solar:users-group-rounded-bold-duotone" />, roles: rolePTPL },
-      { title: 'Mentor', path: paths.dashboard.mentor, icon: <Iconify icon="solar:user-id-bold-duotone" />, roles: rolePTPL },
-      { title: 'Presensi', path: paths.dashboard.presensi, icon: <Iconify icon="solar:calendar-date-bold-duotone" />, roles: rolePTPL },
-      { title: 'Penilaian', path: paths.dashboard.penilaian, icon: <Iconify icon="solar:star-bold-duotone" />, roles: rolePTPL },
-      { title: 'Laporan', path: paths.dashboard.laporan, icon: <Iconify icon="solar:document-text-bold-duotone" />, roles: rolePTPL },
-      { title: 'Feedback', path: paths.dashboard.feedback, icon: <Iconify icon="solar:chat-round-dots-bold-duotone" />, roles: rolePTPL },
-      { title: 'Reminder', path: paths.dashboard.reminder, icon: <Iconify icon="solar:bell-bing-bold-duotone" />, roles: rolePTPL },
-    ],
-  },
+    // MAIN MENU
+    // ----------------------------------------------------------------------
+    {
+      subheader: 'Main',
+      items: [
+        { title: 'Dashboard', path: paths.dashboard.root, icon: ICONS.dashboard, roles: rolePTPL },
+        { title: 'Peserta Magang', path: paths.dashboard.peserta, icon: <Iconify icon="solar:users-group-rounded-bold-duotone" />, roles: rolePTPL },
+        { title: 'Mentor', path: paths.dashboard.mentor, icon: <Iconify icon="solar:user-id-bold-duotone" />, roles: rolePTPL },
+        { title: 'Presensi', path: paths.dashboard.presensi, icon: <Iconify icon="solar:calendar-date-bold-duotone" />, roles: rolePTPL },
+        { title: 'Penilaian', path: paths.dashboard.penilaian, icon: <Iconify icon="solar:star-bold-duotone" />, roles: rolePTPL },
+        { title: 'Laporan', path: paths.dashboard.laporan, icon: <Iconify icon="solar:document-text-bold-duotone" />, roles: rolePTPL },
+        { title: 'Feedback', path: paths.dashboard.feedback, icon: <Iconify icon="solar:chat-round-dots-bold-duotone" />, roles: rolePTPL },
+        { title: 'Reminder', path: paths.dashboard.reminder, icon: <Iconify icon="solar:bell-bing-bold-duotone" />, roles: rolePTPL },
+      ],
+    },
 
-  // MANAGEMENT
-  // ----------------------------------------------------------------------
-  {
-    subheader: 'administration',
-    items: [
-      {
-        roles: ['PTPL_IT', 'SUPERSAIYAN'],
-        title: 'User Management',
-        path: '#',
-        icon: <Iconify icon="solar:settings-bold-duotone" />,
-        children: [
-          {
-            title: 'User',
-            path: paths.userManagement.root,
-            icon: <Iconify icon="solar:user-bold-duotone" />,
-          },
-        ],
-      },
-    ],
-  },
-];
+    // MANAGEMENT
+    // ----------------------------------------------------------------------
+    {
+      subheader: 'administration',
+      items: [
+        {
+          roles: ['PTPL_IT', 'SUPERSAIYAN'],
+          title: 'User Management',
+          path: '#',
+          icon: <Iconify icon="solar:settings-bold-duotone" />,
+          children: [
+            { title: 'Admin', path: paths.userManagement.admin },
+            { title: 'VP', path: paths.userManagement.vp },
+            { title: 'Mentor', path: paths.userManagement.mentor },
+            { title: 'Peserta', path: paths.userManagement.peserta },
+          ],
+        },
+      ],
+    },
+  ];
 
 export function useNavData() {
   const data = [...navItem];

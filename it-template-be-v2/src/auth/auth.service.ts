@@ -51,12 +51,16 @@ export class AuthService {
       },
     });
 
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
     const modUser: Partial<UserEntity> = {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
-      teamId: user.Position.teamId,
+      teamId: user.Position?.teamId,
     };
     return modUser;
   }
@@ -144,7 +148,7 @@ export class AuthService {
           webAuthnId: generateRandomNumber(12),
           status: payload.status ?? 'pending',
           positionId: payload.positionId,
-          // role: payload.role ?? 'guest',
+          role: payload.role ?? 'EMPLOYEE',
         },
         include: {
           Position: {

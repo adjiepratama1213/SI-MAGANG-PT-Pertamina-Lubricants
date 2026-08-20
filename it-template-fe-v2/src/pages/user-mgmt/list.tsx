@@ -4,14 +4,18 @@ import UserListView from './view/user-list-view';
 
 // ----------------------------------------------------------------------
 
-export default function UserListPage() {
+type Props = {
+  defaultRole?: string;
+};
+
+export default function UserListPage({ defaultRole }: Props) {
   return (
     <>
       <Helmet>
-        <title> Dashboard: User List</title>
+        <title> Dashboard: User Management</title>
       </Helmet>
 
-      <UserListView />
+      <UserListView defaultRole={defaultRole} />
     </>
   );
 }

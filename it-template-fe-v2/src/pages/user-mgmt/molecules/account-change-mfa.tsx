@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import * as Yup from 'yup';
 // @mui
 import LoadingButton from '@mui/lab/LoadingButton';
-import Card from '@mui/material/Card';
+import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 // components
 import Iconify from 'src/components/iconify';
@@ -13,15 +13,13 @@ import FormProvider, { RHFTextField } from 'src/components/hook-form';
 import axiosInstance from 'src/utils/axios';
 import { endpoints } from 'src/utils/endpoints';
 import { useAuthContext } from 'src/auth/hooks';
-import { useParams } from 'src/hooks/use-params';
 import { useCheckMfaDetail } from 'src/pages/mfa/query';
 import { useEffect } from 'react';
 
 // ----------------------------------------------------------------------
 
 export default function AccountChangeMfa({ currentUser }: { currentUser: any }) {
-  const params = useParams();
-  const userId = params.id ?? '';
+  const userId = currentUser.id;
   const { user } = useAuthContext();
   const currentRole = user?.role; // admin;
 
@@ -38,7 +36,7 @@ export default function AccountChangeMfa({ currentUser }: { currentUser: any }) 
     encryptedSecret: userMfaDetail.encryptedSecret,
   };
 
-  const methods = useForm({
+  const methods = useForm<any>({
     resolver: yupResolver(ChangeMfaSchema),
     defaultValues,
   });
@@ -69,50 +67,52 @@ export default function AccountChangeMfa({ currentUser }: { currentUser: any }) 
       toast('Delete MFA Success!');
       console.info('DATA', data);
     } catch (error) {
-      toast(error);
+      toast(String(error));
       console.error(error);
     }
   });
 
   return (
     <FormProvider methods={methods} onSubmit={onSubmit}>
-      <Stack component={Card} spacing={3} sx={{ p: 3 }}>
-        <RHFTextField name="userId" label="User ID" type="text" disabled />
-        <RHFTextField name="email" label="Email" type="text" disabled />
+      <Box sx={{ p: 3 }}>
+        <Stack spacing={3}>
+          <RHFTextField name="userId" label="User ID" type="text" disabled />
+          <RHFTextField name="email" label="Email" type="text" disabled />
 
-        <RHFTextField
-          name="encryptedSecret"
-          label="User Encrypted Secret"
-          type="text"
-          multiline
-          rows={3}
-          disabled
-          helperText={
-            <Stack
-              component="span"
-              direction="row"
-              alignItems="center"
-              sx={{ color: userMfaDetail.encryptedSecret ? 'gray' : 'red' }}
-            >
-              <Iconify icon="eva:info-fill" width={16} sx={{ mr: 0.5 }} />
-              {userMfaDetail.encryptedSecret
-                ? 'Encrypted Secret is a secret key for MFA'
-                : 'This user doesnt have any MFA configured yet'}
-            </Stack>
-          }
-        />
+          <RHFTextField
+            name="encryptedSecret"
+            label="User Encrypted Secret"
+            type="text"
+            multiline
+            rows={3}
+            disabled
+            helperText={
+              <Stack
+                component="span"
+                direction="row"
+                alignItems="center"
+                sx={{ color: userMfaDetail.encryptedSecret ? 'gray' : 'red' }}
+              >
+                <Iconify icon="eva:info-fill" width={16} sx={{ mr: 0.5 }} />
+                {userMfaDetail.encryptedSecret
+                  ? 'Encrypted Secret is a secret key for MFA'
+                  : 'This user doesnt have any MFA configured yet'}
+              </Stack>
+            }
+          />
 
-        <LoadingButton
-          type="submit"
-          variant="contained"
-          color="error"
-          loading={isSubmitting}
-          sx={{ ml: 'auto' }}
-          disabled={!userMfaDetail.encryptedSecret}
-        >
-          Remove MFA
-        </LoadingButton>
-      </Stack>
+          <LoadingButton
+            type="submit"
+            variant="contained"
+            color="error"
+            loading={isSubmitting}
+            sx={{ ml: 'auto' }}
+            disabled={!userMfaDetail.encryptedSecret}
+          >
+            Delete MFA for This User
+          </LoadingButton>
+        </Stack>
+      </Box>
     </FormProvider>
   );
 }
