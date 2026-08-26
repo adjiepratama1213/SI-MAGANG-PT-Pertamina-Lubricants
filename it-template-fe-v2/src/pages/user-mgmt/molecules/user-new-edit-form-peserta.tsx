@@ -174,7 +174,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
         mentorProfileId,
         ...dataWithoutPassword
       } = data;
-      
+
       const res =
         data.id === ''
           ? await axiosInstance.post(`${endpoints.auth.register}`, data)
@@ -273,311 +273,310 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
       <fieldset disabled={isViewOnly} style={{ border: 'none', margin: 0, padding: 0 }}>
         <Grid container spacing={3}>
           <Grid xs={12} md={4}>
-          <Box sx={{ pt: 5, pb: 5, px: 3 }}>
+            <Box sx={{ pt: 5, pb: 5, px: 3 }}>
 
-            <Box sx={{ mb: 5 }}>
-              <RHFUploadAvatar
-                name="photoUrl"
-                maxSize={3145728}
-                onDrop={handleDrop}
-                helperText={
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      mt: 3,
-                      mx: 'auto',
-                      display: 'block',
-                      textAlign: 'center',
-                      color: 'text.disabled',
-                    }}
-                  >
-                    Allowed *.jpeg, *.jpg, *.png, *.gif
-                    <br /> max size of {fData(3145728)}
-                  </Typography>
-                }
-              />
-            </Box>
-
-            {currentUser && (
-              <FormControlLabel
-                labelPlacement="start"
-                control={
-                  <Controller
-                    name="status"
-                    control={control}
-                    render={({ field }) => (
-                      <Switch
-                        {...field}
-                        checked={field.value !== 'active'}
-                        onChange={(event) =>
-                          field.onChange(event.target.checked ? 'banned' : 'active')
-                        }
-                      />
-                    )}
-                  />
-                }
-                label={
-                  <>
-                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                      Banned
+              <Box sx={{ mb: 5 }}>
+                <RHFUploadAvatar
+                  name="photoUrl"
+                  maxSize={3145728}
+                  onDrop={handleDrop}
+                  helperText={
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        mt: 3,
+                        mx: 'auto',
+                        display: 'block',
+                        textAlign: 'center',
+                        color: 'text.disabled',
+                      }}
+                    >
+                      Allowed *.jpeg, *.jpg, *.png, *.gif
+                      <br /> max size of {fData(3145728)}
                     </Typography>
-                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      Apply disable account
-                    </Typography>
-                  </>
-                }
-                sx={{ mx: 0, mb: 3, width: 1, justifyContent: 'space-between' }}
-              />
-            )}
+                  }
+                />
+              </Box>
 
-            <RHFSwitch
-              name="isVerified"
-              labelPlacement="start"
-              label={
-                <>
-                  <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                    Email Verified
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    Disabling this will automatically send the user a verification email
-                  </Typography>
-                </>
-              }
-              sx={{ mx: 0, width: 1, justifyContent: 'space-between' }}
-            />
-
-            {currentUser && (
-              <Stack justifyContent="center" alignItems="center" sx={{ mt: 3 }}>
-                <Button variant="soft" color="error">
-                  Delete User
-                </Button>
-              </Stack>
-            )}
-          </Box>
-        </Grid>
-
-        <Grid xs={12} md={8}>
-          <Box sx={{ p: 3 }}>
-            <Box
-              rowGap={3}
-              columnGap={2}
-              display="grid"
-              gridTemplateColumns={{
-                xs: 'repeat(1, 1fr)',
-                sm: 'repeat(2, 1fr)',
-              }}
-            >
-              <RHFTextField name="name" label="Full Name" />
-              <RHFTextField name="email" label="Email Address" />
-              <RHFTextField name="phone" label="Phone Number" />
-
-              <RHFSelect name="status" label="Status">
-                {USER_STATUS_OPTIONS.map((status) => (
-                  <MenuItem key={status.value} value={status.value}>
-                    {status.label}
-                  </MenuItem>
-                ))}
-              </RHFSelect>
-
-              {values.id === '' && (
-                <RHFTextField
-                  name="password"
-                  type={password.value ? 'text' : 'password'}
-                  label="Password"
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton onClick={password.onToggle} edge="end">
-                          <Iconify
-                            icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'}
-                          />
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
+              {currentUser && (
+                <FormControlLabel
+                  labelPlacement="start"
+                  control={
+                    <Controller
+                      name="status"
+                      control={control}
+                      render={({ field }) => (
+                        <Switch
+                          {...field}
+                          checked={field.value !== 'active'}
+                          onChange={(event) =>
+                            field.onChange(event.target.checked ? 'banned' : 'active')
+                          }
+                        />
+                      )}
+                    />
+                  }
+                  label={
+                    <>
+                      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                        Banned
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        Apply disable account
+                      </Typography>
+                    </>
+                  }
+                  sx={{ mx: 0, mb: 3, width: 1, justifyContent: 'space-between' }}
                 />
               )}
 
-              <RHFAutocomplete
-                name="positionId"
-                label="Position ID"
-                options={searchPositionResults.map((position) => position.id)}
-                getOptionLabel={(option) => option}
-                isOptionEqualToValue={(option, value) => option === value}
-                renderOption={(props, option) => {
-                  const { name, id } = searchPositionResults.filter(
-                    (position) => position.id === option
-                  )[0];
-
-                  if (!id) {
-                    return null;
-                  }
-
-                  return (
-                    <li {...props} key={id}>
-                      {id} - {name}
-                    </li>
-                  );
-                }}
-              />
-
-              <RHFTextField name="jobTitle" label="Job Title" disabled />
-              <RHFTextField name="teamId" label="Team ID" disabled />
-
-              <RHFAutocomplete
-                name="role"
-                label="Role For Application"
-                options={userRoles.map((role) => role.code)}
-                getOptionLabel={(option) => option}
-                isOptionEqualToValue={(option, value) => option === value}
-                disabled
-                renderOption={(props, option) => {
-                  const { code, label } = userRoles.filter((role) => role.code === option)[0];
-
-                  if (!code) {
-                    return null;
-                  }
-
-                  return (
-                    <li {...props} key={code}>
-                      {label} ({code})
-                    </li>
-                  );
-                }}
-              />
-
-              {/* DATA MAGANG */}
-              <Grid xs={12} sx={{ mt: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                  Data Akademis & Magang
-                </Typography>
-              </Grid>
-
-              <RHFTextField name="internId" label="NIM / ID Peserta" />
-              <RHFTextField name="university" label="Asal Instansi / Universitas" />
-              
-              <RHFSelect name="gender" label="Jenis Kelamin">
-                <MenuItem value="PRIA">Pria</MenuItem>
-                <MenuItem value="WANITA">Wanita</MenuItem>
-              </RHFSelect>
-
-              <Controller
-                name="dateOfBirth"
-                control={control}
-                render={({ field, fieldState: { error } }) => (
-                  <DatePicker
-                    label="Tanggal Lahir"
-                    value={field.value}
-                    onChange={(newValue) => {
-                      field.onChange(newValue);
-                    }}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        error: !!error,
-                        helperText: error?.message,
-                      },
-                    }}
-                  />
-                )}
-              />
-
-              <RHFTextField name="major" label="Jurusan" />
-              <Controller
-                name="startDate"
-                control={control}
-                render={({ field, fieldState: { error } }) => (
-                  <DatePicker
-                    label="Tanggal Mulai Magang"
-                    value={field.value}
-                    onChange={(newValue) => {
-                      field.onChange(newValue);
-                    }}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        error: !!error,
-                        helperText: error?.message,
-                      },
-                    }}
-                  />
-                )}
-              />
-
-              <Controller
-                name="endDate"
-                control={control}
-                render={({ field, fieldState: { error } }) => (
-                  <DatePicker
-                    label="Tanggal Selesai Magang"
-                    value={field.value}
-                    onChange={(newValue) => {
-                      field.onChange(newValue);
-                    }}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        error: !!error,
-                        helperText: error?.message,
-                      },
-                    }}
-                  />
-                )}
-              />
-
-              <RHFSelect name="program" label="Program Magang">
-                <MenuItem value="PKL">PKL</MenuItem>
-                <MenuItem value="Internship">Internship</MenuItem>
-                <MenuItem value="Magang Hub">Magang Hub</MenuItem>
-                <MenuItem value="KP">KP</MenuItem>
-              </RHFSelect>
-              
-              <RHFAutocomplete
-                name="documentUrls"
-                label="Link Berkas (G-Drive / PDF)"
-                multiple
-                freeSolo
-                options={[]}
-                getOptionLabel={(option) => option}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => (
-                    <Chip {...getTagProps({ index })} key={option} label={option} size="small" />
-                  ))
+              <RHFSwitch
+                name="isVerified"
+                labelPlacement="start"
+                label={
+                  <>
+                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                      Email Verified
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      Disabling this will automatically send the user a verification email
+                    </Typography>
+                  </>
                 }
-                helperText="Tekan Enter untuk menambahkan lebih dari satu link."
+                sx={{ mx: 0, width: 1, justifyContent: 'space-between' }}
               />
 
+              {currentUser && (
+                <Stack justifyContent="center" alignItems="center" sx={{ mt: 3 }}>
+                  <Button variant="soft" color="error">
+                    Delete User
+                  </Button>
+                </Stack>
+              )}
             </Box>
+          </Grid>
 
-            <Stack direction="row" sx={{ justifyContent: 'space-between', mt: 3 }}>
-              {isIdaman ? (
-                <Stack />
-              ) : (
-                <Button
-                  variant="outlined"
-                  color="warning"
-                  onClick={sentVerification}
-                  disabled={verificationLoading || currentUser?.status !== 'pending'}
-                >
-                  {verificationLoading ? (
-                    <>Loading...</> // You can replace this with a spinner if you want
-                  ) : (
-                    <>
-                      <Iconify icon="eva:email-outline" sx={{ mr: 1 }} />
-                      Send Verification Email
-                    </>
+          <Grid xs={12} md={8}>
+            <Box sx={{ p: 3 }}>
+              <Box
+                rowGap={3}
+                columnGap={2}
+                display="grid"
+                gridTemplateColumns={{
+                  xs: 'repeat(1, 1fr)',
+                  sm: 'repeat(2, 1fr)',
+                }}
+              >
+                <RHFTextField name="name" label="Full Name" />
+                <RHFTextField name="email" label="Email Address" />
+                <RHFTextField name="phone" label="Phone Number" />
+
+                <RHFSelect name="status" label="Status">
+                  {USER_STATUS_OPTIONS.map((status) => (
+                    <MenuItem key={status.value} value={status.value}>
+                      {status.label}
+                    </MenuItem>
+                  ))}
+                </RHFSelect>
+
+                {values.id === '' && (
+                  <RHFTextField
+                    name="password"
+                    type={password.value ? 'text' : 'password'}
+                    label="Password"
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={password.onToggle} edge="end">
+                            <Iconify
+                              icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'}
+                            />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                )}
+
+                <RHFAutocomplete
+                  name="positionId"
+                  label="Position ID"
+                  options={searchPositionResults.map((position) => position.id)}
+                  getOptionLabel={(option) => option}
+                  isOptionEqualToValue={(option, value) => option === value}
+                  renderOption={(props, option) => {
+                    const { name, id } = searchPositionResults.filter(
+                      (position) => position.id === option
+                    )[0];
+
+                    if (!id) {
+                      return null;
+                    }
+
+                    return (
+                      <li {...props} key={id}>
+                        {id} - {name}
+                      </li>
+                    );
+                  }}
+                />
+
+                <RHFTextField name="jobTitle" label="Job Title" disabled />
+                <RHFTextField name="teamId" label="Team ID" disabled />
+
+                <RHFAutocomplete
+                  name="role"
+                  label="Role For Application"
+                  options={userRoles.map((role) => role.code)}
+                  getOptionLabel={(option) => option}
+                  isOptionEqualToValue={(option, value) => option === value}
+                  disabled
+                  renderOption={(props, option) => {
+                    const { code, label } = userRoles.filter((role) => role.code === option)[0];
+
+                    if (!code) {
+                      return null;
+                    }
+
+                    return (
+                      <li {...props} key={code}>
+                        {label} ({code})
+                      </li>
+                    );
+                  }}
+                />
+
+                {/* DATA MAGANG */}
+                <Grid xs={12} sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                    Data Akademis
+                  </Typography>
+                </Grid>
+
+                <RHFTextField name="internId" label="NIM / ID Peserta" />
+                <RHFTextField name="university" label="Asal Instansi / Universitas" />
+
+                <RHFSelect name="gender" label="Jenis Kelamin">
+                  <MenuItem value="PRIA">Pria</MenuItem>
+                  <MenuItem value="WANITA">Wanita</MenuItem>
+                </RHFSelect>
+
+                <Controller
+                  name="dateOfBirth"
+                  control={control}
+                  render={({ field, fieldState: { error } }) => (
+                    <DatePicker
+                      label="Tanggal Lahir"
+                      value={field.value}
+                      onChange={(newValue) => {
+                        field.onChange(newValue);
+                      }}
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          error: !!error,
+                          helperText: error?.message,
+                        },
+                      }}
+                    />
                   )}
-                </Button>
-              )}
-              {!isViewOnly && (
-                <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
-                  {!currentUser ? 'Create User' : 'Save Changes'}
-                </LoadingButton>
-              )}
-            </Stack>
-          </Box>
+                />
+
+                <RHFTextField name="major" label="Jurusan" />
+                <Controller
+                  name="startDate"
+                  control={control}
+                  render={({ field, fieldState: { error } }) => (
+                    <DatePicker
+                      label="Tanggal Mulai"
+                      value={field.value}
+                      onChange={(newValue) => {
+                        field.onChange(newValue);
+                      }}
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          error: !!error,
+                          helperText: error?.message,
+                        },
+                      }}
+                    />
+                  )}
+                />
+
+                <Controller
+                  name="endDate"
+                  control={control}
+                  render={({ field, fieldState: { error } }) => (
+                    <DatePicker
+                      label="Tanggal Selesai"
+                      value={field.value}
+                      onChange={(newValue) => {
+                        field.onChange(newValue);
+                      }}
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          error: !!error,
+                          helperText: error?.message,
+                        },
+                      }}
+                    />
+                  )}
+                />
+
+                <RHFSelect name="program" label="Program">
+                  <MenuItem value="PKL">PKL</MenuItem>
+                  <MenuItem value="Internship PTPL">Internship PTPL</MenuItem>
+                  <MenuItem value="Internship Kemnaker">Internship Kemnaker</MenuItem>
+                </RHFSelect>
+
+                <RHFAutocomplete
+                  name="documentUrls"
+                  label="Link Berkas (G-Drive / PDF)"
+                  multiple
+                  freeSolo
+                  options={[]}
+                  getOptionLabel={(option) => option}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => (
+                      <Chip {...getTagProps({ index })} key={option} label={option} size="small" />
+                    ))
+                  }
+                  helperText="Tekan Enter untuk menambahkan lebih dari satu link."
+                />
+
+              </Box>
+
+              <Stack direction="row" sx={{ justifyContent: 'space-between', mt: 3 }}>
+                {isIdaman ? (
+                  <Stack />
+                ) : (
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    onClick={sentVerification}
+                    disabled={verificationLoading || currentUser?.status !== 'pending'}
+                  >
+                    {verificationLoading ? (
+                      <>Loading...</> // You can replace this with a spinner if you want
+                    ) : (
+                      <>
+                        <Iconify icon="eva:email-outline" sx={{ mr: 1 }} />
+                        Send Verification Email
+                      </>
+                    )}
+                  </Button>
+                )}
+                {!isViewOnly && (
+                  <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
+                    {!currentUser ? 'Create User' : 'Save Changes'}
+                  </LoadingButton>
+                )}
+              </Stack>
+            </Box>
+          </Grid>
         </Grid>
-      </Grid>
       </fieldset>
     </FormProvider>
   );

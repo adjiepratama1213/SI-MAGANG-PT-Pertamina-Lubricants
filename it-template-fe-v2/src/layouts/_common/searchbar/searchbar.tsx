@@ -110,10 +110,34 @@ function Searchbar() {
   };  
   
   const renderButton = (
-    <Stack direction="row" alignItems="center">
-      <IconButton onClick={search.onTrue}>
-        <Iconify icon="eva:search-fill" />
-      </IconButton>
+    <Stack
+      direction="row"
+      alignItems="center"
+      onClick={search.onTrue}
+      sx={{
+        cursor: 'pointer',
+        ...(lgUp && {
+          bgcolor: 'action.hover',
+          borderRadius: 1,
+          px: 1.5,
+          py: 0.75,
+          minWidth: 260,
+          justifyContent: 'space-between',
+          '&:hover': { bgcolor: 'action.selected' },
+          transition: theme.transitions.create('background-color'),
+        }),
+      }}
+    >
+      {lgUp ? (
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <Iconify icon="eva:search-fill" sx={{ color: 'text.disabled' }} />
+          <Box sx={{ typography: 'body2', color: 'text.disabled' }}>Cari halaman / menu...</Box>
+        </Stack>
+      ) : (
+        <IconButton>
+          <Iconify icon="eva:search-fill" />
+        </IconButton>
+      )}
 
       {lgUp && <Label sx={{ px: 0.75, fontSize: 12, color: 'text.secondary' }}>⌘K</Label>}
     </Stack>

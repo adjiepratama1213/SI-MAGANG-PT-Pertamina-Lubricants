@@ -53,7 +53,7 @@ const navItem: {
       subheader: 'Main',
       items: [
         { title: 'Dashboard', path: paths.dashboard.root, icon: ICONS.dashboard, roles: rolePTPL },
-        { title: 'Peserta Magang', path: paths.dashboard.peserta, icon: <Iconify icon="solar:users-group-rounded-bold-duotone" />, roles: rolePTPL },
+        { title: 'Peserta', path: paths.dashboard.peserta, icon: <Iconify icon="solar:users-group-rounded-bold-duotone" />, roles: rolePTPL },
         { title: 'Mentor', path: paths.dashboard.mentor, icon: <Iconify icon="solar:user-id-bold-duotone" />, roles: rolePTPL },
         { title: 'Presensi', path: paths.dashboard.presensi, icon: <Iconify icon="solar:calendar-date-bold-duotone" />, roles: rolePTPL },
         { title: 'Penilaian', path: paths.dashboard.penilaian, icon: <Iconify icon="solar:star-bold-duotone" />, roles: rolePTPL },

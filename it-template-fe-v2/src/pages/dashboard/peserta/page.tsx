@@ -11,14 +11,14 @@ import Iconify from 'src/components/iconify';
 
 const DUMMY_DATA = [
   { id: 1, name: 'Alyssa Afadila R', nim: '433221088', kampus: 'Universitas Airlangga', jurusan: 'Manajemen Perkantoran Digital', program: 'PKL', status_aktif: 'Aktif', direktorat: 'Direktorat Finance & Business Support', fungsi: 'Sumber Daya Manusia', subFungsi: 'Pengembangan SDM', mentor: 'Gaston Alfonsa', periode: '1 Jul 2025 - 1 Desember 2025', kelamin: 'Perempuan', kontak: '081517981009', tglLahir: '15 Oct 2004', thnLulus: '-', statusMagang: 'PKL', bank: '-', noRek: '-', dokumen: ['Proposal Magang.pdf', 'Surat Pengantar Kampus.pdf', 'MOU Magang.pdf'] },
-  { id: 2, name: 'Gaston Alfonsa', nim: '123456789', kampus: '-', jurusan: '-', program: 'Internship', status_aktif: 'Tidak Aktif', direktorat: 'Direktorat Operasi', fungsi: 'Unit Produksi', subFungsi: 'Produksi I', mentor: '-', periode: '-', kelamin: 'Laki-laki', kontak: '-', tglLahir: '-', thnLulus: '-', statusMagang: 'Internship', bank: '-', noRek: '-', dokumen: [] },
-  { id: 3, name: 'Harding Long', nim: '987654321', kampus: '-', jurusan: '-', program: 'Magang Hub', status_aktif: 'Aktif', direktorat: 'Direktorat Sales & Marketing', fungsi: 'VP Sales & Marketing', subFungsi: 'Sales', mentor: '-', periode: '-', kelamin: 'Laki-laki', kontak: '-', tglLahir: '-', thnLulus: '-', statusMagang: 'Magang Hub', bank: '-', noRek: '-', dokumen: [] },
-  { id: 4, name: 'Jovanz Mikail Baihaqi', nim: '187221077', kampus: 'Universitas Airlangga', jurusan: 'Sistem Informasi', program: 'KP', status_aktif: 'Aktif', direktorat: 'Direktorat Utama & Pengawasan', fungsi: 'Internal Audit', subFungsi: 'Audit TI', mentor: '-', periode: '2025 - Feb 2026', kelamin: 'Laki-laki', kontak: '-', tglLahir: '-', thnLulus: '-', statusMagang: 'KP', bank: '-', noRek: '-', dokumen: [] },
+  { id: 2, name: 'Gaston Alfonsa', nim: '123456789', kampus: '-', jurusan: '-', program: 'Internship PTPL', status_aktif: 'Tidak Aktif', direktorat: 'Direktorat Operasi', fungsi: 'Unit Produksi', subFungsi: 'Produksi I', mentor: '-', periode: '-', kelamin: 'Laki-laki', kontak: '-', tglLahir: '-', thnLulus: '-', statusMagang: 'Internship PTPL', bank: '-', noRek: '-', dokumen: [] },
+  { id: 3, name: 'Harding Long', nim: '987654321', kampus: '-', jurusan: '-', program: 'Internship Kemnaker', status_aktif: 'Aktif', direktorat: 'Direktorat Sales & Marketing', fungsi: 'VP Sales & Marketing', subFungsi: 'Sales', mentor: '-', periode: '-', kelamin: 'Laki-laki', kontak: '-', tglLahir: '-', thnLulus: '-', statusMagang: 'Internship Kemnaker', bank: '-', noRek: '-', dokumen: [] },
+  { id: 4, name: 'Jovanz Mikail Baihaqi', nim: '187221077', kampus: 'Universitas Airlangga', jurusan: 'Sistem Informasi', program: 'PKL', status_aktif: 'Aktif', direktorat: 'Direktorat Utama & Pengawasan', fungsi: 'Internal Audit', subFungsi: 'Audit TI', mentor: '-', periode: '2025 - Feb 2026', kelamin: 'Laki-laki', kontak: '-', tglLahir: '-', thnLulus: '-', statusMagang: 'PKL', bank: '-', noRek: '-', dokumen: [] },
 ];
 
 const DUMMY_PERPANJANGAN = [
   { id: 1, name: 'Alyssa Afadila R', nim: '433221088', program: 'PKL', mentor: 'Gaston Alfonsa', periodeLama: '1 Jul 2025 - 1 Des 2025', periodeBaru: '1 Des 2025 - 1 Feb 2026', alasan: 'Penyelesaian Proyek Akhir', status: 'Menunggu', dokumen: 'Surat_Perpanjangan.pdf' },
-  { id: 2, name: 'Harding Long', nim: '987654321', program: 'Magang Hub', mentor: '-', periodeLama: '1 Jan 2025 - 1 Jun 2025', periodeBaru: '1 Jun 2025 - 1 Sep 2025', alasan: 'Rekomendasi Mentor', status: 'Disetujui', dokumen: 'Rekomendasi_Mentor.pdf' },
+  { id: 2, name: 'Harding Long', nim: '987654321', program: 'Internship Kemnaker', mentor: '-', periodeLama: '1 Jan 2025 - 1 Jun 2025', periodeBaru: '1 Jun 2025 - 1 Sep 2025', alasan: 'Rekomendasi Mentor', status: 'Disetujui', dokumen: 'Rekomendasi_Mentor.pdf' },
 ];
 
 export default function Page() {
@@ -50,7 +50,7 @@ export default function Page() {
               <Iconify icon="solar:users-group-rounded-bold-duotone" width={28} />
             </Box>
             <Box>
-              <Typography variant="h5" fontWeight="bold">Data Peserta Magang</Typography>
+              <Typography variant="h5" fontWeight="bold">Data Peserta</Typography>
               <Typography variant="body2" sx={{ opacity: 0.9 }}>Total: 22 | Terverifikasi 1</Typography>
             </Box>
           </Box>
@@ -248,7 +248,7 @@ export default function Page() {
               <Box sx={{ p: 2.5, mb: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #f1f5f9' }}>
                 <Grid container spacing={2} alignItems="center">
                   <Grid item xs={12} md={3}>
-                    <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Program</InputLabel><Select label="Program" defaultValue="all"><MenuItem value="all">Semua Program</MenuItem><MenuItem value="pkl">PKL</MenuItem><MenuItem value="internship">Internship</MenuItem><MenuItem value="kp">Kerja Praktik (KP)</MenuItem><MenuItem value="maganghub">Magang Hub</MenuItem></Select></FormControl>
+                    <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Program</InputLabel><Select label="Program" defaultValue="all"><MenuItem value="all">Semua Program</MenuItem><MenuItem value="pkl">PKL</MenuItem><MenuItem value="internship_ptpl">Internship PTPL</MenuItem><MenuItem value="internship_kemnaker">Internship Kemnaker</MenuItem></Select></FormControl>
                   </Grid>
                   <Grid item xs={12} md={3}>
                     <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Status</InputLabel><Select label="Status" defaultValue="all"><MenuItem value="all">Semua Status</MenuItem><MenuItem value="aktif">Aktif</MenuItem><MenuItem value="tidak_aktif">Tidak Aktif</MenuItem></Select></FormControl>
@@ -343,7 +343,7 @@ export default function Page() {
                     <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Status Pengajuan</InputLabel><Select label="Status Pengajuan" defaultValue="all"><MenuItem value="all">Semua Status</MenuItem><MenuItem value="menunggu">Menunggu</MenuItem><MenuItem value="disetujui">Disetujui</MenuItem><MenuItem value="ditolak">Ditolak</MenuItem></Select></FormControl>
                   </Grid>
                   <Grid item xs={12} md={3}>
-                    <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Program</InputLabel><Select label="Program" defaultValue="all"><MenuItem value="all">Semua Program</MenuItem><MenuItem value="pkl">PKL</MenuItem><MenuItem value="internship">Internship</MenuItem><MenuItem value="kp">Kerja Praktik (KP)</MenuItem><MenuItem value="maganghub">Magang Hub</MenuItem></Select></FormControl>
+                    <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Program</InputLabel><Select label="Program" defaultValue="all"><MenuItem value="all">Semua Program</MenuItem><MenuItem value="pkl">PKL</MenuItem><MenuItem value="internship_ptpl">Internship PTPL</MenuItem><MenuItem value="internship_kemnaker">Internship Kemnaker</MenuItem></Select></FormControl>
                   </Grid>
                   <Grid item xs={12} md={6} sx={{ display: 'flex', gap: 1 }}>
                     <TextField fullWidth size="small" placeholder="Cari nama atau ID peserta..." sx={{ bgcolor: 'white' }} />
@@ -423,7 +423,7 @@ export default function Page() {
                 <Box>
                   <Typography variant="h6" fontWeight="bold">Detail Peserta</Typography>
                   <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    {selectedUser.name} • {selectedUser.kampus}
+                    {selectedUser.name}
                   </Typography>
                 </Box>
               </Box>
@@ -457,8 +457,8 @@ export default function Page() {
                       <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Kontak</Typography>
                       <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>{selectedUser.kontak}</Typography>
 
-                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Tahun Lulus</Typography>
-                      <Typography variant="body2" fontWeight="bold">{selectedUser.thnLulus}</Typography>
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Asal Instansi</Typography>
+                      <Typography variant="body2" fontWeight="bold">{selectedUser.kampus}</Typography>
                     </Grid>
                   </Grid>
                 </Box>
@@ -469,7 +469,7 @@ export default function Page() {
               {/* Informasi Magang */}
               <Box sx={{ mb: 2.5 }}>
                 <Typography variant="subtitle1" fontWeight="bold" color="primary.main" sx={{ mb: 1.5, display: 'flex', alignItems: 'center' }}>
-                  <Iconify icon="solar:case-round-bold-duotone" sx={{ mr: 1 }} /> Informasi Magang
+                  <Iconify icon="solar:case-round-bold-duotone" sx={{ mr: 1 }} /> Informasi
                 </Typography>
                 <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0', boxShadow: '0px 2px 4px rgba(0,0,0,0.02)' }}>
                   <Grid container spacing={2}>
@@ -497,7 +497,7 @@ export default function Page() {
 
                       <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Program</Typography>
                       <Box sx={{ mt: 0.5, mb: 1 }}>
-                        <Chip label={selectedUser.program} size="small" color={selectedUser.program === 'PKL' ? 'warning' : selectedUser.program === 'Internship' ? 'info' : 'primary'} variant="soft" sx={{ fontWeight: 'bold' }} />
+                        <Chip label={selectedUser.program} size="small" color={selectedUser.program === 'PKL' ? 'warning' : selectedUser.program === 'Internship PTPL' ? 'info' : 'primary'} variant="soft" sx={{ fontWeight: 'bold' }} />
                       </Box>
                     </Grid>
                   </Grid>

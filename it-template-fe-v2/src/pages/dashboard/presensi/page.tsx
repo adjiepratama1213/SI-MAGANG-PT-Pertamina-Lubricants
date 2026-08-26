@@ -32,7 +32,7 @@ const DUMMY_DATA = [
     name: 'Gaston Alfonsa',
     nim: '123456789',
     kampus: 'Universitas Gadjah Mada',
-    program: 'Internship',
+    program: 'Internship PTPL',
     direktorat: 'Direktorat Utama & Pengawasan',
     fungsi: 'Internal Audit',
     subFungsi: 'Audit TI',
@@ -67,7 +67,7 @@ export default function Page() {
         <title> Presensi | SI-Magang</title>
       </Helmet>
 
-      <Container maxWidth="xl">
+      <Container maxWidth="xl" sx={{ pb: 10, minHeight: '120vh' }}>
         {/* HEADER */}
         <Box sx={{ p: 4, mb: 3, borderRadius: 2, background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -76,7 +76,7 @@ export default function Page() {
             </Box>
             <Box>
               <Typography variant="h5" fontWeight="bold">Presensi Peserta</Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>Kelola dan pantau seluruh aktivitas kehadiran peserta magang</Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>Kelola dan pantau seluruh aktivitas kehadiran peserta</Typography>
             </Box>
           </Box>
           <Button variant="contained" sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9' }, fontWeight: 'bold' }}>
@@ -98,7 +98,7 @@ export default function Page() {
               <Typography variant="h3" sx={{ color: '#004F9F', fontWeight: 'bold' }}>22</Typography>
             </Card>
           </Grid>
-          
+
           {/* Hadir Hari Ini */}
           <Grid item xs={12} sm={6} md={3}>
             <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #8CC63F', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
@@ -111,7 +111,7 @@ export default function Page() {
               <Typography variant="h3" sx={{ color: '#8CC63F', fontWeight: 'bold' }}>1</Typography>
             </Card>
           </Grid>
-          
+
           {/* Izin Hari Ini */}
           <Grid item xs={12} sm={6} md={3}>
             <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #FFAB00', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
@@ -124,7 +124,7 @@ export default function Page() {
               <Typography variant="h3" sx={{ color: '#FFAB00', fontWeight: 'bold' }}>0</Typography>
             </Card>
           </Grid>
-          
+
           {/* Alpha Hari Ini */}
           <Grid item xs={12} sm={6} md={3}>
             <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #ef4444', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
@@ -161,7 +161,7 @@ export default function Page() {
               <Grid item xs={12} md={4}>
                 <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Mentor</InputLabel><Select label="Mentor" defaultValue="all"><MenuItem value="all">Semua Mentor</MenuItem></Select></FormControl>
               </Grid>
-              
+
               <Grid item xs={12} md={12} sx={{ display: 'flex', gap: 1 }}>
                 <TextField fullWidth size="small" placeholder="Cari nama, ID, atau instansi peserta..." sx={{ bgcolor: 'white' }} />
                 <Button variant="contained" color="primary" sx={{ px: 3, boxShadow: 'none' }}>
@@ -175,9 +175,6 @@ export default function Page() {
           </Box>
 
           {/* TABLE */}
-          <Typography variant="subtitle1" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-            <Iconify icon="solar:list-bold-duotone" sx={{ mr: 1 }} /> Daftar Rekap Presensi
-          </Typography>
           <TableContainer>
             <Table size="small">
               <TableHead sx={{ bgcolor: '#f4f6f8' }}>

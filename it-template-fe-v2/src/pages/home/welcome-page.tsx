@@ -99,7 +99,7 @@ export default function WelcomePage() {
     <Box
       sx={{
         minHeight: '100vh',
-        background: `linear-gradient(to bottom, ${alpha(theme.palette.pertamina.main, 0.03)}, ${alpha(theme.palette.primary.main, 0.02)})`,
+        background: `linear-gradient(to bottom, ${alpha((theme.palette as any).pertamina.main, 0.03)}, ${alpha(theme.palette.primary.main, 0.02)})`,
         position: 'relative',
         overflow: 'hidden',
         '&::before': {
@@ -107,7 +107,7 @@ export default function WelcomePage() {
           position: 'absolute',
           width: '100%',
           height: '100%',
-          background: `radial-gradient(circle at 20% 30%, ${alpha(theme.palette.pertamina.main, 0.08)} 0%, transparent 50%),
+          background: `radial-gradient(circle at 20% 30%, ${alpha((theme.palette as any).pertamina.main, 0.08)} 0%, transparent 50%),
                        radial-gradient(circle at 80% 70%, ${alpha(theme.palette.primary.main, 0.08)} 0%, transparent 50%)`,
           pointerEvents: 'none',
         },
@@ -136,7 +136,7 @@ export default function WelcomePage() {
               width: { xs: 300, md: 600 },
               height: { xs: 300, md: 600 },
               borderRadius: '50%',
-              background: `radial-gradient(circle, ${alpha(theme.palette.pertamina.main, 0.1)} 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${alpha((theme.palette as any).pertamina.main, 0.1)} 0%, transparent 70%)`,
               filter: 'blur(60px)',
               zIndex: 0,
             }}
@@ -148,7 +148,7 @@ export default function WelcomePage() {
               sx={{
                 fontSize: { xs: '0.75rem', md: '1rem' },
                 fontWeight: 600,
-                color: theme.palette.pertamina.main,
+                color: (theme.palette as any).pertamina.main,
                 letterSpacing: 2,
                 mb: 2,
                 display: 'block',
@@ -165,7 +165,7 @@ export default function WelcomePage() {
                 color: 'text.primary',
                 mb: 2,
                 lineHeight: 1.1,
-                background: `linear-gradient(135deg, ${theme.palette.pertamina.main} 0%, ${theme.palette.primary.main} 50%, ${theme.palette.secondary.main} 100%)`,
+                background: `linear-gradient(135deg, ${(theme.palette as any).pertamina.main} 0%, ${theme.palette.primary.main} 50%, ${theme.palette.secondary.main} 100%)`,
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
@@ -419,7 +419,7 @@ function CategoryCard({ category }: CardMobileProps) {
           ? `0 12px 24px ${alpha(theme.palette.common.black, 0.15)}`
           : `0 2px 8px ${alpha(theme.palette.common.black, 0.08)}`,
         '&:hover': {
-          borderColor: alpha(theme.palette.pertamina.main, 0.3),
+          borderColor: alpha((theme.palette as any).pertamina.main, 0.3),
         },
       }}
     >
@@ -467,7 +467,7 @@ function CategoryCard({ category }: CardMobileProps) {
             color: 'text.primary',
             transition: 'color 0.3s ease',
             ...(hovered && {
-              color: theme.palette.pertamina.main,
+              color: (theme.palette as any).pertamina.main,
             }),
           }}
         >

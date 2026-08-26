@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { 
-  Container, Typography, Card, Box, Grid, Stack, 
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
+import {
+  Container, Typography, Card, Box, Grid, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, MenuItem, Select, FormControl, InputLabel, TextField, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider, Autocomplete
 } from '@mui/material';
@@ -10,8 +10,8 @@ import Iconify from 'src/components/iconify';
 
 const DUMMY_PESERTA = [
   { id: 201, nama: 'Fajar Nugroho', instansi: 'Universitas Brawijaya', periode: '1 Ags 2026 - 31 Des 2026', program: 'PKL' },
-  { id: 202, nama: 'Dinda Kirana', instansi: 'Telkom University', periode: '1 Sep 2026 - 28 Feb 2027', program: 'Internship' },
-  { id: 203, nama: 'Gilang Ramadhan', instansi: 'Politeknik Negeri Jakarta', periode: '1 Ags 2026 - 30 Nov 2026', program: 'KP' },
+  { id: 202, nama: 'Dinda Kirana', instansi: 'Telkom University', periode: '1 Sep 2026 - 28 Feb 2027', program: 'Internship PTPL' },
+  { id: 203, nama: 'Gilang Ramadhan', instansi: 'Politeknik Negeri Jakarta', periode: '1 Ags 2026 - 30 Nov 2026', program: 'Internship Kemnaker' },
 ];
 
 const DUMMY_USERS = [
@@ -23,13 +23,13 @@ const DUMMY_USERS = [
 ];
 
 const DUMMY_DATA = [
-  { 
-    id: 1, 
-    name: 'Kareem Graham', 
-    direktorat: 'Direktorat Utama & Pengawasan', 
-    fungsi: 'Internal Audit', 
+  {
+    id: 1,
+    name: 'Kareem Graham',
+    direktorat: 'Direktorat Utama & Pengawasan',
+    fungsi: 'Internal Audit',
     subFungsi: 'Audit TI',
-    bimbingan: 1, 
+    bimbingan: 1,
     status: 'Aktif',
     jabatan: 'Audit Executive',
     email: 'kareem@pertamina.com',
@@ -37,52 +37,52 @@ const DUMMY_DATA = [
       { nama: 'Alyssa Afadila R', instansi: 'Universitas Airlangga', periode: '1 Juli 2025 - 1 Desember 2025', program: 'PKL' }
     ]
   },
-  { 
-    id: 2, 
-    name: 'Mercedes Mclean', 
-    direktorat: 'Direktorat Operasi', 
-    fungsi: 'Supply Chain dan Logistik', 
+  {
+    id: 2,
+    name: 'Mercedes Mclean',
+    direktorat: 'Direktorat Operasi',
+    fungsi: 'Supply Chain dan Logistik',
     subFungsi: 'Logistik',
-    bimbingan: 0, 
+    bimbingan: 0,
     status: 'Tidak Aktif',
     jabatan: 'Manager Logistik',
     email: 'mercedes@pertamina.com',
     pesertaList: []
   },
-  { 
-    id: 3, 
-    name: 'Dawn Dillon', 
-    direktorat: 'Direktorat Sales & Marketing', 
-    fungsi: 'Sales Region', 
+  {
+    id: 3,
+    name: 'Dawn Dillon',
+    direktorat: 'Direktorat Sales & Marketing',
+    fungsi: 'Sales Region',
     subFungsi: 'Sales',
-    bimbingan: 0, 
+    bimbingan: 0,
     status: 'Tidak Aktif',
     jabatan: 'Sales Manager',
     email: 'dawn@pertamina.com',
     pesertaList: []
   },
-  { 
-    id: 4, 
-    name: 'Mentor', 
-    direktorat: 'Direktorat Finance & Business Support', 
-    fungsi: 'Keuangan & Akuntansi', 
+  {
+    id: 4,
+    name: 'Mentor',
+    direktorat: 'Direktorat Finance & Business Support',
+    fungsi: 'Keuangan & Akuntansi',
     subFungsi: 'Treasury',
-    bimbingan: 2, 
+    bimbingan: 2,
     status: 'Aktif',
     jabatan: 'Finance Manager',
     email: 'mentor@pertamina.com',
     pesertaList: [
-      { nama: 'Budi Santoso', instansi: 'Universitas Indonesia', periode: '1 Juli 2025 - 1 Desember 2025', program: 'Internship' },
-      { nama: 'Siti Aminah', instansi: 'Institut Teknologi Bandung', periode: '1 Juli 2025 - 1 Desember 2025', program: 'KP' }
+      { nama: 'Budi Santoso', instansi: 'Universitas Indonesia', periode: '1 Juli 2025 - 1 Desember 2025', program: 'Internship PTPL' },
+      { nama: 'Siti Aminah', instansi: 'Institut Teknologi Bandung', periode: '1 Juli 2025 - 1 Desember 2025', program: 'Internship Kemnaker' }
     ]
   },
-  { 
-    id: 5, 
-    name: 'Henry Adams', 
-    direktorat: 'Direktorat Utama & Pengawasan', 
-    fungsi: 'Sekretariat Perusahaan & Legal', 
+  {
+    id: 5,
+    name: 'Henry Adams',
+    direktorat: 'Direktorat Utama & Pengawasan',
+    fungsi: 'Sekretariat Perusahaan & Legal',
     subFungsi: 'Legal',
-    bimbingan: 0, 
+    bimbingan: 0,
     status: 'Aktif',
     jabatan: 'Legal Counsel',
     email: 'henry@pertamina.com',
@@ -111,7 +111,7 @@ export default function Page() {
   return (
     <>
       <Helmet>
-        <title> Mentor | SI-Magang</title>
+        <title> Mentor</title>
       </Helmet>
 
       <Container maxWidth="xl" sx={{ pb: 10, minHeight: '120vh' }}>
@@ -122,7 +122,7 @@ export default function Page() {
               <Iconify icon="solar:user-id-bold-duotone" width={28} />
             </Box>
             <Box>
-              <Typography variant="h5" fontWeight="bold">Data Mentor Magang</Typography>
+              <Typography variant="h5" fontWeight="bold">Data Mentor</Typography>
               <Typography variant="body2" sx={{ opacity: 0.9 }}>Total: 5 | Aktif: 3</Typography>
             </Box>
           </Box>
@@ -160,9 +160,6 @@ export default function Page() {
           </Box>
 
           {/* TABLE */}
-          <Typography variant="subtitle1" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-            <Iconify icon="solar:list-bold-duotone" sx={{ mr: 1 }} /> Daftar Mentor
-          </Typography>
           <TableContainer sx={{ minHeight: 400 }}>
             <Table size="small">
               <TableHead sx={{ bgcolor: '#f4f6f8' }}>
@@ -253,9 +250,9 @@ export default function Page() {
 
                       <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Status</Typography>
                       <Box sx={{ mt: 0.5 }}>
-                        <Chip 
-                          label={selectedMentor.status} 
-                          size="small" 
+                        <Chip
+                          label={selectedMentor.status}
+                          size="small"
                           variant="outlined"
                           color={selectedMentor.status === 'Aktif' ? 'success' : 'default'}
                           sx={{ fontWeight: 'bold', bgcolor: selectedMentor.status === 'Aktif' ? 'rgba(34, 197, 94, 0.1)' : 'transparent', border: 'none' }}
@@ -278,7 +275,7 @@ export default function Page() {
                     <Iconify icon="mingcute:add-line" sx={{ mr: 0.5 }} /> Tambah Peserta
                   </Button>
                 </Box>
-                
+
                 <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0', boxShadow: '0px 2px 4px rgba(0,0,0,0.02)' }}>
                   {selectedMentor.pesertaList.length > 0 ? (
                     <TableContainer>
@@ -299,7 +296,7 @@ export default function Page() {
                               <TableCell>{peserta.instansi}</TableCell>
                               <TableCell>{peserta.periode}</TableCell>
                               <TableCell>
-                                <Chip label={peserta.program} size="small" color={peserta.program === 'PKL' ? 'warning' : peserta.program === 'Internship' ? 'info' : 'primary'} variant="soft" sx={{ fontWeight: 'bold' }} />
+                                <Chip label={peserta.program} size="small" color={peserta.program === 'PKL' ? 'warning' : peserta.program === 'Internship PTPL' ? 'info' : 'primary'} variant="soft" sx={{ fontWeight: 'bold' }} />
                               </TableCell>
                               <TableCell align="center">
                                 <Stack direction="row" spacing={1} justifyContent="center">
@@ -377,22 +374,22 @@ export default function Page() {
               />
             </Grid>
             <Grid item xs={12}>
-              <TextField 
-                fullWidth 
-                label="Email" 
-                placeholder="Otomatis terisi dari User Management" 
+              <TextField
+                fullWidth
+                label="Email"
+                placeholder="Otomatis terisi dari User Management"
                 value={newMentorData?.email || ''}
-                disabled 
-                sx={{ bgcolor: newMentorData ? '#f1f5f9' : 'white' }} 
+                disabled
+                sx={{ bgcolor: newMentorData ? '#f1f5f9' : 'white' }}
               />
             </Grid>
             <Grid item xs={12}>
-              <TextField 
-                fullWidth 
-                label="Jabatan" 
-                placeholder="Contoh: Manager Logistik" 
+              <TextField
+                fullWidth
+                label="Jabatan"
+                placeholder="Contoh: Manager Logistik"
                 value={newMentorData?.jabatan || ''}
-                sx={{ bgcolor: 'white' }} 
+                sx={{ bgcolor: 'white' }}
               />
             </Grid>
             <Grid item xs={12} md={6}>

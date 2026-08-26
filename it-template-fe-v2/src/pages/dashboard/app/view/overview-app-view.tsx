@@ -210,13 +210,11 @@ export default function OverviewAppView() {
                     theme.palette.primary.main,
                     theme.palette.info.main,
                     theme.palette.warning.main,
-                    theme.palette.success.main,
                   ],
                   series: [
                     { label: 'PKL', value: 122 },
-                    { label: 'Internship', value: 53 },
-                    { label: 'Magang Hub', value: 44 },
-                    { label: 'Kerja Praktik', value: 26 },
+                    { label: 'Internship PTPL', value: 53 },
+                    { label: 'Internship Kemnaker', value: 44 },
                   ],
                 }}
                 sx={{ boxShadow: '0px 8px 16px -4px rgba(145, 158, 171, 0.12)', borderRadius: 2, border: '1px solid rgba(0,0,0,0.05)', bgcolor: 'white', height: '100%' }}

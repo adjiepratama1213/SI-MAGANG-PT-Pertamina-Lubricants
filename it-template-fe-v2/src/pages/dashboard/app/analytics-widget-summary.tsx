@@ -36,8 +36,8 @@ export default function AnalyticsWidgetSummary({
       sx={{
         ...bgGradient({
           direction: '135deg',
-          startColor: alpha(theme.palette[color].light, 0.2),
-          endColor: alpha(theme.palette[color].main, 0.2),
+          startColor: alpha((theme.palette as any)[color].light, 0.2),
+          endColor: alpha((theme.palette as any)[color].main, 0.2),
         }),
         p: 5,
         borderRadius: 2,

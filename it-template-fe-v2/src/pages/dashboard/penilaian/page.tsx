@@ -138,7 +138,7 @@ export default function Page() {
         <title> Penilaian | SI-Magang</title>
       </Helmet>
 
-      <Container maxWidth="xl">
+      <Container maxWidth="xl" sx={{ pb: 10, minHeight: '120vh' }}>
         <Box sx={{ p: 4, mb: 3, borderRadius: 2, background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -209,44 +209,41 @@ export default function Page() {
           </Grid>
         </Grid>
 
-        <Box sx={{ p: 2.5, mb: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #f1f5f9' }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Program</InputLabel><Select label="Program" defaultValue="all"><MenuItem value="all">Semua Program</MenuItem></Select></FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Direktorat</InputLabel><Select label="Direktorat" defaultValue="all"><MenuItem value="all">Semua Direktorat</MenuItem></Select></FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Fungsi</InputLabel><Select label="Fungsi" defaultValue="all"><MenuItem value="all">Semua Fungsi</MenuItem></Select></FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Sub Fungsi</InputLabel><Select label="Sub Fungsi" defaultValue="all"><MenuItem value="all">Semua Sub Fungsi</MenuItem></Select></FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Mentor</InputLabel><Select label="Mentor" defaultValue="all"><MenuItem value="all">Semua Mentor</MenuItem></Select></FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Status Penilaian</InputLabel><Select label="Status Penilaian" defaultValue="all"><MenuItem value="all">Semua Status</MenuItem></Select></FormControl>
-            </Grid>
-            
-            <Grid item xs={12} md={12} sx={{ display: 'flex', gap: 1 }}>
-              <TextField fullWidth size="small" placeholder="Cari nama peserta..." sx={{ bgcolor: 'white' }} />
-              <Button variant="contained" color="primary" sx={{ px: 3, boxShadow: 'none' }}>
-                <Iconify icon="eva:search-fill" />
-              </Button>
-              <Button variant="outlined" sx={{ px: 3, borderColor: '#94a3b8', color: 'text.primary', fontWeight: 'bold', '&:hover': { borderColor: '#64748b', bgcolor: '#f8fafc' } }}>
-                Reset
-              </Button>
-            </Grid>
-          </Grid>
-        </Box>
-
         <Card sx={{ p: 3 }}>
+          <Box sx={{ p: 2.5, mb: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #f1f5f9' }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Program</InputLabel><Select label="Program" defaultValue="all"><MenuItem value="all">Semua Program</MenuItem></Select></FormControl>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Direktorat</InputLabel><Select label="Direktorat" defaultValue="all"><MenuItem value="all">Semua Direktorat</MenuItem></Select></FormControl>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Fungsi</InputLabel><Select label="Fungsi" defaultValue="all"><MenuItem value="all">Semua Fungsi</MenuItem></Select></FormControl>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Sub Fungsi</InputLabel><Select label="Sub Fungsi" defaultValue="all"><MenuItem value="all">Semua Sub Fungsi</MenuItem></Select></FormControl>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Mentor</InputLabel><Select label="Mentor" defaultValue="all"><MenuItem value="all">Semua Mentor</MenuItem></Select></FormControl>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Status Penilaian</InputLabel><Select label="Status Penilaian" defaultValue="all"><MenuItem value="all">Semua Status</MenuItem></Select></FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={12} sx={{ display: 'flex', gap: 1 }}>
+                <TextField fullWidth size="small" placeholder="Cari nama peserta..." sx={{ bgcolor: 'white' }} />
+                <Button variant="contained" color="primary" sx={{ px: 3, boxShadow: 'none' }}>
+                  <Iconify icon="eva:search-fill" />
+                </Button>
+                <Button variant="outlined" sx={{ px: 3, borderColor: '#94a3b8', color: 'text.primary', fontWeight: 'bold', '&:hover': { borderColor: '#64748b', bgcolor: '#f8fafc' } }}>
+                  Reset
+                </Button>
+              </Grid>
+            </Grid>
+          </Box>
+
           {/* TABLE */}
-          <Typography variant="subtitle1" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-            <Iconify icon="solar:list-bold-duotone" sx={{ mr: 1 }} /> Daftar Penilaian Peserta
-          </Typography>
           <TableContainer sx={{ minHeight: 400 }}>
             <Table size="small">
               <TableHead sx={{ bgcolor: '#f4f6f8' }}>
