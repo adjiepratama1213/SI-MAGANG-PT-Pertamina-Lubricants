@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 // @mui
-import { Tab, Tabs } from '@mui/material';
+import { Tab, Tabs, Button } from '@mui/material';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -45,13 +45,22 @@ type Props = {
   isViewOnly?: boolean;
 };
 
-export default function UserEditDialog({ userId, open, onClose, isViewOnly }: Props) {
+export default function UserEditDialog({ userId, open, onClose, isViewOnly: initialViewOnly }: Props) {
   const { user: currentUser } = useGetUserDetail({ id: userId });
 
   const isIdaman = !!currentUser?.idamanId;
   const visibleTabs = isIdaman ? TABS.filter((tab) => tab.value !== 'security') : TABS;
 
   const [currentTab, setCurrentTab] = useState('general');
+  const [editMode, setEditMode] = useState(!initialViewOnly);
+
+  // Reset state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setEditMode(!initialViewOnly);
+      setCurrentTab('general');
+    }
+  }, [open, initialViewOnly]);
 
   const handleChangeTab = useCallback((event: React.SyntheticEvent, newValue: string) => {
     setCurrentTab(newValue);
@@ -67,39 +76,50 @@ export default function UserEditDialog({ userId, open, onClose, isViewOnly }: Pr
         sx: { minHeight: 480 },
       }}
     >
-      <DialogTitle sx={{ m: 0, p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>{isViewOnly ? 'View User' : 'Edit User'} {currentUser?.name ? `- ${currentUser.name}` : ''}</span>
+      <DialogTitle sx={{ m: 0, p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', boxShadow: 3 }}>
+        <span style={{ fontWeight: 700 }}>{!editMode ? 'View User' : 'Edit User'} {currentUser?.name ? `- ${currentUser.name}` : ''}</span>
         <IconButton
           aria-label="close"
           onClick={onClose}
           sx={{
-            color: (theme) => theme.palette.grey[500],
+            color: 'white',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
           }}
         >
           <Iconify icon="eva:close-fill" />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ pt: 1, pb: 4, px: 3 }}>
-        <Tabs
-          value={currentTab}
-          onChange={handleChangeTab}
-          sx={{
-            mb: { xs: 3, md: 5 },
-          }}
-        >
-          {visibleTabs.map((tab) => (
-            <Tab key={tab.value} label={tab.label} icon={tab.icon} value={tab.value} />
-          ))}
-        </Tabs>
+      <DialogContent dividers sx={{ pt: 2, pb: 4, px: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: { xs: 3, md: 5 } }}>
+          <Tabs
+            value={currentTab}
+            onChange={handleChangeTab}
+          >
+            {visibleTabs.map((tab) => (
+              <Tab key={tab.value} label={tab.label} icon={tab.icon} value={tab.value} />
+            ))}
+          </Tabs>
+
+          {!editMode && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => setEditMode(true)}
+              startIcon={<Iconify icon="solar:pen-bold" />}
+            >
+              Edit Data
+            </Button>
+          )}
+        </Box>
 
         {currentTab === 'general' && currentUser?.name !== undefined && (
           <>
-            {currentUser.role === 'SUPERSAIYAN' && <UserNewEditFormAdmin currentUser={currentUser} isViewOnly={isViewOnly} onClose={onClose} />}
-            {currentUser.role === 'EMPLOYEE' && <UserNewEditFormVp currentUser={currentUser} isViewOnly={isViewOnly} onClose={onClose} />}
-            {currentUser.role === 'EMPLOYEESTAFF' && <UserNewEditFormMentor currentUser={currentUser} isViewOnly={isViewOnly} onClose={onClose} />}
-            {currentUser.role === 'PESERTA' && <UserNewEditFormPeserta currentUser={currentUser} isViewOnly={isViewOnly} onClose={onClose} />}
-            {!['SUPERSAIYAN', 'EMPLOYEE', 'EMPLOYEESTAFF', 'PESERTA'].includes(currentUser.role) && <UserNewEditForm currentUser={currentUser} isViewOnly={isViewOnly} onClose={onClose} />}
+            {currentUser.role === 'SUPERSAIYAN' && <UserNewEditFormAdmin currentUser={currentUser} isViewOnly={!editMode} onClose={onClose} />}
+            {currentUser.role === 'EMPLOYEE' && <UserNewEditFormVp currentUser={currentUser} isViewOnly={!editMode} onClose={onClose} />}
+            {currentUser.role === 'EMPLOYEESTAFF' && <UserNewEditFormMentor currentUser={currentUser} isViewOnly={!editMode} onClose={onClose} />}
+            {currentUser.role === 'PESERTA' && <UserNewEditFormPeserta currentUser={currentUser} isViewOnly={!editMode} onClose={onClose} />}
+            {!['SUPERSAIYAN', 'EMPLOYEE', 'EMPLOYEESTAFF', 'PESERTA'].includes(currentUser.role) && <UserNewEditForm currentUser={currentUser} isViewOnly={!editMode} onClose={onClose} />}
           </>
         )}
         {currentTab === 'security' && currentUser?.name !== undefined && (

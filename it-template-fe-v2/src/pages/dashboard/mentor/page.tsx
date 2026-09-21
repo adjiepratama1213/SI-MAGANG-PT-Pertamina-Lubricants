@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
   Container, Typography, Card, Box, Grid, Stack,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination,
   Button, MenuItem, Select, FormControl, InputLabel, TextField, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider, Autocomplete
 } from '@mui/material';
 import Iconify from 'src/components/iconify';
+import { useSearchUsers } from 'src/pages/user-mgmt/query';
+import { toast } from 'react-toastify';
+import axiosInstance from 'src/utils/axios';
+import { endpoints } from 'src/utils/endpoints';
 
 const DUMMY_PESERTA = [
   { id: 201, nama: 'Fajar Nugroho', instansi: 'Universitas Brawijaya', periode: '1 Ags 2026 - 31 Des 2026', program: 'PKL' },
@@ -91,21 +95,188 @@ const DUMMY_DATA = [
 ];
 
 export default function Page() {
+  const { userSearchData, refetchSearch } = useSearchUsers('');
+
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedMentor, setSelectedMentor] = useState<any>(null);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [newMentorData, setNewMentorData] = useState<any>(null);
   const [openAddPesertaDialog, setOpenAddPesertaDialog] = useState(false);
   const [selectedPeserta, setSelectedPeserta] = useState<any>(null);
+  const [originalPesertaIds, setOriginalPesertaIds] = useState<string[]>([]);
+  const [isSavingMain, setIsSavingMain] = useState(false);
+  
+  const [openDeleteMentorConfirm, setOpenDeleteMentorConfirm] = useState(false);
+  const [mentorToDelete, setMentorToDelete] = useState<any>(null);
+  
+  const mentors = useMemo(() => {
+    if (!userSearchData || !Array.isArray(userSearchData)) return [];
+    const vps = userSearchData.filter((u: any) => u?.role === 'EMPLOYEE');
+    
+    return userSearchData
+      .filter((u: any) => u?.role === 'EMPLOYEESTAFF')
+      .map((u: any) => {
+        const vp = vps.find((v: any) => v.employeeProfile?.fungsi === u?.employeeProfile?.fungsi);
+        return {
+          id: u?.id,
+          name: u?.name || 'Unknown',
+          direktorat: u?.employeeProfile?.direktorat || '-',
+          fungsi: u?.employeeProfile?.fungsi || '-',
+          subFungsi: u?.employeeProfile?.subFungsi || '-',
+          vpName: vp ? vp.name : '-',
+          bimbingan: u?.employeeProfile?.internsMentored?.length || 0,
+          status: (u?.employeeProfile?.internsMentored?.length || 0) > 0 ? 'Aktif' : 'Tidak Aktif',
+          jabatan: u?.employeeProfile?.jabatan || '-',
+          email: u?.email || '',
+          employeeProfile: u?.employeeProfile,
+          pesertaList: u?.employeeProfile?.internsMentored?.map((intern: any) => ({
+            id: intern?.id,
+            nama: intern?.user?.name || '-',
+            instansi: intern?.university || '-',
+            periode: `${intern?.startDate ? new Date(intern.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'} - ${intern?.endDate ? new Date(intern.endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}`,
+            program: intern?.program || '-'
+          })) || []
+        };
+      });
+  }, [userSearchData]);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const [filterDir, setFilterDir] = useState('all');
+  const [filterFungsi, setFilterFungsi] = useState('all');
+  const [filterSubFungsi, setFilterSubFungsi] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [detailPage, setDetailPage] = useState(0);
+  const [detailRowsPerPage, setDetailRowsPerPage] = useState(5);
+
+  const handleChangePage = (event: unknown, newPage: number) => setPage(newPage);
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+  const handleDetailChangePage = (event: unknown, newPage: number) => setDetailPage(newPage);
+  const handleDetailChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setDetailRowsPerPage(parseInt(event.target.value, 10));
+    setDetailPage(0);
+  };
+
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const fetchOrgs = async () => {
+    try {
+      const res = await axiosInstance.get(endpoints.employeeProfile.organizationsHierarchy);
+      setOrganizations(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrgs();
+  }, []);
 
   const handleOpenDialog = (data: any) => {
     setSelectedMentor(data);
+    setOriginalPesertaIds(data.pesertaList.map((p: any) => p.id));
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setSelectedMentor(null);
+  };
+
+  const handleSaveMentor = () => {
+    if (newMentorData) {
+      setOpenAddDialog(false);
+      setNewMentorData(null);
+    }
+  };
+
+  const handleRemovePeserta = (internId: string) => {
+    if (!internId) return;
+    setSelectedMentor((prev: any) => {
+       if (!prev) return prev;
+       const updatedPesertaList = prev.pesertaList.filter((p: any) => p.id !== internId);
+       return {
+          ...prev,
+          pesertaList: updatedPesertaList,
+          bimbingan: updatedPesertaList.length
+       };
+    });
+  };
+
+  const handleSaveMainDialog = async () => {
+    if (!selectedMentor) return;
+    setIsSavingMain(true);
+    const currentPesertaIds = selectedMentor.pesertaList.map((p: any) => p.id);
+    const addedIds = currentPesertaIds.filter((id: string) => !originalPesertaIds.includes(id));
+    const removedIds = originalPesertaIds.filter((id: string) => !currentPesertaIds.includes(id));
+
+    try {
+      for (const id of addedIds) {
+        await axiosInstance.patch(endpoints.internProfile.details(id), { mentorProfileId: selectedMentor.employeeProfile.id });
+      }
+      for (const id of removedIds) {
+        await axiosInstance.patch(endpoints.internProfile.details(id), { mentorProfileId: null });
+      }
+      
+      if (addedIds.length > 0 || removedIds.length > 0) {
+        toast.success('Data peserta bimbingan berhasil diperbarui!');
+        if (refetchSearch) await refetchSearch();
+      }
+      handleCloseDialog();
+    } catch (err) {
+      console.error(err);
+      const errorMessage = err?.message || 'Terjadi kesalahan saat menyimpan data';
+      toast.error(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
+    } finally {
+      setIsSavingMain(false);
+    }
+  };
+
+  const uniqueDirs = Array.from(new Set((organizations || []).map(o => o.name)));
+  const uniqueFungsi = Array.from(new Set((organizations || []).flatMap(o => (o.fungsi || []).map((f: any) => f.name))));
+  const uniqueSubFungsi = Array.from(new Set((organizations || []).flatMap(o => (o.fungsi || []).flatMap((f: any) => (f.subFungsi || []).map((sf: any) => sf.name)))));
+
+  const filteredMentors = mentors.filter((m) => {
+    const matchName = (m.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchDir = filterDir === 'all' || m.direktorat === filterDir;
+    const matchFungsi = filterFungsi === 'all' || m.fungsi === filterFungsi;
+    const matchSubFungsi = filterSubFungsi === 'all' || m.subFungsi === filterSubFungsi;
+    const matchStatus = filterStatus === 'all' || (m.status || '').toLowerCase() === (filterStatus === 'aktif' ? 'aktif' : 'tidak aktif');
+    
+    return matchName && matchDir && matchFungsi && matchSubFungsi && matchStatus;
+  });
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setFilterDir('all');
+    setFilterFungsi('all');
+    setFilterSubFungsi('all');
+    setFilterStatus('all');
+    setPage(0);
+  };
+
+  const handleDeleteMentor = (mentor: any) => {
+    setMentorToDelete(mentor);
+    setOpenDeleteMentorConfirm(true);
+  };
+
+  const confirmDeleteMentor = async () => {
+    if (!mentorToDelete) return;
+    try {
+      await axiosInstance.delete(endpoints.user.details(mentorToDelete.id));
+      toast.success('Berhasil menghapus mentor!');
+      if (refetchSearch) await refetchSearch();
+      setOpenDeleteMentorConfirm(false);
+      setMentorToDelete(null);
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal menghapus mentor.');
+    }
   };
 
   return (
@@ -123,12 +294,12 @@ export default function Page() {
             </Box>
             <Box>
               <Typography variant="h5" fontWeight="bold">Data Mentor</Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>Total: 5 | Aktif: 3</Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                Total: {mentors.length} | Aktif: {mentors.filter(m => m.status === 'Aktif').length} | Tidak Aktif: {mentors.filter(m => m.status === 'Tidak Aktif').length}
+              </Typography>
             </Box>
           </Box>
-          <Button variant="contained" onClick={() => setOpenAddDialog(true)} sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9' }, fontWeight: 'bold' }}>
-            <Iconify icon="mingcute:add-line" sx={{ mr: 1 }} /> Tambah Mentor
-          </Button>
+
         </Box>
 
         <Card sx={{ p: 3 }}>
@@ -136,23 +307,59 @@ export default function Page() {
           <Box sx={{ p: 2.5, mb: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #f1f5f9' }}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} md={3}>
-                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Direktorat</InputLabel><Select label="Direktorat" defaultValue="all"><MenuItem value="all">Semua Direktorat</MenuItem></Select></FormControl>
+                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
+                  <InputLabel>Direktorat</InputLabel>
+                  <Select label="Direktorat" value={filterDir} onChange={(e) => { setFilterDir(e.target.value); setFilterFungsi('all'); setFilterSubFungsi('all'); }}>
+                    <MenuItem value="all">Semua Direktorat</MenuItem>
+                    {uniqueDirs.map((dir: any) => <MenuItem key={dir} value={dir}>{dir}</MenuItem>)}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} md={3}>
-                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Fungsi</InputLabel><Select label="Fungsi" defaultValue="all"><MenuItem value="all">Semua Fungsi</MenuItem></Select></FormControl>
+                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
+                  <InputLabel>Fungsi</InputLabel>
+                  <Select label="Fungsi" value={filterFungsi} onChange={(e) => { setFilterFungsi(e.target.value); setFilterSubFungsi('all'); }}>
+                    <MenuItem value="all">Semua Fungsi</MenuItem>
+                    {uniqueFungsi.map((f: any) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} md={3}>
-                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Sub Fungsi</InputLabel><Select label="Sub Fungsi" defaultValue="all"><MenuItem value="all">Semua Sub Fungsi</MenuItem></Select></FormControl>
+                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
+                  <InputLabel>Sub Fungsi</InputLabel>
+                  <Select label="Sub Fungsi" value={filterSubFungsi} onChange={(e) => setFilterSubFungsi(e.target.value)}>
+                    <MenuItem value="all">Semua Sub Fungsi</MenuItem>
+                    {uniqueSubFungsi.map((sf: any) => <MenuItem key={sf} value={sf}>{sf}</MenuItem>)}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} md={3}>
-                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Status</InputLabel><Select label="Status" defaultValue="all"><MenuItem value="all">Semua Status</MenuItem><MenuItem value="aktif">Aktif</MenuItem><MenuItem value="tidak_aktif">Tidak Aktif</MenuItem></Select></FormControl>
+                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
+                  <InputLabel>Status</InputLabel>
+                  <Select label="Status" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                    <MenuItem value="all">Semua Status</MenuItem>
+                    <MenuItem value="aktif">Aktif</MenuItem>
+                    <MenuItem value="tidak_aktif">Tidak Aktif</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} md={12} sx={{ display: 'flex', gap: 1 }}>
-                <TextField fullWidth size="small" placeholder="Cari nama mentor..." sx={{ bgcolor: 'white' }} />
+                <TextField 
+                  fullWidth 
+                  size="small" 
+                  placeholder="Cari nama mentor..." 
+                  sx={{ bgcolor: 'white' }} 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
                 <Button variant="contained" color="primary" sx={{ px: 3, boxShadow: 'none' }}>
                   <Iconify icon="eva:search-fill" />
                 </Button>
-                <Button variant="outlined" sx={{ px: 3, borderColor: '#94a3b8', color: 'text.primary', fontWeight: 'bold', '&:hover': { borderColor: '#64748b', bgcolor: '#f8fafc' } }}>
+                <Button 
+                  variant="outlined" 
+                  sx={{ px: 3, borderColor: '#94a3b8', color: 'text.primary', fontWeight: 'bold', '&:hover': { borderColor: '#64748b', bgcolor: '#f8fafc' } }}
+                  onClick={handleResetFilters}
+                >
                   Reset
                 </Button>
               </Grid>
@@ -160,24 +367,23 @@ export default function Page() {
           </Box>
 
           {/* TABLE */}
-          <TableContainer sx={{ minHeight: 400 }}>
-            <Table size="small">
+          <TableContainer>
+            <Table size="small" sx={{ tableLayout: 'fixed' }}>
               <TableHead sx={{ bgcolor: '#f4f6f8' }}>
                 <TableRow>
-                  <TableCell>Nama Mentor</TableCell>
-                  <TableCell>Direktorat</TableCell>
-                  <TableCell>Fungsi</TableCell>
-                  <TableCell>Sub Fungsi</TableCell>
-                  <TableCell>Jumlah Peserta</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="center">Aksi</TableCell>
+                  <TableCell width="22%">Nama Mentor</TableCell>
+                  <TableCell width="18%">Direktorat</TableCell>
+                  <TableCell width="15%">Fungsi</TableCell>
+                  <TableCell width="15%">Sub Fungsi</TableCell>
+                  <TableCell width="12%">Jumlah Peserta</TableCell>
+                  <TableCell width="10%">Status</TableCell>
+                  <TableCell align="center" width="8%">Aksi</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {DUMMY_DATA.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box sx={{ width: 30, height: 30, borderRadius: '50%', bgcolor: 'primary.main', mr: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12 }}>{row.name.substring(0, 2).toUpperCase()}</Box>
+                {filteredMentors.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => (
+                  <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { bgcolor: 'rgba(0,0,0,0.01)' } }}>
+                    <TableCell>
                       {row.name}
                     </TableCell>
                     <TableCell>{row.direktorat}</TableCell>
@@ -185,20 +391,30 @@ export default function Page() {
                     <TableCell>{row.subFungsi}</TableCell>
                     <TableCell>{row.bimbingan} Peserta</TableCell>
                     <TableCell>
-                      <Typography variant="caption" sx={{ color: row.status === 'Aktif' ? 'success.main' : 'text.secondary', fontWeight: 'bold' }}>
-                        {row.status}
-                      </Typography>
+                      <Chip label={row.status} size="small" color={row.status === 'Aktif' ? 'success' : 'default'} variant="soft" sx={{ fontWeight: 'bold' }} />
                     </TableCell>
-                    <TableCell align="center">
-                      <Button variant="outlined" size="small" color="primary" sx={{ whiteSpace: 'nowrap', minWidth: 'auto', px: 1.5, py: 0.5, borderRadius: 1 }} onClick={() => handleOpenDialog(row)}>
-                        Detail
-                      </Button>
+                    <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                      <IconButton size="small" color="primary" sx={{ p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0', mr: 1 }} onClick={() => handleOpenDialog(row)} title="Detail / Edit">
+                        <Iconify icon="solar:eye-bold-duotone" width={20} />
+                      </IconButton>
+                      <IconButton size="small" color="error" title="Hapus" sx={{ p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0' }} onClick={() => handleDeleteMentor(row)}>
+                        <Iconify icon="solar:trash-bin-trash-bold-duotone" width={20} />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={filteredMentors.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
         </Card>
       </Container>
 
@@ -209,7 +425,7 @@ export default function Page() {
             <DialogTitle sx={{ m: 0, p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white' }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 20, fontWeight: 'bold' }}>
-                  {selectedMentor.name.substring(0, 2).toUpperCase()}
+                  {(selectedMentor.name || 'UN').substring(0, 2).toUpperCase()}
                 </Box>
                 <Box>
                   <Typography variant="h6" fontWeight="bold">Detail Mentor</Typography>
@@ -248,6 +464,7 @@ export default function Page() {
                       <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Jabatan</Typography>
                       <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>{selectedMentor.jabatan}</Typography>
 
+
                       <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Status</Typography>
                       <Box sx={{ mt: 0.5 }}>
                         <Chip
@@ -278,41 +495,47 @@ export default function Page() {
 
                 <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0', boxShadow: '0px 2px 4px rgba(0,0,0,0.02)' }}>
                   {selectedMentor.pesertaList.length > 0 ? (
-                    <TableContainer>
-                      <Table size="small">
-                        <TableHead sx={{ bgcolor: '#f4f6f8' }}>
-                          <TableRow>
-                            <TableCell>Nama</TableCell>
-                            <TableCell>Asal Instansi</TableCell>
-                            <TableCell>Periode</TableCell>
-                            <TableCell>Program</TableCell>
-                            <TableCell align="center">Aksi</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {selectedMentor.pesertaList.map((peserta: any, idx: number) => (
-                            <TableRow key={idx}>
-                              <TableCell sx={{ fontWeight: 'bold' }}>{peserta.nama}</TableCell>
-                              <TableCell>{peserta.instansi}</TableCell>
-                              <TableCell>{peserta.periode}</TableCell>
-                              <TableCell>
-                                <Chip label={peserta.program} size="small" color={peserta.program === 'PKL' ? 'warning' : peserta.program === 'Internship PTPL' ? 'info' : 'primary'} variant="soft" sx={{ fontWeight: 'bold' }} />
-                              </TableCell>
-                              <TableCell align="center">
-                                <Stack direction="row" spacing={1} justifyContent="center">
-                                  <IconButton size="small" color="primary" sx={{ bgcolor: 'rgba(0, 79, 159, 0.08)' }}>
-                                    <Iconify icon="solar:pen-bold" width={16} />
-                                  </IconButton>
-                                  <IconButton size="small" color="error" sx={{ bgcolor: 'rgba(255, 86, 48, 0.08)' }}>
-                                    <Iconify icon="solar:trash-bin-trash-bold" width={16} />
-                                  </IconButton>
-                                </Stack>
-                              </TableCell>
+                    <>
+                      <TableContainer>
+                        <Table size="small">
+                          <TableHead sx={{ bgcolor: '#f4f6f8' }}>
+                            <TableRow>
+                              <TableCell>Nama</TableCell>
+                              <TableCell>Asal Instansi</TableCell>
+                              <TableCell>Periode</TableCell>
+                              <TableCell>Program</TableCell>
+                              <TableCell align="center">Aksi</TableCell>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
+                          </TableHead>
+                          <TableBody>
+                            {selectedMentor.pesertaList.slice(detailPage * detailRowsPerPage, detailPage * detailRowsPerPage + detailRowsPerPage).map((peserta: any, idx: number) => (
+                              <TableRow key={peserta.id || idx} sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                                <TableCell sx={{ fontWeight: 'bold' }}>{peserta.nama}</TableCell>
+                                <TableCell>{peserta.instansi}</TableCell>
+                                <TableCell>{peserta.periode}</TableCell>
+                                <TableCell>
+                                  <Chip label={peserta.program} size="small" color={peserta.program === 'PKL' ? 'warning' : peserta.program === 'Internship PTPL' ? 'info' : 'primary'} variant="soft" sx={{ fontWeight: 'bold' }} />
+                                </TableCell>
+                                <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                                  <IconButton size="small" color="error" title="Hapus dari Mentor" sx={{ p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0' }} onClick={() => handleRemovePeserta(peserta.id)}>
+                                    <Iconify icon="solar:trash-bin-trash-bold-duotone" width={20} />
+                                  </IconButton>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                      <TablePagination
+                        rowsPerPageOptions={[5, 10, 25]}
+                        component="div"
+                        count={selectedMentor.pesertaList.length}
+                        rowsPerPage={detailRowsPerPage}
+                        page={detailPage}
+                        onPageChange={handleDetailChangePage}
+                        onRowsPerPageChange={handleDetailChangeRowsPerPage}
+                      />
+                    </>
                   ) : (
                     <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', textAlign: 'center', py: 2 }}>
                       Belum ada peserta bimbingan.
@@ -323,8 +546,11 @@ export default function Page() {
 
             </DialogContent>
             <DialogActions sx={{ p: 3, pt: 2, bgcolor: '#f8fafc' }}>
-              <Button onClick={handleCloseDialog} variant="contained" sx={{ bgcolor: '#e2e8f0', color: '#475569', '&:hover': { bgcolor: '#cbd5e1' } }}>
-                Tutup
+              <Button onClick={handleCloseDialog} variant="contained" disabled={isSavingMain} sx={{ bgcolor: '#e2e8f0', color: '#475569', '&:hover': { bgcolor: '#cbd5e1' }, boxShadow: 'none' }}>
+                Batal
+              </Button>
+              <Button variant="contained" color="primary" onClick={handleSaveMainDialog} disabled={isSavingMain} sx={{ boxShadow: 'none' }}>
+                {isSavingMain ? 'Menyimpan...' : 'Simpan'}
               </Button>
             </DialogActions>
           </>
@@ -355,8 +581,8 @@ export default function Page() {
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Autocomplete
-                options={DUMMY_USERS}
-                getOptionLabel={(option) => option.name}
+                options={Array.isArray(userSearchData) ? userSearchData.filter((user: any) => user?.role === 'EMPLOYEESTAFF') : []}
+                getOptionLabel={(option) => option?.name || 'Unknown'}
                 onChange={(event, newValue) => {
                   setNewMentorData(newValue);
                 }}
@@ -367,7 +593,7 @@ export default function Page() {
                   <li {...props} key={option.id}>
                     <Box>
                       <Typography variant="body2" fontWeight="bold">{option.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{option.email} • {option.jabatan}</Typography>
+                      <Typography variant="caption" color="text.secondary">{option.email} • {option.employeeProfile?.jabatan || '-'}</Typography>
                     </Box>
                   </li>
                 )}
@@ -387,32 +613,41 @@ export default function Page() {
               <TextField
                 fullWidth
                 label="Jabatan"
-                placeholder="Contoh: Manager Logistik"
-                value={newMentorData?.jabatan || ''}
-                sx={{ bgcolor: 'white' }}
+                placeholder="Otomatis terisi dari User Management"
+                value={newMentorData?.employeeProfile?.jabatan || ''}
+                disabled
+                sx={{ bgcolor: newMentorData ? '#f1f5f9' : 'white' }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth sx={{ bgcolor: 'white' }}>
-                <InputLabel>Direktorat</InputLabel>
-                <Select label="Direktorat" defaultValue="">
-                  <MenuItem value="1">Direktorat Utama & Pengawasan</MenuItem>
-                  <MenuItem value="2">Direktorat Operasi</MenuItem>
-                  <MenuItem value="3">Direktorat Sales & Marketing</MenuItem>
-                  <MenuItem value="4">Direktorat Finance & Business Support</MenuItem>
-                </Select>
-              </FormControl>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Direktorat"
+                placeholder="Otomatis"
+                value={newMentorData?.employeeProfile?.direktorat || ''}
+                disabled
+                sx={{ bgcolor: newMentorData ? '#f1f5f9' : 'white' }}
+              />
             </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth sx={{ bgcolor: 'white' }}>
-                <InputLabel>Fungsi</InputLabel>
-                <Select label="Fungsi" defaultValue="">
-                  <MenuItem value="1">Internal Audit</MenuItem>
-                  <MenuItem value="2">Supply Chain dan Logistik</MenuItem>
-                  <MenuItem value="3">Sales Region</MenuItem>
-                  <MenuItem value="4">Keuangan & Akuntansi</MenuItem>
-                </Select>
-              </FormControl>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Fungsi"
+                placeholder="Otomatis"
+                value={newMentorData?.employeeProfile?.fungsi || ''}
+                disabled
+                sx={{ bgcolor: newMentorData ? '#f1f5f9' : 'white' }}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Sub Fungsi"
+                placeholder="Otomatis"
+                value={newMentorData?.employeeProfile?.subFungsi || ''}
+                disabled
+                sx={{ bgcolor: newMentorData ? '#f1f5f9' : 'white' }}
+              />
             </Grid>
           </Grid>
         </DialogContent>
@@ -420,8 +655,8 @@ export default function Page() {
           <Button onClick={() => setOpenAddDialog(false)} color="inherit" variant="outlined" sx={{ bgcolor: '#f4f6f8' }}>
             Batal
           </Button>
-          <Button variant="contained" color="primary" onClick={() => setOpenAddDialog(false)} sx={{ background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)' }}>
-            <Iconify icon="solar:diskette-bold" sx={{ mr: 1 }} /> Simpan Mentor
+          <Button variant="contained" color="primary" onClick={handleSaveMentor} sx={{ background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', boxShadow: 'none' }}>
+            Simpan
           </Button>
         </DialogActions>
       </Dialog>
@@ -437,27 +672,79 @@ export default function Page() {
         <DialogContent sx={{ pb: 3, pt: '16px !important' }}>
           <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>Pilih peserta magang (yang sudah diterima) untuk ditugaskan kepada mentor ini.</Typography>
           <Autocomplete
-            options={DUMMY_PESERTA}
-            getOptionLabel={(option) => option.nama}
+            options={Array.isArray(userSearchData) ? userSearchData.filter((u: any) => u?.role === 'PESERTA') : []}
+            getOptionLabel={(option) => option?.name || 'Unknown'}
+            getOptionDisabled={(option) => !!option.internProfile?.mentorProfileId}
             onChange={(event, newValue) => setSelectedPeserta(newValue)}
             renderInput={(params) => <TextField {...params} label="Cari Peserta..." placeholder="Ketik nama peserta" size="small" />}
-            renderOption={(props, option) => (
-              <li {...props} key={option.id}>
-                <Box>
-                  <Typography variant="body2" fontWeight="bold">{option.nama}</Typography>
-                  <Typography variant="caption" color="text.secondary">{option.instansi} • {option.program}</Typography>
-                </Box>
-              </li>
-            )}
+            renderOption={(props, option) => {
+              const hasMentor = !!option.internProfile?.mentorProfileId;
+              const mentorName = option.internProfile?.mentor?.user?.name || 'Mentor lain';
+              return (
+                <li {...props} key={option.id}>
+                  <Box>
+                    <Typography variant="body2" fontWeight="bold">
+                      {option.name}
+                      {hasMentor && <span style={{ color: '#ef4444', marginLeft: 6, fontSize: '0.75rem', fontWeight: 'normal' }}>(Sudah dibimbing oleh {mentorName})</span>}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">{option.internProfile?.university || '-'} • {option.internProfile?.program || '-'}</Typography>
+                  </Box>
+                </li>
+              );
+            }}
           />
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0 }}>
           <Button onClick={() => setOpenAddPesertaDialog(false)} color="inherit">Batal</Button>
           <Button variant="contained" color="primary" onClick={() => {
-            // Ideally we would add it to selectedMentor.pesertaList here, but for dummy just close
-            setOpenAddPesertaDialog(false);
+            if (selectedPeserta && selectedMentor) {
+               // Update local state regardless to show UI changes for the dialog
+               const formatDateStr = (d: any) => d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+               const updatedPesertaList = [...selectedMentor.pesertaList, {
+                 id: selectedPeserta.internProfile?.id,
+                 nama: selectedPeserta.name,
+                 instansi: selectedPeserta.internProfile?.university || '-',
+                 periode: `${formatDateStr(selectedPeserta.internProfile?.startDate)} - ${formatDateStr(selectedPeserta.internProfile?.endDate)}`,
+                 program: selectedPeserta.internProfile?.program || '-'
+               }];
+               const updatedMentor = { ...selectedMentor, pesertaList: updatedPesertaList, bimbingan: updatedPesertaList.length };
+               setSelectedMentor(updatedMentor);
+               
+               setOpenAddPesertaDialog(false);
+            }
           }}>
             Simpan
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* CONFIRM DELETE DIALOG FOR MENTOR */}
+      <Dialog open={openDeleteMentorConfirm} onClose={() => setOpenDeleteMentorConfirm(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ m: 0, p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)', color: 'white' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Iconify icon="solar:danger-triangle-bold-duotone" width={24} />
+            </Box>
+            <Typography variant="h6" fontWeight="bold">Konfirmasi Hapus</Typography>
+          </Box>
+          <IconButton onClick={() => setOpenDeleteMentorConfirm(false)} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}>
+            <Iconify icon="eva:close-fill" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 4, pt: '40px !important' }}>
+          <Typography variant="body1" textAlign="center">
+            Apakah Anda yakin ingin menghapus mentor <strong style={{ color: '#ef4444' }}>{mentorToDelete?.name}</strong>?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mt: 1 }}>
+            Tindakan ini akan menghapus data mentor sepenuhnya dari sistem dan tidak dapat dibatalkan.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 1, justifyContent: 'center', gap: 2 }}>
+          <Button onClick={() => setOpenDeleteMentorConfirm(false)} variant="outlined" color="inherit" sx={{ minWidth: 120 }}>
+            Batal
+          </Button>
+          <Button onClick={confirmDeleteMentor} variant="contained" color="error" sx={{ minWidth: 120, boxShadow: 'none' }}>
+            Hapus
           </Button>
         </DialogActions>
       </Dialog>

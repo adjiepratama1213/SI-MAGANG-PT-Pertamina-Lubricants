@@ -120,17 +120,17 @@ export default function JwtLoginView() {
 
   const renderHead = (
     <Stack spacing={2} sx={{ mb: 2 }}>
-      <Typography variant="h4">Sign in</Typography>
+      <Typography variant="h4">Masuk</Typography>
 
       <IdamanLoginView />
 
-      <Divider sx={{ my: { xs: 2, md: 4 } }}>or</Divider>
+      <Divider sx={{ my: { xs: 2, md: 4 } }}>atau</Divider>
 
       <Stack direction="row" spacing={0.5}>
-        <Typography variant="body2">New user?</Typography>
+        <Typography variant="body2">Belum punya akun?</Typography>
 
         <Link component={RouterLink} href={paths.auth.register} variant="subtitle2">
-          Create an account
+          Daftar Magang
         </Link>
       </Stack>
     </Stack>
@@ -145,11 +145,11 @@ export default function JwtLoginView() {
       {!!errorMsg && <Alert severity="error">{errorMsg}</Alert>}
       {!authorizationCode && (
         <>
-          <RHFTextField name="email" label="Email address" />
+          <RHFTextField name="email" label="Alamat Email" />
 
           <RHFTextField
             name="password"
-            label="Password"
+            label="Kata Sandi"
             type={password.value ? 'text' : 'password'}
             InputProps={{
               endAdornment: (
@@ -189,7 +189,7 @@ export default function JwtLoginView() {
         underline="always"
         sx={{ alignSelf: 'flex-end' }}
       >
-        Forgot password?
+        Lupa kata sandi?
       </Link>
 
       <LoadingButton
@@ -207,7 +207,7 @@ export default function JwtLoginView() {
           }),
         }}
       >
-        Login
+        Masuk
       </LoadingButton>
 
       <LoadingButton
@@ -218,7 +218,7 @@ export default function JwtLoginView() {
         onClick={() => setOpenQR(true)}
         variant="outlined"
       >
-        Login via QR
+        Masuk via QR
       </LoadingButton>
     </Stack>
   );
@@ -239,10 +239,10 @@ export default function JwtLoginView() {
           {authorizationCode && (
             <Stack>
               <Typography variant="caption">
-                Signing you in... Taking longer than expected?
+                Sedang memproses... Membutuhkan waktu lebih lama dari biasanya?
               </Typography>
               <Link component={RouterLink} href={paths.auth.login} variant="caption" color="info">
-                Click Here for Retry
+                Klik Di Sini untuk Mengulang
               </Link>
             </Stack>
           )}

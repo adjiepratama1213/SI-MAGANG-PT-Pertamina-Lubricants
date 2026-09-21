@@ -8,6 +8,7 @@ import TableCell from '@mui/material/TableCell';
 import IconButton from '@mui/material/IconButton';
 import ListItemText from '@mui/material/ListItemText';
 import Box from '@mui/material/Box';
+import Divider from '@mui/material/Divider';
 // hooks
 import { useBoolean } from 'src/hooks/use-boolean';
 // types
@@ -28,6 +29,8 @@ type Props = {
   row: IUserItem;
   onSelectRow: VoidFunction;
   onDeleteRow: VoidFunction;
+  onApproveRow?: VoidFunction;
+  onRejectRow?: VoidFunction;
 };
 
 export default function UserTableRow({
@@ -36,6 +39,8 @@ export default function UserTableRow({
   onEditRow,
   onSelectRow,
   onDeleteRow,
+  onApproveRow,
+  onRejectRow,
 }: Props) {
   const { name, Position, role, status, email } = row;
 
@@ -51,18 +56,15 @@ export default function UserTableRow({
           <Checkbox checked={selected} onClick={onSelectRow} />
         </TableCell>
 
-        <TableCell sx={{ display: 'flex', alignItems: 'center' }}>
-          <Box sx={{ width: 36, height: 36, borderRadius: '50%', bgcolor: 'primary.light', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: 14 }}>
-            {name ? name.substring(0, 2).toUpperCase() : 'US'}
-          </Box>
-
+        <TableCell>
           <ListItemText
             primary={name}
             secondary={email}
-            primaryTypographyProps={{ typography: 'body2' }}
+            primaryTypographyProps={{ typography: 'subtitle2' }}
             secondaryTypographyProps={{
               component: 'span',
-              color: 'text.disabled',
+              color: 'text.secondary',
+              typography: 'body2',
             }}
           />
         </TableCell>
@@ -99,22 +101,69 @@ export default function UserTableRow({
         </TableCell>
 
         <TableCell align="center" sx={{ px: 1, whiteSpace: 'nowrap' }}>
-          <IconButton color="default" onClick={quickView.onTrue} sx={{ '&:hover': { color: 'primary.main', bgcolor: 'primary.lighter' } }}>
-            <Iconify icon="solar:eye-bold" />
-          </IconButton>
-          <IconButton color="info" onClick={editPopup.onTrue} sx={{ '&:hover': { color: 'info.main', bgcolor: 'info.lighter' } }}>
-            <Iconify icon="solar:pen-bold" />
-          </IconButton>
-          <IconButton color="error" onClick={confirm.onTrue} sx={{ '&:hover': { color: 'error.main', bgcolor: 'error.lighter' } }}>
-            <Iconify icon="solar:trash-bin-trash-bold" />
+          <IconButton color={popover.open ? 'inherit' : 'default'} onClick={popover.onOpen}>
+            <Iconify icon="eva:more-vertical-fill" />
           </IconButton>
         </TableCell>
       </TableRow>
 
+      <CustomPopover
+        open={popover.open}
+        onClose={popover.onClose}
+        arrow="right-top"
+        sx={{ width: 180 }}
+      >
+        {status === 'pending' && onApproveRow && (
+          <MenuItem
+            onClick={() => {
+              onApproveRow();
+              popover.onClose();
+            }}
+            sx={{ color: 'success.main' }}
+          >
+            <Iconify icon="solar:check-circle-bold" />
+            Terima Peserta
+          </MenuItem>
+        )}
+
+        {status === 'pending' && onRejectRow && (
+          <MenuItem
+            onClick={() => {
+              onRejectRow();
+              popover.onClose();
+            }}
+            sx={{ color: 'warning.main' }}
+          >
+            <Iconify icon="solar:close-circle-bold" />
+            Tolak Peserta
+          </MenuItem>
+        )}
+
+        {status === 'pending' && (onApproveRow || onRejectRow) && <Divider sx={{ borderStyle: 'dashed' }} />}
+
+        <MenuItem
+          onClick={() => {
+            quickView.onTrue();
+            popover.onClose();
+          }}
+        >
+          <Iconify icon="solar:eye-bold" />
+          Lihat Detail
+        </MenuItem>
+
+        <MenuItem
+          onClick={() => {
+            confirm.onTrue();
+            popover.onClose();
+          }}
+          sx={{ color: 'error.main' }}
+        >
+          <Iconify icon="solar:trash-bin-trash-bold" />
+          Hapus
+        </MenuItem>
+      </CustomPopover>
+
       <UserEditDialog userId={row.id} open={quickView.value} onClose={quickView.onFalse} isViewOnly />
-      <UserEditDialog userId={row.id} open={editPopup.value} onClose={editPopup.onFalse} />
-
-
 
       <ConfirmDialog
         open={confirm.value}

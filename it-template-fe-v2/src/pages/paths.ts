@@ -71,6 +71,19 @@ export const paths = {
     laporan: `${ROOTS.DASHBOARD}/laporan`,
     reminder: `${ROOTS.DASHBOARD}/reminder`,
     feedback: `${ROOTS.DASHBOARD}/feedback`,
+    // Mentor-specific pages
+    mentorDashboard: `${ROOTS.DASHBOARD}/mentor-dashboard`,
+    dataBimbingan: `${ROOTS.DASHBOARD}/data-bimbingan`,
+    mentorPresensi: `${ROOTS.DASHBOARD}/mentor-presensi`,
+    mentorPenilaian: `${ROOTS.DASHBOARD}/mentor-penilaian`,
+    mentorLaporan: `${ROOTS.DASHBOARD}/mentor-laporan`,
+    mentorReminder: `${ROOTS.DASHBOARD}/mentor-reminder`,
+    mentorRekap: `${ROOTS.DASHBOARD}/mentor-rekap`,
+    // Peserta-specific pages
+    pesertaDashboard: `${ROOTS.DASHBOARD}/peserta-dashboard`,
+    pesertaPresensi: `${ROOTS.DASHBOARD}/peserta-presensi`,
+    pesertaLaporan: `${ROOTS.DASHBOARD}/peserta-laporan`,
+    pesertaPenilaian: `${ROOTS.DASHBOARD}/peserta-penilaian`,
   },
 
   user: {

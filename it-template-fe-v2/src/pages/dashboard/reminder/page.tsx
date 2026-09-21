@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { 
-  Container, Typography, Card, Box, Grid, 
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
+import {
+  Container, Typography, Card, Box, Grid,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, MenuItem, Select, FormControl, InputLabel, TextField, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton
 } from '@mui/material';
@@ -138,15 +138,15 @@ export default function Page() {
                     <TableCell>{row.deskripsi}</TableCell>
                     <TableCell>{formatDateIndo(row.tanggal)}</TableCell>
                     <TableCell>
-                       <Chip label={row.status} size="small" color={row.status === 'Aktif' ? 'success' : row.status === 'Mendatang' ? 'warning' : 'default'} variant="soft" />
+                      <Chip label={row.status} size="small" color={row.status === 'Aktif' ? 'success' : row.status === 'Mendatang' ? 'warning' : 'default'} variant="soft" />
                     </TableCell>
                     <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
-                      <Button variant="outlined" size="small" color="primary" onClick={() => handleOpenEditDialog(row)} sx={{ minWidth: 'auto', px: 1.5, py: 0.5, borderRadius: 1, mr: 1 }}>
-                        Detail
-                      </Button>
-                      <Button variant="outlined" size="small" color="error" sx={{ minWidth: 'auto', px: 1.5, py: 0.5, borderRadius: 1 }}>
-                        Hapus
-                      </Button>
+                      <IconButton size="small" color="primary" sx={{ mr: 1, p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0' }} onClick={() => handleOpenEditDialog(row)} title="Detail / Edit">
+                        <Iconify icon="solar:eye-bold-duotone" width={20} />
+                      </IconButton>
+                      <IconButton size="small" color="error" title="Hapus" sx={{ p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0' }}>
+                        <Iconify icon="solar:trash-bin-trash-bold-duotone" width={20} />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 ))}

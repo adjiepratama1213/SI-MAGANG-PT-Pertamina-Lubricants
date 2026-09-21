@@ -8,7 +8,9 @@ const productAPI = axios.create({ baseURL: PRODUCT_API });
 
 const accessToken = localStorage.getItem(AUTH_SESSION_KEY);
 
-productAPI.defaults.headers.common.Authorization = accessToken;
+if (accessToken) {
+  productAPI.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+}
 
 productAPI.interceptors.response.use(
   (res) => res,

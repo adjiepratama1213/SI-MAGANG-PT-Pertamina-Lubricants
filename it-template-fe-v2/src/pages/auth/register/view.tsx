@@ -1,6 +1,6 @@
 import { yupResolver } from '@hookform/resolvers/yup';
-import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import * as Yup from 'yup';
 // @mui
 import LoadingButton from '@mui/lab/LoadingButton';
@@ -10,154 +10,163 @@ import InputAdornment from '@mui/material/InputAdornment';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import MenuItem from '@mui/material/MenuItem';
+import Chip from '@mui/material/Chip';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
 // hooks
 import { useBoolean } from 'src/hooks/use-boolean';
 // routes
 import { RouterLink } from 'src/components/router-link';
 import { paths } from 'src/pages/paths';
 // components
-import FormProvider, { RHFAutocomplete, RHFTextField } from 'src/components/hook-form';
+import FormProvider, { RHFTextField, RHFSelect, RHFAutocomplete, RHFUpload } from 'src/components/hook-form';
 import Iconify from 'src/components/iconify';
 import { toast } from 'react-toastify';
 import { endpoints } from 'src/utils/endpoints';
 import axiosInstance from 'src/utils/axios';
-import { Button, Chip } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 // ----------------------------------------------------------------------
 
 export default function JwtRegisterView() {
   const [errorMsg, setErrorMsg] = useState('');
-
   const [isSubmitSuccess, setIsSubmitSuccess] = useState(false);
-  const [positionIdSearchData, setPositionIdSearchData] = useState<
-    { name: string; Position: { id: string; name: string; teamId: string } }[]
-  >([
-    {
-      name: '',
-      Position: {
-        id: '',
-        name: '',
-        teamId: '',
-      },
-    },
-  ]);
 
   const password = useBoolean();
   const rePassword = useBoolean();
 
   const RegisterSchema = Yup.object().shape({
-    fullName: Yup.string().required('Full name required'),
-    phone: Yup.string().required('Last name required'),
+    fullName: Yup.string().required('Nama lengkap wajib diisi'),
+    phone: Yup.string().required('Nomor telepon wajib diisi'),
     email: Yup.string()
-      .required('Email is required')
-      .email('Email must be a valid email address')
-      .test(
-        'is-pertamina-email',
-        'Should use @pertamina.com / @mitrakerja.pertamina.com',
-        (value) => value?.endsWith('pertamina.com') ?? false
-      ),
-    emailManager: Yup.string()
-      .required('Manager Email is required')
-      .email('Manager Email must be a valid email address'),
-    positionId: Yup.string().required('Position is required'),
-    jobTitle: Yup.string().required('Position Name is required'),
-    teamId: Yup.string().required('Team ID is required'),
-    password: Yup.string().required('Password is required'),
+      .required('Email wajib diisi')
+      .email('Format email tidak valid'),
+    password: Yup.string().required('Password wajib diisi').min(6, 'Password minimal 6 karakter'),
     rePassword: Yup.string()
-      .required('Re-Type Password is required')
-      .oneOf([Yup.ref('password')], 'Passwords & Re-Type Password must match'),
+      .required('Ulangi password wajib diisi')
+      .oneOf([Yup.ref('password')], 'Password tidak cocok'),
+    // Data Akademis
+    internId: Yup.string().required('NIM / ID Peserta wajib diisi'),
+    university: Yup.string().required('Asal instansi wajib diisi'),
+    gender: Yup.string().required('Jenis kelamin wajib dipilih'),
+    dateOfBirth: Yup.mixed().nullable(),
+    major: Yup.string().required('Jurusan wajib diisi'),
+    startDate: Yup.mixed().nullable(),
+    endDate: Yup.mixed().nullable(),
+    program: Yup.string().required('Program wajib dipilih'),
+    documentUrls: Yup.array(),
   });
 
   const defaultValues = {
     fullName: '',
     phone: '',
     email: '',
-    emailManager: '',
-    positionId: '',
-    jobTitle: '',
-    teamId: '',
     password: '',
     rePassword: '',
+    internId: '',
+    university: '',
+    gender: '',
+    dateOfBirth: null,
+    major: '',
+    startDate: null,
+    endDate: null,
+    program: '',
+    documentUrls: [] as string[],
   };
 
   const methods = useForm({
-    resolver: yupResolver(RegisterSchema),
+    resolver: yupResolver(RegisterSchema) as any,
     defaultValues,
   });
 
   const {
     handleSubmit,
-    watch,
+    control,
     setValue,
+    watch,
     formState: { isSubmitting },
   } = methods;
 
-  const values = watch();
-  const { emailManager } = values;
+  const handleDropMultiFile = (acceptedFiles: File[]) => {
+    const files = watch('documentUrls') || [];
+    const newFiles = acceptedFiles.map((file) =>
+      Object.assign(file, {
+        preview: URL.createObjectURL(file),
+      })
+    );
+    setValue('documentUrls', [...files, ...newFiles], { shouldValidate: true });
+  };
 
-  useEffect(() => {
-    const position = positionIdSearchData?.find((pos) => pos.Position.id === values.positionId);
-
-    setValue('jobTitle', position?.Position.name || '');
-    setValue('teamId', position?.Position.teamId || '');
-  }, [positionIdSearchData, values.positionId, setValue]);
-
-  useEffect(() => {
-    const fetchManagerData = async (email: string) => {
-      try {
-        const response = await axiosInstance.get(endpoints.user.managerCheck(email));
-        if (response.data) {
-          // Contoh: jika response memiliki nama manager
-          setPositionIdSearchData(response.data);
-        }
-      } catch (error) {
-        console.error('Error fetching manager data:', error);
-      }
-    };
-
-    if (emailManager && emailManager.endsWith('@pertamina.com')) {
-      fetchManagerData(emailManager);
-    }
-  }, [emailManager]);
+  const handleRemoveFile = (inputFile: File | string) => {
+    const filtered = (watch('documentUrls') || []).filter((file: File | string) => file !== inputFile);
+    setValue('documentUrls', filtered);
+  };
 
   const onSubmit = handleSubmit(async (data) => {
     try {
+      // Upload multiple files first
+      const uploadedUrls: string[] = [];
+      const currentFiles = data.documentUrls || [];
+      
+      for (const file of currentFiles) {
+        if (file instanceof File) {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('folder', 'documents');
+          
+          const uploadRes = await axiosInstance.post('/gcp-item/upload-public', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          uploadedUrls.push(uploadRes.data.url);
+        } else if (typeof file === 'string') {
+          uploadedUrls.push(file);
+        }
+      }
+
       const mappingData = {
-        name: data?.fullName || '',
-        password: data?.password || '',
-        // role: data?.role || '',
-        email: data?.email || '',
-        phone: data?.phone || '',
-        jobTitle: data?.jobTitle || '',
-        // status: data?.status && data?.status !== '' ? data?.status : 'active',
-        positionId: data?.positionId || '',
-        teamId: data?.teamId || '',
-        // company: data?.company || '',
-        // avatarUrl: data?.avatarUrl || null,
-        // phone: data?.phone || data?.phone || '',
-        // isVerified: data?.isVerified || true,
+        name: data.fullName,
+        email: data.email,
+        password: data.password,
+        phone: data.phone,
+        // Hardcoded values
+        positionId: '30305042',
+        jobTitle: 'Production Unit Jakarta',
+        role: 'PESERTA',
+        status: 'pending',
+        // Data Akademis
+        internId: data.internId,
+        university: data.university,
+        gender: data.gender,
+        dateOfBirth: data.dateOfBirth || null,
+        major: data.major,
+        startDate: data.startDate || null,
+        endDate: data.endDate || null,
+        program: data.program,
+        documentUrls: uploadedUrls,
       };
+
       await axiosInstance.post(`${endpoints.auth.register}`, mappingData, {});
 
-      toast.success(
-        `Create Account Success! You're manager need to approve your account! Stay Tuned!'`
-      );
+      toast.success('Pendaftaran berhasil! Silakan tunggu persetujuan admin.');
       setIsSubmitSuccess(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      setErrorMsg(typeof error === 'string' ? error : error.message);
+      const msg = error?.message || 'Terjadi kesalahan saat mendaftar';
+      setErrorMsg(Array.isArray(msg) ? msg[0] : msg);
     }
   });
 
   const renderHead = (
     <Stack spacing={2} sx={{ mt: { lg: 0 }, mb: 5, position: 'relative' }}>
-      <Typography variant="h4">Get started your account!</Typography>
+      <Typography variant="h4">Pendaftaran Peserta Magang</Typography>
 
       <Stack direction="row" spacing={0.5}>
-        <Typography variant="body2"> Already have an account? </Typography>
+        <Typography variant="body2">Sudah punya akun?</Typography>
 
         <Link href={paths.auth.login} component={RouterLink} variant="subtitle2">
-          Sign in
+          Masuk di sini
         </Link>
       </Stack>
     </Stack>
@@ -174,14 +183,14 @@ export default function JwtRegisterView() {
         textAlign: 'center',
       }}
     >
-      {'By signing up, I agree to '}
+      {'Dengan mendaftar, saya menyetujui '}
       <Link
         component={RouterLink}
         href={paths.privacyPolicy.root}
         underline="always"
         color="text.primary"
       >
-        Privacy Policy
+        Kebijakan Privasi
       </Link>
       .
     </Typography>
@@ -190,8 +199,8 @@ export default function JwtRegisterView() {
   const renderAfter = (
     <Stack spacing={2.5}>
       <Alert severity="info">
-        You&apos;re account already created! <br />
-        Please wait 2x24hours or ask IT PTPL team to approve your access.
+        Pendaftaran Anda berhasil dikirim! <br />
+        Silakan tunggu persetujuan dari Admin. Anda akan menerima email notifikasi saat akun Anda disetujui.
       </Alert>
 
       <Button
@@ -202,11 +211,11 @@ export default function JwtRegisterView() {
         rel="noopener"
         size="small"
       >
-        Contact Us!
+        Hubungi Kami
       </Button>
 
       <Link component={RouterLink} href={paths.auth.login} variant="subtitle2">
-        Back To Login
+        Kembali ke Halaman Login
       </Link>
     </Stack>
   );
@@ -215,59 +224,146 @@ export default function JwtRegisterView() {
     <FormProvider methods={methods} onSubmit={onSubmit}>
       <Stack spacing={2.5}>
         {!!errorMsg && <Alert severity="error">{errorMsg}</Alert>}
-        <RHFTextField name="fullName" label="Full name" />
-        <RHFTextField name="phone" label="Phone Number" />
-        <RHFTextField name="email" label="Email address" />
-        <RHFTextField
-          name="emailManager"
-          label="Manager Email address"
-          helperText="Your manager email should be valid!"
+
+        {/* --- DATA DIRI --- */}
+        <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+          <Iconify icon="solar:user-id-bold-duotone" sx={{ mr: 1, verticalAlign: 'middle' }} />
+          Data Diri
+        </Typography>
+
+        <Box
+          rowGap={2.5}
+          columnGap={2}
+          display="grid"
+          gridTemplateColumns={{ xs: 'repeat(1, 1fr)', sm: 'repeat(2, 1fr)' }}
+        >
+          <RHFTextField name="fullName" label="Nama Lengkap" />
+          <RHFTextField name="email" label="Alamat Email" />
+          <RHFTextField name="phone" label="Nomor Telepon" />
+          <RHFSelect name="gender" label="Jenis Kelamin">
+            <MenuItem value="PRIA">Pria</MenuItem>
+            <MenuItem value="WANITA">Wanita</MenuItem>
+          </RHFSelect>
+        </Box>
+
+        <Controller
+          name="dateOfBirth"
+          control={control}
+          render={({ field, fieldState: { error } }) => (
+            <DatePicker
+              label="Tanggal Lahir"
+              value={field.value}
+              onChange={(newValue) => field.onChange(newValue)}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  error: !!error,
+                  helperText: error?.message,
+                },
+              }}
+            />
+          )}
         />
-        <RHFAutocomplete
-          name="positionId"
-          label="SPV Position ID"
-          placeholder="Your SPV Position"
-          options={positionIdSearchData} // Ensure full object structure
-          getOptionLabel={(option) => {
-            if (typeof option === 'string') return option; // Handle case when option is a string
-            if (Array.isArray(option)) return ''; // Prevents array errors
-            return `${option.name} (${option.Position.id})`;
+
+        <Divider sx={{ borderStyle: 'dashed' }} />
+
+        {/* --- DATA AKADEMIS --- */}
+        <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+          <Iconify icon="solar:case-round-bold-duotone" sx={{ mr: 1, verticalAlign: 'middle' }} />
+          Data Akademis
+        </Typography>
+
+        <Box
+          rowGap={2.5}
+          columnGap={2}
+          display="grid"
+          gridTemplateColumns={{ xs: 'repeat(1, 1fr)', sm: 'repeat(2, 1fr)' }}
+        >
+          <RHFTextField name="internId" label="NIM / ID Peserta" />
+          <RHFTextField name="university" label="Asal Instansi / Universitas" />
+          <RHFTextField name="major" label="Jurusan" />
+          <RHFSelect name="program" label="Program">
+            <MenuItem value="PKL">PKL</MenuItem>
+            <MenuItem value="Internship PTPL">Internship PTPL</MenuItem>
+            <MenuItem value="Internship Kemnaker">Internship Kemnaker</MenuItem>
+          </RHFSelect>
+        </Box>
+
+        <Box
+          rowGap={2.5}
+          columnGap={2}
+          display="grid"
+          gridTemplateColumns={{ xs: 'repeat(1, 1fr)', sm: 'repeat(2, 1fr)' }}
+        >
+          <Controller
+            name="startDate"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <DatePicker
+                label="Tanggal Mulai"
+                value={field.value}
+                onChange={(newValue) => field.onChange(newValue)}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    error: !!error,
+                    helperText: error?.message,
+                  },
+                }}
+              />
+            )}
+          />
+
+          <Controller
+            name="endDate"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <DatePicker
+                label="Tanggal Selesai"
+                value={field.value}
+                onChange={(newValue) => field.onChange(newValue)}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    error: !!error,
+                    helperText: error?.message,
+                  },
+                }}
+              />
+            )}
+          />
+        </Box>
+
+        <RHFUpload
+          multiple
+          name="documentUrls"
+          maxSize={3145728}
+          accept={{
+            'application/pdf': [],
+            'application/msword': [],
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': [],
+            'application/zip': [],
+            'application/x-rar-compressed': [],
+            'image/*': [],
           }}
-          renderOption={(props, option) => {
-            if (typeof option === 'string' || Array.isArray(option)) return null; // Prevent errors
-            return (
-              <li {...props} key={option.Position.id}>
-                {option.name} ({option.Position.id})
-              </li>
-            );
-          }}
-          renderTags={(selected, getTagProps) =>
-            selected.map((option, index) => {
-              if (typeof option === 'string' || Array.isArray(option)) return null; // Prevent errors
-              return (
-                <Chip
-                  {...getTagProps({ index })}
-                  key={option.Position.id}
-                  label={`${option.name} (${option.Position.id})`}
-                  size="small"
-                  color="info"
-                  variant="soft"
-                />
-              );
-            })
+          onDrop={handleDropMultiFile}
+          onRemove={handleRemoveFile}
+          onRemoveAll={() => setValue('documentUrls', [])}
+          helperText={
+            <Typography variant="caption" sx={{ mt: 1, display: 'block', color: 'text.disabled' }}>
+              Boleh mengunggah CV, Surat Pengantar, Proposal, dsb. (Opsional). Max ukuran 3MB/file.
+            </Typography>
           }
-          isOptionEqualToValue={(option, value) => {
-            if (typeof option === 'string' || typeof value === 'string') return false;
-            if (Array.isArray(option) || Array.isArray(value)) return false; // Ensure no array comparisons
-            return option.Position.id === value.Position.id;
-          }}
-          onChange={(event, newValue) => {
-            if (!newValue || typeof newValue === 'string' || Array.isArray(newValue)) return;
-            setValue('positionId', newValue.Position.id); // Store only positionId
-          }}
         />
-        <RHFTextField name="jobTitle" label="Job Title" disabled />
-        <RHFTextField name="teamId" label="Team ID" disabled />
+
+        <Divider sx={{ borderStyle: 'dashed' }} />
+
+        {/* --- PASSWORD --- */}
+        <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+          <Iconify icon="solar:lock-keyhole-bold-duotone" sx={{ mr: 1, verticalAlign: 'middle' }} />
+          Keamanan Akun
+        </Typography>
+
         <RHFTextField
           name="password"
           label="Password"
@@ -281,10 +377,11 @@ export default function JwtRegisterView() {
               </InputAdornment>
             ),
           }}
+          helperText="Minimal 8 karakter, maksimal 32 karakter, harus mengandung huruf dan angka."
         />
         <RHFTextField
           name="rePassword"
-          label="Re-Type Password"
+          label="Ulangi Password"
           type={rePassword.value ? 'text' : 'password'}
           InputProps={{
             endAdornment: (
@@ -296,6 +393,7 @@ export default function JwtRegisterView() {
             ),
           }}
         />
+
         <LoadingButton
           fullWidth
           color="inherit"
@@ -304,7 +402,7 @@ export default function JwtRegisterView() {
           variant="contained"
           loading={isSubmitting}
         >
-          Create account
+          Daftar Sekarang
         </LoadingButton>
       </Stack>
     </FormProvider>

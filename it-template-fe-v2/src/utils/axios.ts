@@ -8,7 +8,9 @@ const axiosInstance = axios.create({ baseURL: HOST_API });
 
 const accessToken = localStorage.getItem(AUTH_SESSION_KEY);
 
-axiosInstance.defaults.headers.common.Authorization = accessToken;
+if (accessToken) {
+  axiosInstance.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+}
 
 axiosInstance.interceptors.response.use(
   (res) => res,

@@ -178,10 +178,13 @@ export default function Page() {
                         <Chip label={row.statusApproval} size="small" color={row.statusApproval === 'Menunggu Persetujuan' ? 'warning' : row.statusApproval === 'Disetujui' ? 'success' : 'default'} sx={{ fontSize: '0.7rem' }} />
                       )}
                     </TableCell>
-                    <TableCell align="center">
-                      <Button variant="outlined" size="small" color="primary" sx={{ whiteSpace: 'nowrap', minWidth: 'auto', px: 1.5, py: 0.5, borderRadius: 1 }} onClick={() => handleOpenDialog(row)}>
-                        {row.status}
-                      </Button>
+                    <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                      <IconButton size="small" color="primary" sx={{ mr: 1, p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0' }} onClick={() => handleOpenDialog(row)} title="Detail / Edit">
+                        <Iconify icon="solar:eye-bold-duotone" width={20} />
+                      </IconButton>
+                      <IconButton size="small" color="error" title="Hapus" sx={{ p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0' }}>
+                        <Iconify icon="solar:trash-bin-trash-bold-duotone" width={20} />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 ))}

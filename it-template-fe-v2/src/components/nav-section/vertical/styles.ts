@@ -20,10 +20,10 @@ export const StyledItem = styled(ListItemButton, {
   const activeStyles = {
     root: {
       color:
-        theme.palette.mode === 'light' ? theme.palette.primary.main : theme.palette.primary.light,
-      backgroundColor: alpha(theme.palette.primary.main, 0.08),
+        config.currentRole === 'PESERTA' ? '#004F9F' : (theme.palette.mode === 'light' ? theme.palette.primary.main : theme.palette.primary.light),
+      backgroundColor: config.currentRole === 'PESERTA' ? alpha('#004F9F', 0.08) : alpha(theme.palette.primary.main, 0.08),
       '&:hover': {
-        backgroundColor: alpha(theme.palette.primary.main, 0.16),
+        backgroundColor: config.currentRole === 'PESERTA' ? alpha('#004F9F', 0.16) : alpha(theme.palette.primary.main, 0.16),
       },
     },
     sub: {

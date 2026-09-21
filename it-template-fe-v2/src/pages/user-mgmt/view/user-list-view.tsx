@@ -187,6 +187,33 @@ export default function UserListView({ defaultRole }: Props) {
     }
   }, [dataFiltered.length, table, userSearchData.length, confirm, queryClient]);
 
+  const handleApproveRow = useCallback(
+    async (id: string) => {
+      try {
+        await axiosInstance.patch(endpoints.user.edit(id), { status: 'active' });
+        queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
+        toast.success('Peserta berhasil diterima!');
+      } catch (error) {
+        console.error(error);
+        toast.error('Gagal menerima peserta');
+      }
+    },
+    [queryClient]
+  );
+
+  const handleRejectRow = useCallback(
+    async (id: string) => {
+      try {
+        await axiosInstance.patch(endpoints.user.edit(id), { status: 'rejected' });
+        queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
+        toast.success('Peserta berhasil ditolak');
+      } catch (error) {
+        console.error(error);
+        toast.error('Gagal menolak peserta');
+      }
+    },
+    [queryClient]
+  );
 
 
   return (
@@ -350,6 +377,8 @@ export default function UserListView({ defaultRole }: Props) {
                         onSelectRow={() => table.onSelectRow(row.id)}
                         onEditRow={() => handleEditRow(row.id)}
                         onDeleteRow={() => handleDeleteRow(row.id)}
+                        onApproveRow={() => handleApproveRow(row.id)}
+                        onRejectRow={() => handleRejectRow(row.id)}
                       />
                     ))}
 

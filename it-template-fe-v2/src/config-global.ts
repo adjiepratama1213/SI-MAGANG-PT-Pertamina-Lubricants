@@ -55,4 +55,4 @@ export const CHROMESTORE_GOOGLE = import.meta.env.VITE_CHROMESTORE_GOOGLE;
 
 export const AUTH_SESSION_KEY = 'accessToken';
 
-export const rolePTPL = ['SUPERSAIYAN', 'PTPL_IT', 'PTPL_QA', 'PTPL_PROD', 'EMPLOYEE'];
+export const rolePTPL = ['SUPERSAIYAN', 'PTPL_IT', 'PTPL_QA', 'PTPL_PROD', 'EMPLOYEE', 'EMPLOYEESTAFF', 'PESERTA'];

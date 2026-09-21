@@ -8,7 +8,7 @@ import View403 from './403';
 import View404 from './404';
 import View500 from './500';
 
-function UnknownError() {
+function UnknownError({ error }: { error?: any }) {
   return (
     <>
       <Helmet>
@@ -24,7 +24,9 @@ function UnknownError() {
 
         <m.div variants={varBounce().in}>
           <Typography sx={{ color: 'text.secondary' }}>
-            Please refer to your system administrator
+            Please refer to your system administrator. 
+            <br />
+            <strong>Error Details: </strong> {error?.message || error?.toString() || 'No details'}
           </Typography>
         </m.div>
 

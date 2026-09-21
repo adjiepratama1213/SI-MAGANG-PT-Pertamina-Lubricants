@@ -33,11 +33,10 @@ export default function AccountChangePassword({ userId }: Props) {
   const ChangePassWordSchema = Yup.object().shape({
     newPassword: Yup.string()
       .required('New Password is required')
-      .min(12, 'Password must be at least 12 characters')
-      .matches(/[A-Z]/, 'Password must contain at least one uppercase letter')
-      .matches(/[a-z]/, 'Password must contain at least one lowercase letter')
-      .matches(/[0-9]/, 'Password must contain at least one number')
-      .matches(/[@$!%*?&]/, 'Password must contain at least one special character'),
+      .min(8, 'Password must be at least 8 characters')
+      .max(32, 'Password must not exceed 32 characters')
+      .matches(/[a-zA-Z]/, 'Password must contain at least one letter')
+      .matches(/[0-9]/, 'Password must contain at least one number'),
     confirmNewPassword: Yup.string().oneOf([Yup.ref('newPassword')], 'Passwords must match'),
   });
 
@@ -92,8 +91,7 @@ export default function AccountChangePassword({ userId }: Props) {
             helperText={
               <Stack component="span" direction="row" alignItems="center">
                 <Iconify icon="eva:info-fill" width={16} sx={{ mr: 0.5 }} />
-                Password must be at least 12 characters, including uppercase, lowercase, number, and
-                special character.
+                Minimal 8 karakter, maksimal 32 karakter, harus mengandung huruf dan angka.
               </Stack>
             }
           />

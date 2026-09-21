@@ -145,7 +145,7 @@ export default function NotificationsPopover() {
         onClick={drawer.onTrue}
       >
         <Badge badgeContent={totalUnRead} color="error">
-          <Iconify icon="solar:bell-bing-bold-duotone" width={24} />
+          <Iconify icon="eva:bell-fill" width={24} />
         </Badge>
       </IconButton>
 

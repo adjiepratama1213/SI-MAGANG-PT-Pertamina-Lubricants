@@ -44,6 +44,15 @@ function Group({ subheader, items, config }: GroupProps) {
     setOpen((prev) => !prev);
   }, []);
 
+  // Check if at least one item in the group is visible for the current role
+  const hasVisibleItems = items.some(
+    (item) => !item.roles || item.roles.includes(`${config.currentRole}`)
+  );
+
+  if (!hasVisibleItems) {
+    return null;
+  }
+
   const renderContent = items.map((list) => (
     <NavList
       key={list.title + list.path}

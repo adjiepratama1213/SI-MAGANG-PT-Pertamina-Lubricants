@@ -6,6 +6,9 @@ import { paths } from 'src/pages/paths';
 
 // ----------------------------------------------------------------------
 
+// Roles khusus admin (tanpa EMPLOYEESTAFF)
+const roleAdmin = ['SUPERSAIYAN', 'PTPL_IT', 'PTPL_QA', 'PTPL_PROD', 'EMPLOYEE'];
+
 const icon = (name: string) => (
   <SvgColor src={`/assets/icons/navbar/${name}.svg`} sx={{ width: 1, height: 1 }} />
   // OR
@@ -47,26 +50,69 @@ const navItem: {
   subheader: string;
   items: NavListProps[];
 }[] = [
-    // MAIN MENU
+    // MAIN MENU (Admin only - hidden from EMPLOYEESTAFF)
     // ----------------------------------------------------------------------
     {
       subheader: 'Main',
       items: [
-        { title: 'Dashboard', path: paths.dashboard.root, icon: ICONS.dashboard, roles: rolePTPL },
-        { title: 'Peserta', path: paths.dashboard.peserta, icon: <Iconify icon="solar:users-group-rounded-bold-duotone" />, roles: rolePTPL },
-        { title: 'Mentor', path: paths.dashboard.mentor, icon: <Iconify icon="solar:user-id-bold-duotone" />, roles: rolePTPL },
-        { title: 'Presensi', path: paths.dashboard.presensi, icon: <Iconify icon="solar:calendar-date-bold-duotone" />, roles: rolePTPL },
-        { title: 'Penilaian', path: paths.dashboard.penilaian, icon: <Iconify icon="solar:star-bold-duotone" />, roles: rolePTPL },
-        { title: 'Laporan', path: paths.dashboard.laporan, icon: <Iconify icon="solar:document-text-bold-duotone" />, roles: rolePTPL },
-        { title: 'Feedback', path: paths.dashboard.feedback, icon: <Iconify icon="solar:chat-round-dots-bold-duotone" />, roles: rolePTPL },
-        { title: 'Reminder', path: paths.dashboard.reminder, icon: <Iconify icon="solar:bell-bing-bold-duotone" />, roles: rolePTPL },
+        { title: 'Dashboard', path: paths.dashboard.root, icon: ICONS.dashboard, roles: roleAdmin },
+        { title: 'Peserta', path: paths.dashboard.peserta, icon: <Iconify icon="solar:users-group-rounded-bold-duotone" />, roles: roleAdmin },
+        { title: 'Mentor', path: paths.dashboard.mentor, icon: <Iconify icon="solar:user-id-bold-duotone" />, roles: roleAdmin },
+        { title: 'Presensi', path: paths.dashboard.presensi, icon: <Iconify icon="solar:calendar-date-bold-duotone" />, roles: roleAdmin },
+        { title: 'Penilaian', path: paths.dashboard.penilaian, icon: <Iconify icon="solar:star-bold-duotone" />, roles: roleAdmin },
+        { title: 'Laporan', path: paths.dashboard.laporan, icon: <Iconify icon="solar:document-text-bold-duotone" />, roles: roleAdmin },
+      ],
+    },
+
+    // KOMUNIKASI (Admin only - hidden from EMPLOYEESTAFF)
+    // ----------------------------------------------------------------------
+    {
+      subheader: 'Komunikasi',
+      items: [
+        { title: 'Feedback', path: paths.dashboard.feedback, icon: <Iconify icon="solar:chat-round-dots-bold-duotone" />, roles: roleAdmin },
+        { title: 'Reminder', path: paths.dashboard.reminder, icon: <Iconify icon="solar:bell-bing-bold-duotone" />, roles: roleAdmin },
+      ],
+    },
+
+    // MENTOR MENU - MAIN
+    // ----------------------------------------------------------------------
+    {
+      subheader: 'Main',
+      items: [
+        { title: 'Dashboard', path: paths.dashboard.mentorDashboard, icon: ICONS.dashboard, roles: ['EMPLOYEESTAFF'] },
+        { title: 'Data Bimbingan', path: paths.dashboard.dataBimbingan, icon: <Iconify icon="solar:users-group-rounded-bold-duotone" />, roles: ['EMPLOYEESTAFF'] },
+        { title: 'Presensi', path: paths.dashboard.mentorPresensi, icon: <Iconify icon="solar:calendar-date-bold-duotone" />, roles: ['EMPLOYEESTAFF'] },
+        { title: 'Laporan', path: paths.dashboard.mentorLaporan, icon: <Iconify icon="solar:document-text-bold-duotone" />, roles: ['EMPLOYEESTAFF'] },
+        { title: 'Penilaian', path: paths.dashboard.mentorPenilaian, icon: <Iconify icon="solar:star-bold-duotone" />, roles: ['EMPLOYEESTAFF'] },
+      ],
+    },
+
+    // MENTOR MENU - KOMUNIKASI
+    // ----------------------------------------------------------------------
+    {
+      subheader: 'Komunikasi',
+      items: [
+        { title: 'Reminder', path: paths.dashboard.mentorReminder, icon: <Iconify icon="solar:bell-bing-bold-duotone" />, roles: ['EMPLOYEESTAFF'] },
+        { title: 'Rekap', path: paths.dashboard.mentorRekap, icon: <Iconify icon="solar:clipboard-list-bold-duotone" />, roles: ['EMPLOYEESTAFF'] },
+      ],
+    },
+
+    // PESERTA MENU - MAIN
+    // ----------------------------------------------------------------------
+    {
+      subheader: 'Main',
+      items: [
+        { title: 'Dashboard', path: paths.dashboard.pesertaDashboard, icon: ICONS.dashboard, roles: ['PESERTA'] },
+        { title: 'Presensi', path: paths.dashboard.pesertaPresensi, icon: <Iconify icon="solar:calendar-date-bold-duotone" />, roles: ['PESERTA'] },
+        { title: 'Laporan', path: paths.dashboard.pesertaLaporan, icon: <Iconify icon="solar:document-text-bold-duotone" />, roles: ['PESERTA'] },
+        { title: 'Nilai & Sertifikat', path: paths.dashboard.pesertaPenilaian, icon: <Iconify icon="solar:star-bold-duotone" />, roles: ['PESERTA'] },
       ],
     },
 
     // MANAGEMENT
     // ----------------------------------------------------------------------
     {
-      subheader: 'administration',
+      subheader: 'Administrasi',
       items: [
         {
           roles: ['PTPL_IT', 'SUPERSAIYAN'],

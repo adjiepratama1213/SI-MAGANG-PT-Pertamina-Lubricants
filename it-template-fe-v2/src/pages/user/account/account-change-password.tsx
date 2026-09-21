@@ -4,9 +4,12 @@ import * as Yup from 'yup';
 // @mui
 import LoadingButton from '@mui/lab/LoadingButton';
 import Card from '@mui/material/Card';
+import CardHeader from '@mui/material/CardHeader';
+import CardContent from '@mui/material/CardContent';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import Stack from '@mui/material/Stack';
+import Grid from '@mui/material/Unstable_Grid2';
 // hooks
 import { useBoolean } from 'src/hooks/use-boolean';
 // components
@@ -29,11 +32,10 @@ export default function AccountChangePassword() {
     oldPassword: Yup.string().required('Old Password is required'),
     newPassword: Yup.string()
       .required('New Password is required')
-      .min(12, 'Password must be at least 12 characters')
-      .matches(/[A-Z]/, 'Password must contain at least one uppercase letter')
-      .matches(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .min(8, 'Password must be at least 8 characters')
+      .max(32, 'Password must not exceed 32 characters')
+      .matches(/[a-zA-Z]/, 'Password must contain at least one letter')
       .matches(/[0-9]/, 'Password must contain at least one number')
-      .matches(/[@$!%*?&]/, 'Password must contain at least one special character')
       .test(
         'no-match',
         'New password must be different than old password',
@@ -74,63 +76,74 @@ export default function AccountChangePassword() {
 
   return (
     <FormProvider methods={methods} onSubmit={onSubmit}>
-      <Stack component={Card} spacing={3} sx={{ p: 3 }}>
-        <RHFTextField
-          name="oldPassword"
-          type={password.value ? 'text' : 'password'}
-          label="Old Password"
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton onClick={password.onToggle} edge="end">
-                  <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
+      <Grid container spacing={3}>
+        <Grid xs={12} md={3}>
+          {/* Empty left column to match Account General layout */}
+        </Grid>
+        <Grid xs={12} md={9}>
+          <Card sx={{ pt: 1, pb: 2 }}>
+            <CardHeader title="Keamanan Akun" subheader="Ganti kata sandi Anda secara berkala untuk menjaga keamanan akun" sx={{ mb: 2 }} />
+            <CardContent>
+              <Stack spacing={3}>
+                <RHFTextField
+                  name="oldPassword"
+                  type={password.value ? 'text' : 'password'}
+                  label="Old Password"
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={password.onToggle} edge="end">
+                          <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
 
-        <RHFTextField
-          name="newPassword"
-          label="New Password"
-          type={password.value ? 'text' : 'password'}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton onClick={password.onToggle} edge="end">
-                  <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-          helperText={
-            <Stack component="span" direction="row" alignItems="center">
-              <Iconify icon="eva:info-fill" width={16} sx={{ mr: 0.5 }} />
-              Password must be at least 12 characters, including uppercase, lowercase, number, and
-              special character.
-            </Stack>
-          }
-        />
+                <RHFTextField
+                  name="newPassword"
+                  label="New Password"
+                  type={password.value ? 'text' : 'password'}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={password.onToggle} edge="end">
+                          <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  helperText={
+                    <Stack component="span" direction="row" alignItems="center">
+                      <Iconify icon="eva:info-fill" width={16} sx={{ mr: 0.5 }} />
+                      Minimal 8 karakter, maksimal 32 karakter, harus mengandung huruf dan angka.
+                    </Stack>
+                  }
+                />
 
-        <RHFTextField
-          name="confirmNewPassword"
-          type={password.value ? 'text' : 'password'}
-          label="Confirm New Password"
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton onClick={password.onToggle} edge="end">
-                  <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
+                <RHFTextField
+                  name="confirmNewPassword"
+                  type={password.value ? 'text' : 'password'}
+                  label="Confirm New Password"
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={password.onToggle} edge="end">
+                          <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
 
-        <LoadingButton type="submit" variant="contained" loading={isSubmitting} sx={{ ml: 'auto' }}>
-          Change Password
-        </LoadingButton>
-      </Stack>
+                <LoadingButton type="submit" variant="contained" color="primary" loading={isSubmitting} sx={{ ml: 'auto' }}>
+                  Simpan Perubahan
+                </LoadingButton>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
     </FormProvider>
   );
 }

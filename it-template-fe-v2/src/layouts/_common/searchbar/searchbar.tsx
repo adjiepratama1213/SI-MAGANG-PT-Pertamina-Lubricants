@@ -9,7 +9,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import InputBase from '@mui/material/InputBase';
 import List from '@mui/material/List';
 import Stack from '@mui/material/Stack';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 // hooks
 import { useBoolean } from 'src/hooks/use-boolean';
 import { useEventListener } from 'src/hooks/use-event-listener';
@@ -117,29 +117,31 @@ function Searchbar() {
       sx={{
         cursor: 'pointer',
         ...(lgUp && {
-          bgcolor: 'action.hover',
-          borderRadius: 1,
-          px: 1.5,
-          py: 0.75,
-          minWidth: 260,
-          justifyContent: 'space-between',
-          '&:hover': { bgcolor: 'action.selected' },
-          transition: theme.transitions.create('background-color'),
+          bgcolor: alpha(theme.palette.grey[500], 0.08),
+          border: `1px solid transparent`,
+          borderRadius: 8,
+          px: 2.5,
+          py: 1.25,
+          minWidth: 320,
+          justifyContent: 'flex-start',
+          '&:hover': { 
+            bgcolor: alpha(theme.palette.grey[500], 0.16),
+            borderColor: alpha(theme.palette.grey[500], 0.24),
+          },
+          transition: theme.transitions.create(['background-color', 'border-color', 'box-shadow']),
         }),
       }}
     >
       {lgUp ? (
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Iconify icon="eva:search-fill" sx={{ color: 'text.disabled' }} />
-          <Box sx={{ typography: 'body2', color: 'text.disabled' }}>Cari halaman / menu...</Box>
+        <Stack direction="row" alignItems="center" spacing={1.5}>
+          <Iconify icon="eva:search-fill" width={22} sx={{ color: 'text.secondary' }} />
+          <Box sx={{ typography: 'body1', color: 'text.secondary', fontWeight: 500 }}>Cari halaman / menu...</Box>
         </Stack>
       ) : (
         <IconButton>
           <Iconify icon="eva:search-fill" />
         </IconButton>
       )}
-
-      {lgUp && <Label sx={{ px: 0.75, fontSize: 12, color: 'text.secondary' }}>⌘K</Label>}
     </Stack>
   );
 
@@ -172,17 +174,16 @@ function Searchbar() {
           <InputBase
             fullWidth
             autoFocus
-            placeholder="Search..."
+            placeholder="Ketik untuk mencari..."
             value={searchQuery}
             onChange={handleSearch}
             startAdornment={
-              <InputAdornment position="start">
-                <Iconify icon="eva:search-fill" width={24} sx={{ color: 'text.disabled' }} />
+              <InputAdornment position="start" sx={{ mr: 2 }}>
+                <Iconify icon="eva:search-fill" width={28} sx={{ color: 'primary.main' }} />
               </InputAdornment>
             }
-            endAdornment={<Label sx={{ letterSpacing: 1, color: 'text.secondary' }}>esc</Label>}
             inputProps={{
-              sx: { typography: 'h6' },
+              sx: { typography: 'h5' },
             }}
           />
         </Box>

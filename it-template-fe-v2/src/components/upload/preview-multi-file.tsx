@@ -94,7 +94,35 @@ export default function MultiFilePreview({ thumbnail, files, onRemove, sx }: Upl
             <FileThumbnail file={file} />
 
             <ListItemText
-              primary={isNotFormatFile ? file : name}
+              primary={
+                isNotFormatFile ? (
+                  <a href={file as string} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+                    {(() => {
+                      let fileName = (file as string).split('/').pop() || '';
+                      try { fileName = decodeURIComponent(fileName); } catch(e) {}
+                      fileName = fileName.replace(/^\d+_/, '');
+                      if (fileName.length > 30) {
+                         const parts = fileName.split('.');
+                         const ext = parts.length > 1 ? `.${  parts.pop()}` : '';
+                         const base = parts.join('.');
+                         return `${base.substring(0, 25)  }...${  ext}`;
+                      }
+                      return fileName;
+                    })()}
+                  </a>
+                ) : (
+                  (() => {
+                     const cleanName = name.replace(/^\d+_/, '');
+                     if (cleanName.length > 30) {
+                       const parts = cleanName.split('.');
+                       const ext = parts.length > 1 ? `.${  parts.pop()}` : '';
+                       const base = parts.join('.');
+                       return `${base.substring(0, 25)  }...${  ext}`;
+                     }
+                     return cleanName;
+                  })()
+                )
+              }
               secondary={isNotFormatFile ? '' : fData(size)}
               secondaryTypographyProps={{
                 component: 'span',

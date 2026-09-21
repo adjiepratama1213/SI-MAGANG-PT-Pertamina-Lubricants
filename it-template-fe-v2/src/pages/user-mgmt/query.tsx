@@ -8,7 +8,7 @@ import { endpoints } from 'src/utils/endpoints';
 export function useSearchUsers(query: string) {
   const URL = `${endpoints.user.search}`;
 
-  const { data, isLoading, error, isFetching } = useQuery({
+  const { data, isLoading, error, isFetching, refetch } = useQuery({
     queryKey: ['getUserRequestByTeam', query],
 
     queryFn: async () => {
@@ -24,8 +24,9 @@ export function useSearchUsers(query: string) {
       searchError: error,
       searchValidating: isFetching,
       searchEmpty: !isLoading && !data?.results.length,
+      refetchSearch: refetch,
     }),
-    [data?.results, error, isLoading, isFetching]
+    [data?.results, error, isLoading, isFetching, refetch]
   );
 
   return memoizedValue;

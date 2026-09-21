@@ -49,8 +49,8 @@ export default function AccountView() {
   return (
     <Container maxWidth={settings.themeStretch ? false : 'lg'}>
       <CustomBreadcrumbs
-        heading="Account"
-        links={[{ name: 'User', href: paths.user.root }, { name: 'Account' }]}
+        heading="Profil"
+        links={[]}
         sx={{
           mb: { xs: 3, md: 5 },
         }}

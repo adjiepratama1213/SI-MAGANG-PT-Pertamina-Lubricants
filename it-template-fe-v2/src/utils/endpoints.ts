@@ -196,6 +196,10 @@ export const endpoints = {
     search: '/employee-profile/search',
     details: (id: string) => `/employee-profile/${id}`,
     byUser: (userId: string) => `/employee-profile/by-user/${userId}`,
+    organizationsHierarchy: '/employee-profile/organizations/hierarchy',
+    addOrganization: '/employee-profile/organizations',
+    updateKuota: (id: string) => `/employee-profile/organizations/${id}/kuota`,
+    deleteOrganization: (id: string) => `/employee-profile/organizations/${id}`,
   },
 
   internProfile: {

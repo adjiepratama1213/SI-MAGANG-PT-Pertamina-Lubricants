@@ -14,7 +14,7 @@ import { Logo } from 'src/components/logo';
 import { useSettingsContext } from 'src/components/settings';
 import SvgColor from 'src/components/svg-color';
 //
-import { AccountPopover, Searchbar, SettingsButton } from 'src/layouts/_common';
+import { AccountPopover, Searchbar, SettingsButton, NotificationsPopover } from 'src/layouts/_common';
 import { HEADER, NAV } from 'src/layouts/config-layout';
 import NavDesktop from 'src/layouts/main/nav/desktop';
 import { navConfig } from 'src/layouts/main/config-navigation';
@@ -61,11 +61,11 @@ export default function Header({ onOpenNav }: Props) {
       >
         {/* <LanguagePopover /> */}
 
-        {/* <NotificationsPopover /> */}
-
         {/* <ContactsPopover /> */}
 
         {lgUp && <NavDesktop offsetTop={offsetTop} data={navConfig} />}
+
+        <NotificationsPopover />
 
         <SettingsButton />
 

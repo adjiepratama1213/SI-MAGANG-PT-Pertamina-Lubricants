@@ -61,13 +61,14 @@ export default function UserCreateDialog({ open, onClose, defaultRole }: Props) 
         sx: { minHeight: 480 },
       }}
     >
-      <DialogTitle sx={{ m: 0, p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>Buat {getRoleName()} Baru</span>
+      <DialogTitle sx={{ m: 0, p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', boxShadow: 3 }}>
+        <span style={{ fontWeight: 700 }}>Buat {getRoleName()} Baru</span>
         <IconButton
           aria-label="close"
           onClick={onClose}
           sx={{
-            color: (theme) => theme.palette.grey[500],
+            color: 'white',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
           }}
         >
           <Iconify icon="eva:close-fill" />

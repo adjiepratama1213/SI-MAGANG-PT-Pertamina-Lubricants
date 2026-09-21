@@ -1,10 +1,23 @@
 import { Helmet } from 'react-helmet-async';
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthContext } from 'src/auth/hooks';
+import { paths } from 'src/pages/paths';
 import { OverviewAppView } from './app/view';
 
 // ----------------------------------------------------------------------
 
 export default function OverviewAppPage() {
+  const { user } = useAuthContext();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user?.role === 'EMPLOYEESTAFF') {
+      navigate(paths.dashboard.mentorDashboard, { replace: true });
+    } else if (user?.role === 'PESERTA') {
+      navigate(paths.dashboard.pesertaDashboard, { replace: true });
+    }
+  }, [user, navigate]);
   useEffect(() => {
     const scheduleRefresh = () => {
       const now = new Date();

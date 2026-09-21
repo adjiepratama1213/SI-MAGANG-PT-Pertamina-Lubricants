@@ -11,6 +11,9 @@ import Switch from '@mui/material/Switch';
 import Grid from '@mui/material/Unstable_Grid2';
 import Typography from '@mui/material/Typography';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import Card from '@mui/material/Card';
+import CardHeader from '@mui/material/CardHeader';
+import CardContent from '@mui/material/CardContent';
 // utils
 import { fData } from 'src/utils/format-number';
 // routes
@@ -56,8 +59,13 @@ export default function UserNewEditForm({ currentUser, isViewOnly, onClose }: Pr
   const NewUserSchema = Yup.object().shape({
     id: Yup.string(),
     name: Yup.string().required('Name is required'),
-    password: Yup.string().when('id', (id, schema) =>
-      id ? schema.nullable() : schema.required('Password is required')
+    password: Yup.string().when('id', ([id], schema) =>
+      id ? schema.nullable() : schema
+        .required('Password is required')
+        .min(8, 'Password must be at least 8 characters')
+        .max(32, 'Password must not exceed 32 characters')
+        .matches(/[a-zA-Z]/, 'Password must contain at least one letter')
+        .matches(/[0-9]/, 'Password must contain at least one number')
     ),
     email: Yup.string().required('Email is required').email('Email must be a valid email address'),
     phone: Yup.string().required('Phone Number is required'),
@@ -114,8 +122,23 @@ export default function UserNewEditForm({ currentUser, isViewOnly, onClose }: Pr
   const onSubmit = handleSubmit(async (data) => {
     const toastId = toast.loading('Your request have been processing, please wait...');
     try {
+      let finalPhotoUrl = data.photoUrl;
+      if (data.photoUrl && data.photoUrl instanceof File) {
+        const formData = new FormData();
+        formData.append('file', data.photoUrl);
+        formData.append('folder', 'users');
+
+        const uploadRes = await axiosInstance.post('/gcp-item/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        finalPhotoUrl = uploadRes.data.url;
+      }
+      data.photoUrl = finalPhotoUrl;
+
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password: _, isVerified: __, ...dataWithoutPassword } = data;
+      dataWithoutPassword.photoUrl = finalPhotoUrl;
+
       const res =
         data.id === ''
           ? await axiosInstance.post(`${endpoints.auth.register}`, data)
@@ -183,6 +206,7 @@ export default function UserNewEditForm({ currentUser, isViewOnly, onClose }: Pr
 
   return (
     <FormProvider methods={methods} onSubmit={onSubmit}>
+      <fieldset disabled={isViewOnly} style={{ border: 'none', margin: 0, padding: 0 }}>
       <Grid container spacing={3}>
         <Grid xs={12} md={4}>
           <Box sx={{ pt: 5, pb: 5, px: 3 }}>
@@ -191,6 +215,7 @@ export default function UserNewEditForm({ currentUser, isViewOnly, onClose }: Pr
                 name="photoUrl"
                 maxSize={3145728}
                 onDrop={handleDrop}
+                disabled={isViewOnly}
                 helperText={
                   <Typography
                     variant="caption"
@@ -220,6 +245,7 @@ export default function UserNewEditForm({ currentUser, isViewOnly, onClose }: Pr
                       <Switch
                         {...field}
                         checked={field.value !== 'active'}
+                        disabled={isViewOnly}
                         onChange={(event) =>
                           field.onChange(event.target.checked ? 'banned' : 'active')
                         }
@@ -244,6 +270,7 @@ export default function UserNewEditForm({ currentUser, isViewOnly, onClose }: Pr
             <RHFSwitch
               name="isVerified"
               labelPlacement="start"
+              disabled={isViewOnly}
               label={
                 <>
                   <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
@@ -257,7 +284,7 @@ export default function UserNewEditForm({ currentUser, isViewOnly, onClose }: Pr
               sx={{ mx: 0, width: 1, justifyContent: 'space-between' }}
             />
 
-            {currentUser && (
+            {currentUser && !isViewOnly && (
               <Stack justifyContent="center" alignItems="center" sx={{ mt: 3 }}>
                 <Button variant="soft" color="error">
                   Delete User
@@ -268,123 +295,133 @@ export default function UserNewEditForm({ currentUser, isViewOnly, onClose }: Pr
         </Grid>
 
         <Grid xs={12} md={8}>
-          <Box sx={{ p: 3 }}>
-            <Box
-              rowGap={3}
-              columnGap={2}
-              display="grid"
-              gridTemplateColumns={{
-                xs: 'repeat(1, 1fr)',
-                sm: 'repeat(2, 1fr)',
-              }}
-            >
-              <RHFTextField name="name" label="Full Name" />
-              <RHFTextField name="email" label="Email Address" />
-              <RHFTextField name="phone" label="Phone Number" />
+          <Card sx={{ pt: 1, pb: 2 }}>
+            <CardHeader title="Informasi Pengguna" subheader="Masukkan data profil pengguna di bawah ini" sx={{ mb: 2 }} />
+            <CardContent>
+              <Box
+                rowGap={3}
+                columnGap={2}
+                display="grid"
+                gridTemplateColumns={{
+                  xs: 'repeat(1, 1fr)',
+                  sm: 'repeat(2, 1fr)',
+                }}
+              >
+                <RHFTextField name="name" label="Full Name" disabled={isViewOnly} />
+                <RHFTextField name="email" label="Email Address" disabled={isViewOnly} />
+                <RHFTextField name="phone" label="Phone Number" disabled={isViewOnly} />
 
-              <RHFSelect name="status" label="Status">
-                {USER_STATUS_OPTIONS.map((status) => (
-                  <MenuItem key={status.value} value={status.value}>
-                    {status.label}
-                  </MenuItem>
-                ))}
-              </RHFSelect>
+                <RHFSelect name="status" label="Status" disabled={isViewOnly}>
+                  {USER_STATUS_OPTIONS.map((status) => (
+                    <MenuItem key={status.value} value={status.value}>
+                      {status.label}
+                    </MenuItem>
+                  ))}
+                </RHFSelect>
 
-              {values.id === '' && (
-                <RHFTextField
-                  name="password"
-                  type={password.value ? 'text' : 'password'}
-                  label="Password"
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton onClick={password.onToggle} edge="end">
-                          <Iconify
-                            icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'}
-                          />
-                        </IconButton>
-                      </InputAdornment>
-                    ),
+                {values.id === '' && (
+                  <RHFTextField
+                    name="password"
+                    type={password.value ? 'text' : 'password'}
+                    label="Password"
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={password.onToggle} edge="end">
+                            <Iconify
+                              icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'}
+                            />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                )}
+
+                <RHFAutocomplete
+                  name="positionId"
+                  label="Position ID"
+                  disabled={isViewOnly}
+                  options={searchPositionResults.map((position) => position.id)}
+                  getOptionLabel={(option) => option}
+                  isOptionEqualToValue={(option, value) => option === value}
+                  renderOption={(props, option) => {
+                    const { name, id } = searchPositionResults.filter(
+                      (position) => position.id === option
+                    )[0];
+
+                    if (!id) {
+                      return null;
+                    }
+
+                    return (
+                      <li {...props} key={id}>
+                        {id} - {name}
+                      </li>
+                    );
                   }}
                 />
-              )}
 
-              <RHFAutocomplete
-                name="positionId"
-                label="Position ID"
-                options={searchPositionResults.map((position) => position.id)}
-                getOptionLabel={(option) => option}
-                isOptionEqualToValue={(option, value) => option === value}
-                renderOption={(props, option) => {
-                  const { name, id } = searchPositionResults.filter(
-                    (position) => position.id === option
-                  )[0];
+                <RHFTextField name="jobTitle" label="Job Title" disabled />
+                <RHFTextField name="teamId" label="Team ID" disabled />
 
-                  if (!id) {
-                    return null;
-                  }
+                <RHFAutocomplete
+                  name="role"
+                  label="Role For Application"
+                  options={userRoles.map((role) => role.code)}
+                  getOptionLabel={(option) => option}
+                  isOptionEqualToValue={(option, value) => option === value}
+                  disabled
+                  renderOption={(props, option) => {
+                    const { code, label } = userRoles.filter((role) => role.code === option)[0];
 
-                  return (
-                    <li {...props} key={id}>
-                      {id} - {name}
-                    </li>
-                  );
-                }}
-              />
+                    if (!code) {
+                      return null;
+                    }
 
-              <RHFTextField name="jobTitle" label="Job Title" disabled />
-              <RHFTextField name="teamId" label="Team ID" disabled />
+                    return (
+                      <li {...props} key={code}>
+                        {label} ({code})
+                      </li>
+                    );
+                  }}
+                />
+              </Box>
 
-              <RHFAutocomplete
-                name="role"
-                label="Role For Application"
-                options={userRoles.map((role) => role.code)}
-                getOptionLabel={(option) => option}
-                isOptionEqualToValue={(option, value) => option === value}
-                disabled
-                renderOption={(props, option) => {
-                  const { code, label } = userRoles.filter((role) => role.code === option)[0];
-
-                  if (!code) {
-                    return null;
-                  }
-
-                  return (
-                    <li {...props} key={code}>
-                      {label} ({code})
-                    </li>
-                  );
-                }}
-              />
-            </Box>
-
-            <Stack direction="row" sx={{ justifyContent: 'space-between', mt: 3 }}>
-              {isIdaman ? (
-                <Stack />
-              ) : (
-                <Button
-                  variant="outlined"
-                  color="warning"
-                  onClick={sentVerification}
-                  disabled={verificationLoading || currentUser?.status !== 'pending'}
-                >
-                  {verificationLoading ? (
-                    <>Loading...</> // You can replace this with a spinner if you want
-                  ) : (
-                    <>
-                      <Iconify icon="eva:email-outline" sx={{ mr: 1 }} />
-                      Send Verification Email
-                    </>
-                  )}
-                </Button>
-              )}
-              <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
-                {!currentUser ? 'Create User' : 'Save Changes'}
-              </LoadingButton>
-            </Stack>
-          </Box>
+              <Stack direction="row" sx={{ justifyContent: 'space-between', mt: 3 }}>
+                {isIdaman ? (
+                  <Stack />
+                ) : (
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    onClick={sentVerification}
+                    disabled={verificationLoading || currentUser?.status !== 'pending'}
+                  >
+                    {verificationLoading ? (
+                      <>Loading...</>
+                    ) : (
+                      <>
+                        <Iconify icon="eva:email-outline" sx={{ mr: 1 }} />
+                        Send Verification Email
+                      </>
+                    )}
+                  </Button>
+                )}
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button variant="outlined" color="inherit" onClick={onClose}>
+                    Batal
+                  </Button>
+                  <LoadingButton type="submit" variant="contained" color="primary" loading={isSubmitting}>
+                    {!currentUser ? 'Create User' : 'Simpan'}
+                  </LoadingButton>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
+      </fieldset>
     </FormProvider>
   );
 }

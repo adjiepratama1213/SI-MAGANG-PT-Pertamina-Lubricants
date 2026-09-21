@@ -52,7 +52,7 @@ export default function AccountPopover() {
     //   linkTo: pathAfterLogin(user?.role),
     // },
     {
-      label: 'Account',
+      label: 'Profil',
       linkTo: paths.user.root,
     },
     // {
@@ -123,7 +123,7 @@ export default function AccountPopover() {
           onClick={handleLogout}
           sx={{ m: 1, fontWeight: 'fontWeightBold', color: 'error.main' }}
         >
-          Logout
+          Keluar
         </MenuItem>
       </CustomPopover>
     </>

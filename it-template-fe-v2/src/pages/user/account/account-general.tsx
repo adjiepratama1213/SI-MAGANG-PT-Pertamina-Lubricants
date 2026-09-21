@@ -17,15 +17,16 @@ import { fData } from 'src/utils/format-number';
 import { toast } from 'react-toastify';
 import { useAuthContext } from 'src/auth/hooks';
 import FormProvider, { RHFTextField, RHFUploadAvatar } from 'src/components/hook-form';
-import { Alert, Button, Dialog, DialogContent, DialogTitle } from '@mui/material';
+import { Alert, Button, Dialog, DialogContent, DialogTitle, CardHeader, CardContent } from '@mui/material';
 import Iconify from 'src/components/iconify';
 import QRCode from 'react-qr-code';
+import axiosInstance from 'src/utils/axios';
 import { useGetQr } from '../query';
 
 // ----------------------------------------------------------------------
 
 export default function AccountGeneral() {
-  const { user } = useAuthContext();
+  const { user, initialize } = useAuthContext();
   const [openQr, setOpenQr] = useState(false);
 
   const { results } = useGetQr();
@@ -48,7 +49,6 @@ export default function AccountGeneral() {
     // state: Yup.string().required('State is required'),
     // city: Yup.string().required('City is required'),
     // zipCode: Yup.string().required('Zip code is required'),
-    about: Yup.string().required('About is required'),
     // not required
     isPublic: Yup.boolean(),
   });
@@ -64,7 +64,6 @@ export default function AccountGeneral() {
       position: user?.Position?.name || '',
       team: user?.Position?.Team?.name || '',
       webAuthnId: user?.webAuthnId || '',
-      about: user?.about || '',
       isPublic: user?.isPublic || false,
     },
   });
@@ -76,12 +75,46 @@ export default function AccountGeneral() {
   } = methods;
 
   const onSubmit = handleSubmit(async (data) => {
+    const toastId = toast.loading('Your request have been processing, please wait...');
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      toast('Update success!');
-      console.info('DATA', data);
+      let finalPhotoUrl = data.photoUrl;
+
+      if (data.photoUrl && data.photoUrl instanceof File) {
+        const formData = new FormData();
+        formData.append('file', data.photoUrl);
+        formData.append('folder', 'users');
+
+        const uploadRes = await axiosInstance.post('/gcp-item/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        finalPhotoUrl = uploadRes.data.url;
+      }
+
+      await axiosInstance.patch(`/user/${user?.id}`, {
+        name: data.name,
+        email: data.email,
+        photoUrl: finalPhotoUrl,
+        phone: data.phoneNumber,
+      });
+
+      if (initialize) {
+        await initialize();
+      }
+
+      toast.update(toastId, {
+        render: 'Profile updated successfully!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000,
+      });
     } catch (error) {
       console.error(error);
+      toast.update(toastId, {
+        render: 'Update failed!',
+        type: 'error',
+        isLoading: false,
+        autoClose: 3000,
+      });
     }
   });
 
@@ -100,34 +133,44 @@ export default function AccountGeneral() {
     [setValue]
   );
 
-  const isIdaman = user?.idamanId !== '';
+  const isIdaman = !!user?.idamanId;
 
   return (
     <FormProvider methods={methods} onSubmit={onSubmit}>
       <Grid container spacing={3}>
-        <Grid xs={12} md={4}>
-          <Card sx={{ pt: 10, pb: 5, px: 3, textAlign: 'center' }}>
+        <Grid xs={12} md={3}>
+          <Card sx={{ pt: 5, pb: 5, px: 3, textAlign: 'center' }}>
             <RHFUploadAvatar
               name="photoUrl"
               maxSize={3145728}
               onDrop={handleDrop}
-              helperText={
-                <Typography
-                  variant="caption"
-                  sx={{
-                    mt: 3,
-                    mx: 'auto',
-                    display: 'block',
-                    textAlign: 'center',
-                    color: 'text.disabled',
-                  }}
-                >
-                  Allowed *.jpeg, *.jpg, *.png, *.gif
-                  <br /> max size of {fData(3145728)}
-                </Typography>
-              }
             />
 
+            <Typography variant="subtitle1" sx={{ mt: 2, mb: 0.5 }}>
+              {user?.name}
+            </Typography>
+
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+              {user?.Position?.name}
+            </Typography>
+
+            <Typography
+              variant="caption"
+              sx={{
+                mx: 'auto',
+                display: 'block',
+                textAlign: 'center',
+                color: 'text.disabled',
+                mb: 3,
+              }}
+            >
+              Allowed *.jpeg, *.jpg, *.png, *.gif
+              <br /> max size of {fData(3145728)}
+            </Typography>
+
+            <Button variant="outlined" color="inherit" fullWidth sx={{ maxWidth: 200 }}>
+              Upload Photo
+            </Button>
             {/* <RHFSwitch
               name="isPublic"
               labelPlacement="start"
@@ -135,20 +178,12 @@ export default function AccountGeneral() {
               sx={{ mt: 5 }}
             /> */}
           </Card>
-
-          <Button
-            fullWidth
-            onClick={handleOpenQr}
-            variant="contained"
-            sx={{ height: 80, borderRadius: 0, mt: 1 }}
-            startIcon={<Iconify icon="solar:qr-code-bold" />}
-          >
-            Login With QR
-          </Button>
         </Grid>
 
-        <Grid xs={12} md={8}>
-          <Card sx={{ p: 3 }}>
+        <Grid xs={12} md={9}>
+          <Card sx={{ pt: 1, pb: 2 }}>
+            <CardHeader title="Informasi Akun" subheader="Perbarui informasi profil dan akun Anda di bawah ini" sx={{ mb: 2 }} />
+            <CardContent>
             <Box
               rowGap={3}
               columnGap={2}
@@ -195,19 +230,18 @@ export default function AccountGeneral() {
               {/* <RHFTextField name="zipCode" label="Zip/Code" /> */}
             </Box>
 
-            <Stack spacing={3} alignItems="flex-end" sx={{ mt: 3 }}>
-              <RHFTextField name="position" label="Position" disabled />
+            <Stack spacing={3} sx={{ mt: 3 }}>
               <RHFTextField name="team" label="Team" disabled />
             </Stack>
-            <Stack spacing={3} alignItems="flex-end" sx={{ mt: 3 }}>
-              <RHFTextField name="about" multiline rows={4} label="About" />
 
+            <Stack spacing={3} alignItems="flex-end" sx={{ mt: 3 }}>
               {!isIdaman && (
-                <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
-                  Save Changes
+                <LoadingButton type="submit" variant="contained" color="primary" loading={isSubmitting}>
+                  Simpan Perubahan
                 </LoadingButton>
               )}
             </Stack>
+            </CardContent>
           </Card>
         </Grid>
       </Grid>

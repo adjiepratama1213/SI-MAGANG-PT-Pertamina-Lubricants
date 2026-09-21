@@ -9,7 +9,7 @@ import { HEADER, NAV } from 'src/layouts/config-layout';
 
 // ----------------------------------------------------------------------
 
-const SPACING = 8;
+const SPACING = 32;
 
 export default function Main({ children, sx, ...other }: BoxProps) {
   const settings = useSettingsContext();
@@ -50,6 +50,7 @@ export default function Main({ children, sx, ...other }: BoxProps) {
         display: 'flex',
         flexDirection: 'column',
         py: `${HEADER.H_MOBILE + SPACING}px`,
+        bgcolor: '#F4F6F8', // subtle gray background to contrast with white sidebar and cards
         ...(lgUp && {
           px: 2,
           py: `${HEADER.H_DESKTOP + SPACING}px`,

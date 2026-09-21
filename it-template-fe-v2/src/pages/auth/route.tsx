@@ -31,7 +31,7 @@ export const authRoutes: RouteObject[] = [
       {
         path: 'login',
         element: (
-          <AuthClassicLayout title="POST IT" subTitle="Pertamina On Single Tab">
+          <AuthClassicLayout title="Portal Magang" subTitle="PT Pertamina Lubricants">
             <LoginPage />
           </AuthClassicLayout>
         ),
@@ -39,7 +39,7 @@ export const authRoutes: RouteObject[] = [
       {
         path: 'register',
         element: (
-          <AuthClassicLayout title="Register">
+          <AuthClassicLayout title="Pendaftaran Magang">
             <RegisterPage />
           </AuthClassicLayout>
         ),

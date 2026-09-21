@@ -27,6 +27,7 @@ import FormProvider, {
   RHFUploadAvatar,
   RHFAutocomplete,
   RHFSelect,
+  RHFUpload,
 } from 'src/components/hook-form';
 import { userRoles } from 'src/assets/ptpl/roles';
 import { useSearchPosition } from 'src/pages/position/query';
@@ -175,6 +176,26 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
         ...dataWithoutPassword
       } = data;
 
+      let finalDocumentUrls = [...(documentUrls || [])];
+
+      if (documentUrls && documentUrls.length > 0) {
+        finalDocumentUrls = await Promise.all(
+          documentUrls.map(async (doc: any) => {
+            if (doc instanceof File) {
+              const formData = new FormData();
+              formData.append('file', doc);
+              formData.append('folder', 'documents');
+
+              const uploadRes = await axiosInstance.post('/gcp-item/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+              });
+              return uploadRes.data.url;
+            }
+            return doc;
+          })
+        );
+      }
+
       const res =
         data.id === ''
           ? await axiosInstance.post(`${endpoints.auth.register}`, data)
@@ -193,7 +214,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
         startDate: startDate ? startDate.toISOString() : null,
         endDate: endDate ? endDate.toISOString() : null,
         program: program || null,
-        documentUrls: documentUrls || [],
+        documentUrls: finalDocumentUrls || [],
         mentorProfileId: mentorProfileId || null,
       };
 
@@ -251,6 +272,33 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
     [setValue]
   );
 
+  const handleDropDocuments = useCallback(
+    (acceptedFiles: File[]) => {
+      const files = values.documentUrls || [];
+      const newFiles = acceptedFiles.map((file) =>
+        Object.assign(file, {
+          preview: URL.createObjectURL(file),
+        })
+      );
+      setValue('documentUrls', [...files, ...newFiles], { shouldValidate: true });
+    },
+    [setValue, values.documentUrls]
+  );
+
+  const handleRemoveDocument = useCallback(
+    (inputFile: File | string) => {
+      const filtered =
+        values.documentUrls &&
+        values.documentUrls?.filter((file: File | string) => file !== inputFile);
+      setValue('documentUrls', filtered, { shouldValidate: true });
+    },
+    [setValue, values.documentUrls]
+  );
+
+  const handleRemoveAllDocuments = useCallback(() => {
+    setValue('documentUrls', [], { shouldValidate: true });
+  }, [setValue]);
+
   const [verificationLoading, setVerificationLoading] = useState(false);
   const sentVerification = async () => {
     try {
@@ -280,6 +328,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                   name="photoUrl"
                   maxSize={3145728}
                   onDrop={handleDrop}
+                  disabled={isViewOnly}
                   helperText={
                     <Typography
                       variant="caption"
@@ -309,6 +358,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                         <Switch
                           {...field}
                           checked={field.value !== 'active'}
+                          disabled={isViewOnly}
                           onChange={(event) =>
                             field.onChange(event.target.checked ? 'banned' : 'active')
                           }
@@ -333,6 +383,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
               <RHFSwitch
                 name="isVerified"
                 labelPlacement="start"
+                disabled={isViewOnly}
                 label={
                   <>
                     <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
@@ -346,7 +397,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                 sx={{ mx: 0, width: 1, justifyContent: 'space-between' }}
               />
 
-              {currentUser && (
+              {currentUser && !isViewOnly && (
                 <Stack justifyContent="center" alignItems="center" sx={{ mt: 3 }}>
                   <Button variant="soft" color="error">
                     Delete User
@@ -367,11 +418,11 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                   sm: 'repeat(2, 1fr)',
                 }}
               >
-                <RHFTextField name="name" label="Full Name" />
-                <RHFTextField name="email" label="Email Address" />
-                <RHFTextField name="phone" label="Phone Number" />
+                <RHFTextField name="name" label="Full Name" disabled={isViewOnly} />
+                <RHFTextField name="email" label="Email Address" disabled={isViewOnly} />
+                <RHFTextField name="phone" label="Phone Number" disabled={isViewOnly} />
 
-                <RHFSelect name="status" label="Status">
+                <RHFSelect name="status" label="Status" disabled={isViewOnly}>
                   {USER_STATUS_OPTIONS.map((status) => (
                     <MenuItem key={status.value} value={status.value}>
                       {status.label}
@@ -401,6 +452,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                 <RHFAutocomplete
                   name="positionId"
                   label="Position ID"
+                  disabled={isViewOnly}
                   options={searchPositionResults.map((position) => position.id)}
                   getOptionLabel={(option) => option}
                   isOptionEqualToValue={(option, value) => option === value}
@@ -453,10 +505,10 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                   </Typography>
                 </Grid>
 
-                <RHFTextField name="internId" label="NIM / ID Peserta" />
-                <RHFTextField name="university" label="Asal Instansi / Universitas" />
+                <RHFTextField name="internId" label="NIM / ID Peserta" disabled={isViewOnly} />
+                <RHFTextField name="university" label="Asal Instansi / Universitas" disabled={isViewOnly} />
 
-                <RHFSelect name="gender" label="Jenis Kelamin">
+                <RHFSelect name="gender" label="Jenis Kelamin" disabled={isViewOnly}>
                   <MenuItem value="PRIA">Pria</MenuItem>
                   <MenuItem value="WANITA">Wanita</MenuItem>
                 </RHFSelect>
@@ -468,6 +520,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                     <DatePicker
                       label="Tanggal Lahir"
                       value={field.value}
+                      disabled={isViewOnly}
                       onChange={(newValue) => {
                         field.onChange(newValue);
                       }}
@@ -482,7 +535,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                   )}
                 />
 
-                <RHFTextField name="major" label="Jurusan" />
+                <RHFTextField name="major" label="Jurusan" disabled={isViewOnly} />
                 <Controller
                   name="startDate"
                   control={control}
@@ -490,6 +543,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                     <DatePicker
                       label="Tanggal Mulai"
                       value={field.value}
+                      disabled={isViewOnly}
                       onChange={(newValue) => {
                         field.onChange(newValue);
                       }}
@@ -511,6 +565,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                     <DatePicker
                       label="Tanggal Selesai"
                       value={field.value}
+                      disabled={isViewOnly}
                       onChange={(newValue) => {
                         field.onChange(newValue);
                       }}
@@ -525,25 +580,21 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                   )}
                 />
 
-                <RHFSelect name="program" label="Program">
+                <RHFSelect name="program" label="Program" disabled={isViewOnly}>
                   <MenuItem value="PKL">PKL</MenuItem>
                   <MenuItem value="Internship PTPL">Internship PTPL</MenuItem>
                   <MenuItem value="Internship Kemnaker">Internship Kemnaker</MenuItem>
                 </RHFSelect>
 
-                <RHFAutocomplete
-                  name="documentUrls"
-                  label="Link Berkas (G-Drive / PDF)"
+                <RHFUpload
                   multiple
-                  freeSolo
-                  options={[]}
-                  getOptionLabel={(option) => option}
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, index) => (
-                      <Chip {...getTagProps({ index })} key={option} label={option} size="small" />
-                    ))
-                  }
-                  helperText="Tekan Enter untuk menambahkan lebih dari satu link."
+                  thumbnail
+                  name="documentUrls"
+                  maxSize={3145728}
+                  onDrop={handleDropDocuments}
+                  onRemove={handleRemoveDocument}
+                  onRemoveAll={handleRemoveAllDocuments}
+                  disabled={isViewOnly}
                 />
 
               </Box>
@@ -569,9 +620,14 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                   </Button>
                 )}
                 {!isViewOnly && (
-                  <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
-                    {!currentUser ? 'Create User' : 'Save Changes'}
-                  </LoadingButton>
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Button variant="outlined" color="inherit" onClick={onClose}>
+                      Batal
+                    </Button>
+                    <LoadingButton type="submit" variant="contained" color="primary" loading={isSubmitting}>
+                      {!currentUser ? 'Create User' : 'Simpan'}
+                    </LoadingButton>
+                  </Box>
                 )}
               </Stack>
             </Box>

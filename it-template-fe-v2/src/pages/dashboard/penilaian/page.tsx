@@ -103,7 +103,7 @@ export default function Page() {
     xaxis: { categories: ['Budi Santoso', 'Kareem Graham', 'Siti Aminah', 'Andi Wijaya'] },
     yaxis: { title: { text: 'Nilai Rata-rata' }, max: 100 },
     fill: { opacity: 1, colors: ['#004F9F'] },
-    tooltip: { y: { formatter: (val: number) => val + " Poin" } }
+    tooltip: { y: { formatter: (val: number) => `${val  } Poin` } }
   };
   const chartSeries1 = [{ name: 'Rata-rata Nilai', data: [85, 92, 78, 88] }];
 
@@ -281,8 +281,12 @@ export default function Page() {
                        <Chip label={row.status} size="small" color={row.status === 'Sudah Dinilai' ? 'success' : 'warning'} variant="soft" />
                     </TableCell>
                     <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
-                      <Button variant="outlined" size="small" color="primary" sx={{ mr: 1, minWidth: 'auto', px: 1.5, py: 0.5, borderRadius: 1 }} onClick={() => handleOpenDialog(row)}>Detail</Button>
-                      <Button variant="outlined" size="small" color="error" sx={{ minWidth: 'auto', px: 1.5, py: 0.5, borderRadius: 1 }}>Hapus</Button>
+                      <IconButton size="small" color="primary" sx={{ mr: 1, p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0' }} onClick={() => handleOpenDialog(row)} title="Detail / Edit">
+                        <Iconify icon="solar:eye-bold-duotone" width={20} />
+                      </IconButton>
+                      <IconButton size="small" color="error" title="Hapus" sx={{ p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0' }}>
+                        <Iconify icon="solar:trash-bin-trash-bold-duotone" width={20} />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -427,6 +431,27 @@ export default function Page() {
                       <Typography variant="body2" fontWeight="bold">{selectedPenilaian.catatan}</Typography>
                     </Grid>
                   </Grid>
+                </Box>
+              </Box>
+
+              {/* Upload Sertifikat */}
+              <Box sx={{ mb: 2.5 }}>
+                <Typography variant="subtitle2" color="primary.main" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                  <Iconify icon="solar:file-check-bold-duotone" sx={{ mr: 1 }} /> Sertifikat Magang
+                </Typography>
+                <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 2, border: '1px dashed #004F9F', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Unggah dokumen sertifikat (.pdf) untuk peserta ini
+                  </Typography>
+                  <Button variant="contained" component="label" sx={{ bgcolor: '#004F9F', '&:hover': { bgcolor: '#003366' }, boxShadow: 'none' }}>
+                    Pilih File Sertifikat
+                    <input type="file" hidden accept=".pdf" onChange={(e) => {
+                      if(e.target.files && e.target.files[0]) {
+                        // Dummy handling for now
+                        alert(`File terpilih: ${e.target.files[0].name}`);
+                      }
+                    }} />
+                  </Button>
                 </Box>
               </Box>
             </DialogContent>

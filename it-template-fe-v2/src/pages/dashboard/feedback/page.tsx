@@ -89,14 +89,12 @@ export default function Page() {
             <Grid item xs={12} md={3}>
               <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Rating</InputLabel><Select label="Rating" defaultValue="all"><MenuItem value="all">Semua Rating</MenuItem><MenuItem value="5">Bintang 5</MenuItem><MenuItem value="4">Bintang 4</MenuItem></Select></FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={6} sx={{ display: 'flex', gap: 1 }}>
               <TextField fullWidth size="small" placeholder="Cari isi pesan atau nama peserta..." sx={{ bgcolor: 'white' }} />
-            </Grid>
-            <Grid item xs={12} md={2} sx={{ display: 'flex', gap: 1 }}>
-              <Button variant="contained" color="primary" sx={{ width: '50%', boxShadow: 'none' }}>
+              <Button variant="contained" color="primary" sx={{ px: 3, boxShadow: 'none' }}>
                 <Iconify icon="eva:search-fill" />
               </Button>
-              <Button variant="outlined" sx={{ width: '50%', borderColor: '#94a3b8', color: 'text.primary', fontWeight: 'bold', '&:hover': { borderColor: '#64748b', bgcolor: '#f8fafc' } }}>
+              <Button variant="outlined" sx={{ px: 3, borderColor: '#94a3b8', color: 'text.primary', fontWeight: 'bold', '&:hover': { borderColor: '#64748b', bgcolor: '#f8fafc' } }}>
                 Reset
               </Button>
             </Grid>
@@ -125,10 +123,13 @@ export default function Page() {
                     <TableCell>{row.pesan}</TableCell>
                     <TableCell>{row.tanggal}</TableCell>
                     <TableCell sx={{ color: 'warning.main', fontWeight: 'bold' }}><Iconify icon="solar:star-bold" sx={{ mr: 0.5, mb: -0.5 }} />{row.rating}</TableCell>
-                    <TableCell align="center">
-                      <Button variant="outlined" size="small" color="primary" onClick={() => handleOpenDetail(row)} sx={{ whiteSpace: 'nowrap', minWidth: 'auto', px: 1.5, py: 0.5, borderRadius: 1 }}>
-                        Detail
-                      </Button>
+                    <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                      <IconButton size="small" color="primary" sx={{ mr: 1, p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0' }} onClick={() => handleOpenDetail(row)} title="Detail / Edit">
+                        <Iconify icon="solar:eye-bold-duotone" width={20} />
+                      </IconButton>
+                      <IconButton size="small" color="error" title="Hapus" sx={{ p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0' }}>
+                        <Iconify icon="solar:trash-bin-trash-bold-duotone" width={20} />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 ))}

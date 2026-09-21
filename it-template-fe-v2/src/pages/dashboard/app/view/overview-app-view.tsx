@@ -11,11 +11,11 @@ import {
   Button, Stack
 } from '@mui/material';
 // components
+import Iconify from 'src/components/iconify';
 import AppWelcome from '../app-welcome';
 import AppWidgetSummary from '../app-widget-summary';
 import AppAreaInstalled from '../app-area-installed';
 import AppCurrentDownload from '../app-current-download';
-import Iconify from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
@@ -30,7 +30,7 @@ export default function OverviewAppView() {
         <Grid container spacing={3}>
           
           {/* Welcome Banner */}
-          <Grid xs={12} md={12} sx={{ mb: 3 }}>
+          <Grid xs={12} md={12}>
             <Box sx={{ 
               background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)',
               borderRadius: 3,
