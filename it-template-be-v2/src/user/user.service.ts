@@ -3,6 +3,8 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import * as qs from 'qs';
+import * as fs from 'fs';
+import * as path from 'path';
 import { firstValueFrom } from 'rxjs';
 import { generateRandomNumber } from 'src/common/utils/utils';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -12,6 +14,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { IdamanOrganizationEntity } from './entities/idamanOrganization.entity';
 import { IdamanTokenEntity } from './entities/idamanToken.entity';
 import { IdamanUserEntity } from './entities/idamanUser.entity';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class UserService {
@@ -19,7 +22,8 @@ export class UserService {
     private prisma: PrismaService,
     private httpService: HttpService,
     private passwordService: PasswordService,
-    private configService: ConfigService
+    private configService: ConfigService,
+    private mailService: MailService
   ) {}
 
   async findAll(search: SearchUserDto): Promise<{ results: User[]; count: number }> {
@@ -37,12 +41,21 @@ export class UserService {
               Team: true,
             },
           },
-          employeeProfile: true,
-          internProfile: {
+          employeeProfile: {
             include: {
-              mentor: {
+              internsMentored: {
                 include: {
                   user: { select: { name: true, email: true } },
+                },
+              },
+            },
+          },
+          internProfile: {
+            include: {
+              evaluation: true,
+              mentor: {
+                include: {
+                  user: { select: { name: true, email: true, employeeProfile: true } },
                 },
               },
             },
@@ -92,9 +105,10 @@ export class UserService {
           employeeProfile: true,
           internProfile: {
             include: {
+              evaluation: true,
               mentor: {
                 include: {
-                  user: { select: { name: true, email: true } },
+                  user: { select: { name: true, email: true, employeeProfile: true } },
                 },
               },
             },
@@ -161,16 +175,30 @@ export class UserService {
 
   async update(id: string, updateUserDto: UpdateUserDto) {
     try {
+      // Dapatkan data user lama sebelum diupdate
+      const oldUser = await this.prisma.user.findUnique({ where: { id } });
+
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { positionId, teamId: _, ...rest } = updateUserDto;
 
-      return this.prisma.user.update({
+      const updatedUser = await this.prisma.user.update({
         where: { id },
         data: {
           ...rest, // Masukkan semua field lain kecuali positionId
           Position: positionId ? { connect: { id: positionId } } : undefined, // Update position jika ada
         },
       });
+
+      // Logika pengiriman email persetujuan/penolakan untuk PESERTA
+      if (oldUser && oldUser.role === 'PESERTA' && oldUser.status === 'pending') {
+        if (updateUserDto.status === 'active') {
+          await this.mailService.sendAcceptanceEmail(updatedUser.email);
+        } else if (updateUserDto.status === 'rejected') {
+          await this.mailService.sendRejectionEmail(updatedUser.email);
+        }
+      }
+
+      return updatedUser;
     } catch (error) {
       console.error(error);
       throw error;
@@ -226,7 +254,43 @@ export class UserService {
 
   async remove(id: string) {
     try {
-      return this.prisma.user.delete({ where: { id: id } });
+      // 1. Get user data to find the file URLs before deleting
+      const user = await this.prisma.user.findUnique({
+        where: { id },
+        include: { internProfile: true },
+      });
+
+      if (user) {
+        const urlsToDelete: string[] = [];
+        if (user.photoUrl) urlsToDelete.push(user.photoUrl);
+        if (user.internProfile?.documentUrls) {
+          urlsToDelete.push(...user.internProfile.documentUrls);
+        }
+
+        // 2. Loop through URLs and delete local files
+        for (const fileUrl of urlsToDelete) {
+          if (fileUrl.includes('/uploads/')) {
+            try {
+              // Extract relative path from URL, e.g., "http://localhost:8080/uploads/documents/file.pdf" -> "documents/file.pdf"
+              const urlParts = fileUrl.split('/uploads/');
+              if (urlParts.length > 1) {
+                const relativePath = urlParts[1];
+                const absolutePath = path.join(process.cwd(), 'uploads', relativePath);
+                
+                if (fs.existsSync(absolutePath)) {
+                  fs.unlinkSync(absolutePath);
+                  console.log(`Deleted physical file: ${absolutePath}`);
+                }
+              }
+            } catch (fsError) {
+              console.error(`Failed to delete physical file for URL ${fileUrl}:`, fsError);
+            }
+          }
+        }
+      }
+
+      // 3. Delete user from database
+      return await this.prisma.user.delete({ where: { id: id } });
     } catch (error) {
       console.error(error);
       throw error;

@@ -7,13 +7,16 @@ import { json, urlencoded } from 'express';
 import type { CorsConfig, NestConfig, SwaggerConfig } from 'src/common/configs/config.interface';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
-// import { SocketIoAdapter } from './websocket-adapter';
-// import * as multer from 'multer';
-// import * as express from 'express';
-// import * as bodyParser from 'body-parser';
+import { join } from 'path';
+import * as fs from 'fs';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Serve static uploads folder
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   // const multerConfig: multer.Options = {
   //   storage: multer.diskStorage({
@@ -44,6 +47,7 @@ async function bootstrap() {
 
         // Log it here
         console.warn('Validation error:', messages);
+        fs.appendFileSync('api_debug.log', new Date().toISOString() + ' VALIDATION ERROR: ' + JSON.stringify(messages) + '\n');
 
         return new BadRequestException(messages);
       },
@@ -56,7 +60,7 @@ async function bootstrap() {
     const clientIp =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress;
 
-    console.info('Incoming Request:', {
+    const logMsg = {
       method: req.method,
       path: req.path,
       originalUrl: req.originalUrl,
@@ -64,7 +68,12 @@ async function bootstrap() {
       body: req.body,
       params: req.params,
       query: req.query,
-    });
+    };
+    console.info('Incoming Request:', logMsg);
+    
+    if (req.method === 'PATCH' || req.method === 'POST') {
+      fs.appendFileSync('api_debug.log', new Date().toISOString() + ' REQ: ' + JSON.stringify(logMsg) + '\n');
+    }
 
     next();
   });

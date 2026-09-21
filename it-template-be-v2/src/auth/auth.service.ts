@@ -159,21 +159,35 @@ export class AuthService {
         },
       });
 
-      // const accessToken = this.generateTokens({
-      //   userId: user.id,
-      //   teamId: user.Position.teamId,
-      // });
+      // Jika role PESERTA, otomatis buat InternProfile
+      if ((payload.role ?? 'EMPLOYEE') === 'PESERTA') {
+        await this.prisma.internProfile.create({
+          data: {
+            userId: user.id,
+            internId: payload.internId || null,
+            university: payload.university || null,
+            gender: payload.gender || null,
+            dateOfBirth: payload.dateOfBirth ? new Date(payload.dateOfBirth) : null,
+            major: payload.major || null,
+            startDate: payload.startDate ? new Date(payload.startDate) : null,
+            endDate: payload.endDate ? new Date(payload.endDate) : null,
+            program: payload.program || null,
+            documentUrls: payload.documentUrls || [],
+            bankName: payload.bankName || null,
+            bankAccount: payload.bankAccount || null,
+          },
+        });
+      }
 
       const modUser: Partial<UserEntity> = {
         id: user.id,
         email: user.email,
         name: user.name,
         role: user.role,
-        teamId: user.Position.teamId,
+        teamId: user.Position?.teamId,
       };
 
       return modUser;
-      // return { ...accessToken, user: modUser };
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         throw new ConflictException(`Email ${payload.email} already used.`);
@@ -208,7 +222,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
-        teamId: user.Position.teamId,
+        teamId: user.Position?.teamId,
         photoUrl: user.photoUrl,
         positionId: user.positionId,
         Position: user.Position,
@@ -267,7 +281,7 @@ export class AuthService {
       const isVerified = user.idamanId !== null ? true : false;
       const accessToken = this.generateTokens({
         userId: user.id,
-        teamId: user.Position.teamId,
+        teamId: user.Position?.teamId,
         isVerified,
       });
 
@@ -276,7 +290,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
-        teamId: user.Position.teamId,
+        teamId: user.Position?.teamId,
         photoUrl: user.photoUrl,
         positionId: user.positionId,
         Position: user.Position,

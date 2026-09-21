@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
+import { seedOrganizations } from './seed-org';
 
 const roundsOfHashing = 10;
 
@@ -27,7 +28,10 @@ async function main() {
   try {
     const createOrganization = await prisma.organization.createMany({
       skipDuplicates: true,
-      data: [{ id: '30305042', name: 'Production Unit Jakarta', companyCode: '2508' }],
+      data: [
+        { id: '30305042', name: 'Production Unit Jakarta', companyCode: '2508' },
+        ...seedOrganizations
+      ],
     });
 
     const createPosition = await prisma.position.createMany({
@@ -122,14 +126,14 @@ async function main() {
     // Buat EmployeeProfile untuk VP
     const vpProfile = await prisma.employeeProfile.upsert({
       where: { userId: vpUser.id },
-      update: { subFungsi: 'Strategi Operasi', gender: 'PRIA' },
+      update: { direktorat: 'FINANCE & BUSINESS SUPPORT', fungsi: 'HUMAN CAPITAL & QUALITY MANAGEMENT', subFungsi: 'HC Admin', gender: 'PRIA' },
       create: {
         userId: vpUser.id,
         employeeId: 'NIP-VP-001',
         jabatan: 'Vice President',
-        direktorat: 'Direktorat Operasi',
-        fungsi: 'Perencanaan Operasi',
-        subFungsi: 'Strategi Operasi',
+        direktorat: 'FINANCE & BUSINESS SUPPORT',
+        fungsi: 'HUMAN CAPITAL & QUALITY MANAGEMENT',
+        subFungsi: 'HC Admin',
         gender: 'PRIA',
       },
     });

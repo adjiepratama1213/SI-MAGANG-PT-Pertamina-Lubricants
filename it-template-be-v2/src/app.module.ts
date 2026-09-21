@@ -19,6 +19,8 @@ import { BqueryModule } from './bquery/bquery.module';
 import { GcpItemModule } from './gcp-item/gcp-item.module';
 import { EmployeeProfileModule } from './employee-profile/employee-profile.module';
 import { InternProfileModule } from './intern-profile/intern-profile.module';
+import { PresensiModule } from './presensi/presensi.module';
+import { LaporanModule } from './laporan/laporan.module';
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { InternProfileModule } from './intern-profile/intern-profile.module';
     BqueryModule,
     EmployeeProfileModule,
     InternProfileModule,
+    PresensiModule,
+    LaporanModule,
   ],
   controllers: [AppController],
   providers: [

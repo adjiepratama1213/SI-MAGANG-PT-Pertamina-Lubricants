@@ -98,6 +98,7 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   isPublished Boolean @default(false)
+  kuota       Int     @default(0)
 
   name        String
   companyCode String
@@ -179,9 +180,90 @@ model InternProfile {
   startDate   DateTime? // Tanggal Mulai Magang
   endDate     DateTime? // Tanggal Selesai Magang
   program     String?   // Program Magang
+  bankName    String?   // Nama Bank
+  bankAccount String?   // Nomor Rekening
   documentUrls String[] @default([])   // Berkas (Multiple Links)
 
   // Relasi ke Karyawan yang menjadi Mentor
   mentorProfileId String?
   mentor          EmployeeProfile? @relation("MentorToIntern", fields: [mentorProfileId], references: [id])
+  Laporan         Laporan[]
+  presensi          Presensi[]
+  evaluation        InternEvaluation?
+  extensionRequests InternExtensionRequest[]
+}
+
+model Laporan {
+  id             String        @id @default(uuid())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  keterangan     String?
+  files          String[]      @default([]) // links to the uploaded files
+  statusFeedback String        @default("Menunggu Evaluasi")
+  komentar       String?
+
+  internId       String
+  intern         InternProfile @relation(fields: [internId], references: [id], onDelete: Cascade)
+}
+
+enum PresensiStatus {
+  HADIR
+  HADIR_TERLAMBAT
+  ALPHA
+  IZIN
+  SAKIT
+}
+
+model Presensi {
+  id              String        @id @default(uuid())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  internProfileId String
+  internProfile   InternProfile @relation(fields: [internProfileId], references: [id], onDelete: Cascade)
+
+  tanggalInput    DateTime
+  masuk           DateTime?
+  keluar          DateTime?
+  lat             String?
+  lng             String?
+  presensiStatus  PresensiStatus
+  fileBukti       String?
+  keterangan      String?
+}
+
+model InternEvaluation {
+  id              String        @id @default(uuid())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  internProfileId String        @unique
+  internProfile   InternProfile @relation(fields: [internProfileId], references: [id], onDelete: Cascade)
+
+  integritas       Float
+  ketepatanWaktu   Float
+  keahlian         Float
+  kerjasama        Float
+  komunikasi       Float
+  penggunaanTI     Float
+  pengembanganDiri Float
+  catatan          String?
+
+  nilaiRataRata    Float
+  kategori         String
+  certificateUrl   String?
+}
+
+model InternExtensionRequest {
+  id              String        @id @default(uuid())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  internProfileId String
+  internProfile   InternProfile @relation(fields: [internProfileId], references: [id], onDelete: Cascade)
+
+  previousEndDate DateTime
+  newEndDate      DateTime
+  reason          String?
 }

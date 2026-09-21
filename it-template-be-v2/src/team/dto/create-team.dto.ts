@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Organization } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsNotEmpty, IsString } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsNumber, IsString } from 'class-validator';
 
 export class CreateTeamDto implements Organization {
   @ApiProperty()
@@ -37,4 +37,8 @@ export class CreateTeamDto implements Organization {
   @ApiPropertyOptional()
   @IsString()
   phone: string;
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  kuota: number;
 }

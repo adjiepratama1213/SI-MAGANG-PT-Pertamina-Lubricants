@@ -311,6 +311,7 @@ export class MfaService {
         },
       });
       console.log(`OTP stored successfully for ${email}`);
+      console.log(`[DEV] Generated OTP: ${otp}`);
 
       // Send OTP via email
       await this.mailService.sendOTPEmail(email, otp);

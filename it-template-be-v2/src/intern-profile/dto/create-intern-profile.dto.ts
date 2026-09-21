@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { $Enums } from '@prisma/client';
 import { IsOptional, IsString, IsDateString, IsArray, IsEnum } from 'class-validator';
+import { IsMaxDurationMonths } from '../validators/max-duration.validator';
 
 export class CreateInternProfileDto {
   @ApiProperty()
@@ -34,6 +35,7 @@ export class CreateInternProfileDto {
 
   @ApiProperty()
   @IsDateString()
+  @IsMaxDurationMonths('startDate', 6)
   endDate: string;
 
   @ApiProperty()
@@ -48,6 +50,15 @@ export class CreateInternProfileDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  mentorProfileId?: string | null;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  mentorProfileId?: string;
+  bankName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  bankAccount?: string;
 }

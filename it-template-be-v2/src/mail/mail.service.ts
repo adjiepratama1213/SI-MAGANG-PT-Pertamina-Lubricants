@@ -112,4 +112,72 @@ export class MailService {
       throw error;
     }
   }
+
+  async sendAcceptanceEmail(to: string) {
+    console.log(`📡 Sent Acceptance Email Configuring SMTP...`);
+    try {
+      const loginLink = `${process.env.FRONTEND_URL}/auth/login`;
+      const info = await this.transporter.sendMail({
+        from: `"No Reply POST IT" <${process.env.MAILTRAP_SENDER}>`,
+        to,
+        subject: 'Selamat! Pendaftaran Magang Anda Diterima',
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4;">
+            <div style="max-width: 600px; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); margin: auto;">
+              <h2 style="color: #28a745; text-align: center;">Pendaftaran Diterima 🎉</h2>
+              <p style="color: #333; font-size: 16px; line-height: 1.6;">
+                Selamat! Pendaftaran magang Anda di PT Pertamina Lubricants telah disetujui oleh Admin.
+              </p>
+              <p style="color: #333; font-size: 16px; line-height: 1.6;">
+                Silakan login ke sistem POST IT untuk melihat informasi lebih lanjut. Admin akan segera menugaskan seorang Mentor untuk mendampingi Anda selama program magang berlangsung.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${loginLink}" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-size: 16px;">Login POST IT</a>
+              </div>
+              <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+              <p style="color: #999; font-size: 12px; text-align: center;">
+                Email ini dikirim secara otomatis oleh sistem POST IT. Mohon jangan membalas email ini.
+              </p>
+            </div>
+          </div>`,
+      });
+      console.log(`✅ Acceptance email sent: ${info.messageId}`);
+      return info;
+    } catch (error) {
+      console.error('❌ Failed to send acceptance email', error);
+      throw error;
+    }
+  }
+
+  async sendRejectionEmail(to: string) {
+    console.log(`📡 Sent Rejection Email Configuring SMTP...`);
+    try {
+      const info = await this.transporter.sendMail({
+        from: `"No Reply POST IT" <${process.env.MAILTRAP_SENDER}>`,
+        to,
+        subject: 'Pemberitahuan Pendaftaran Magang',
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4;">
+            <div style="max-width: 600px; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); margin: auto;">
+              <h2 style="color: #dc3545; text-align: center;">Pemberitahuan Pendaftaran</h2>
+              <p style="color: #333; font-size: 16px; line-height: 1.6;">
+                Mohon maaf, pendaftaran magang Anda di PT Pertamina Lubricants saat ini belum dapat kami terima.
+              </p>
+              <p style="color: #333; font-size: 16px; line-height: 1.6;">
+                Terima kasih atas ketertarikan Anda untuk bergabung bersama kami. Tetap semangat dan semoga sukses di kesempatan berikutnya.
+              </p>
+              <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+              <p style="color: #999; font-size: 12px; text-align: center;">
+                Email ini dikirim secara otomatis oleh sistem POST IT. Mohon jangan membalas email ini.
+              </p>
+            </div>
+          </div>`,
+      });
+      console.log(`✅ Rejection email sent: ${info.messageId}`);
+      return info;
+    } catch (error) {
+      console.error('❌ Failed to send rejection email', error);
+      throw error;
+    }
+  }
 }

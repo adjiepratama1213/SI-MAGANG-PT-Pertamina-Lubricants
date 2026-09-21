@@ -7,6 +7,8 @@ import {
   UseGuards,
   UploadedFile,
   UseInterceptors,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
@@ -14,13 +16,15 @@ import { GcpItemService } from './gcp-item.service';
 import { SearchGcpItemDto } from './dto/search-gcp-item.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Storage } from '@google-cloud/storage';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @ApiTags('Gcp Item')
 @Controller('gcp-item')
 export class GcpItemController {
   private storage = new Storage({
-    keyFilename: process.env.BIGQUERY_GCP_PATH,
-    projectId: process.env.BIGQUERY_PROJECT_ID,
+    keyFilename: process.env.GCP_PATH,
+    projectId: process.env.GCP_PROJECT_ID,
   });
   private bucket = this.storage.bucket(process.env.GCP_BUCKET_NAME);
 
@@ -31,24 +35,35 @@ export class GcpItemController {
   @UseInterceptors(FileInterceptor('file'))
   @ApiBearerAuth()
   async uploadFile(@UploadedFile() file: Express.Multer.File, @Body('folder') folder: string) {
-    const folderPath = folder ? `${folder}/` : ''; // Ensure folder path ends with a slash
-    const filePath = `${folderPath}${file.originalname}`;
+    if (!file) throw new HttpException('File is undefined.', HttpStatus.BAD_REQUEST);
 
-    const blob = this.bucket.file(filePath);
-    const blobStream = blob.createWriteStream({
-      resumable: false,
-    });
+    const uploadDir = path.join(process.cwd(), 'uploads', folder || '');
+    fs.mkdirSync(uploadDir, { recursive: true });
+    
+    const uniqueName = `${Date.now()}_${file.originalname}`;
+    const filePath = path.join(uploadDir, uniqueName);
+    
+    fs.writeFileSync(filePath, file.buffer);
+    
+    const publicUrl = `http://localhost:8080/uploads/${folder ? folder + '/' : ''}${uniqueName}`;
+    return { url: publicUrl };
+  }
 
-    return new Promise((resolve, reject) => {
-      blobStream.on('error', (err) => reject(err));
+  @Post('upload-public')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFilePublic(@UploadedFile() file: Express.Multer.File, @Body('folder') folder: string) {
+    if (!file) throw new HttpException('File is undefined.', HttpStatus.BAD_REQUEST);
 
-      blobStream.on('finish', () => {
-        const publicUrl = `https://storage.googleapis.com/${this.bucket.name}/${blob.name}`;
-        resolve({ url: publicUrl });
-      });
-
-      blobStream.end(file.buffer);
-    });
+    const uploadDir = path.join(process.cwd(), 'uploads', folder || '');
+    fs.mkdirSync(uploadDir, { recursive: true });
+    
+    const uniqueName = `${Date.now()}_${file.originalname}`;
+    const filePath = path.join(uploadDir, uniqueName);
+    
+    fs.writeFileSync(filePath, file.buffer);
+    
+    const publicUrl = `http://localhost:8080/uploads/${folder ? folder + '/' : ''}${uniqueName}`;
+    return { url: publicUrl };
   }
 
   // @Post()

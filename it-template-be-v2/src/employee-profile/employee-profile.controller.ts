@@ -27,6 +27,34 @@ export class EmployeeProfileController {
     return this.employeeProfileService.findAll({});
   }
 
+  @Get('/organizations/hierarchy')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async getOrganizationHierarchy() {
+    return this.employeeProfileService.getOrganizationHierarchy();
+  }
+
+  @Post('/organizations')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async addOrganization(@Body() body: { name: string; parentId?: string; companyCode?: string; kuota?: number }) {
+    return this.employeeProfileService.addOrganization(body);
+  }
+
+  @Patch('/organizations/:id/kuota')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async updateOrganizationKuota(@Param('id') id: string, @Body() body: { kuota: number }) {
+    return this.employeeProfileService.updateOrganizationKuota(id, body.kuota);
+  }
+
+  @Delete('/organizations/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async removeOrganization(@Param('id') id: string) {
+    return this.employeeProfileService.removeOrganization(id);
+  }
+
   @Post('/search')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

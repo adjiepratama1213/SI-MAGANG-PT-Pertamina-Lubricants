@@ -7,7 +7,13 @@ import {
   Patch,
   Post,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import * as fs from 'fs';
 import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { InternProfileService } from './intern-profile.service';
@@ -68,5 +74,62 @@ export class InternProfileController {
   @ApiBearerAuth()
   async remove(@Param('id') id: string) {
     return this.internProfileService.remove(id);
+  }
+
+  @Post(':id/extend')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        newEndDate: { type: 'string', format: 'date-time' },
+        reason: { type: 'string' }
+      }
+    }
+  })
+  async extend(
+    @Param('id') id: string,
+    @Body('newEndDate') newEndDate: string,
+    @Body('reason') reason?: string
+  ) {
+    return this.internProfileService.requestExtension(id, newEndDate, reason);
+  }
+
+  @Post(':userId/evaluation')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async submitEvaluation(
+    @Param('userId') userId: string,
+    @Body() data: any
+  ) {
+    return this.internProfileService.submitEvaluationByUser(userId, data);
+  }
+
+  @Post(':internProfileId/certificate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const uploadPath = './uploads/certificates';
+          if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+          }
+          cb(null, uploadPath);
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, 'certificate-' + uniqueSuffix + extname(file.originalname));
+        },
+      }),
+    })
+  )
+  async uploadCertificate(
+    @Param('internProfileId') internProfileId: string,
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    return this.internProfileService.uploadCertificate(internProfileId, file);
   }
 }
