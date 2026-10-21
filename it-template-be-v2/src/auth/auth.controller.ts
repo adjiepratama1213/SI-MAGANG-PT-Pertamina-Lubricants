@@ -9,6 +9,11 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { WebAuthnDto } from './dto/webauthn.dto';
 import { MailService } from 'src/mail/mail.service';
 import { TokenDto } from './dto/token.dto';
+import {
+  ResetPasswordDto,
+  SendResetOtpDto,
+  VerifyResetOtpDto,
+} from './dto/reset-password.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -37,6 +42,21 @@ export class AuthController {
     { email, password }: LoginDto
   ): Promise<TokenEntity> {
     return this.authService.login(email.toLowerCase(), password);
+  }
+
+  @Post('forgot-password/send-otp')
+  async sendResetOtp(@Body() data: SendResetOtpDto) {
+    return this.authService.sendResetPasswordOtp(data.email);
+  }
+
+  @Post('forgot-password/verify-otp')
+  async verifyResetOtp(@Body() data: VerifyResetOtpDto) {
+    return this.authService.verifyResetPasswordOtp(data.email, data.otp);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() data: ResetPasswordDto) {
+    return this.authService.resetPassword(data.email, data.otp, data.newPassword);
   }
 
   //Get / logout

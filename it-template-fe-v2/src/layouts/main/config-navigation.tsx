@@ -1,24 +1,37 @@
-// routes
-import { paths } from 'src/pages/paths';
 // components
 import Iconify from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
 export const navConfig = [
-  // {
-  //   title: 'About',
-  //   icon: <Iconify icon="solar:home-2-bold-duotone" />,
-  //   path: '#',
-  // },
   {
-    title: 'About Us',
-    icon: <Iconify icon="eva:info-fill" />,
-    path: paths.aboutUs.root,
+    title: 'Beranda',
+    icon: <Iconify icon="solar:home-2-bold-duotone" />,
+    path: '/#beranda',
   },
   {
-    title: 'Privacy Policy',
-    icon: <Iconify icon="eva:shield-fill" />,
-    path: paths.privacyPolicy.root,
+    title: 'Tentang',
+    icon: <Iconify icon="solar:info-circle-bold-duotone" />,
+    path: '/#tentang',
+  },
+  {
+    title: 'Tahapan',
+    icon: <Iconify icon="solar:routing-2-bold-duotone" />,
+    path: '/#tahapan',
+  },
+  {
+    title: 'Program',
+    icon: <Iconify icon="solar:diploma-bold-duotone" />,
+    path: '/#program',
+  },
+  {
+    title: 'FAQ',
+    icon: <Iconify icon="solar:question-circle-bold-duotone" />,
+    path: '/#faq',
+  },
+  {
+    title: 'Kontak',
+    icon: <Iconify icon="solar:phone-calling-bold-duotone" />,
+    path: '/#kontak',
   },
 ];

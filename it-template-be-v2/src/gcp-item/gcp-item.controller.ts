@@ -9,24 +9,23 @@ import {
   UseInterceptors,
   HttpException,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiTags, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { GcpItemService } from './gcp-item.service';
 import { SearchGcpItemDto } from './dto/search-gcp-item.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Storage } from '@google-cloud/storage';
+import { gcsBucket, uploadBufferToGcs, bucketName } from 'src/common/utils/gcs.utils';
+import { Response } from 'express';
+import { Res } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 
 @ApiTags('Gcp Item')
 @Controller('gcp-item')
 export class GcpItemController {
-  private storage = new Storage({
-    keyFilename: process.env.GCP_PATH,
-    projectId: process.env.GCP_PROJECT_ID,
-  });
-  private bucket = this.storage.bucket(process.env.GCP_BUCKET_NAME);
+  private bucket = gcsBucket;
 
   constructor(private readonly gcpItemService: GcpItemService) {}
 
@@ -37,16 +36,44 @@ export class GcpItemController {
   async uploadFile(@UploadedFile() file: Express.Multer.File, @Body('folder') folder: string) {
     if (!file) throw new HttpException('File is undefined.', HttpStatus.BAD_REQUEST);
 
-    const uploadDir = path.join(process.cwd(), 'uploads', folder || '');
-    fs.mkdirSync(uploadDir, { recursive: true });
-    
-    const uniqueName = `${Date.now()}_${file.originalname}`;
-    const filePath = path.join(uploadDir, uniqueName);
-    
-    fs.writeFileSync(filePath, file.buffer);
-    
-    const publicUrl = `http://localhost:8080/uploads/${folder ? folder + '/' : ''}${uniqueName}`;
-    return { url: publicUrl };
+    if (file.size > 20 * 1024 * 1024) {
+      throw new HttpException('Ukuran berkas melebihi batas maksimal 20MB.', HttpStatus.BAD_REQUEST);
+    }
+
+    // Pastikan selalu ada subfolder yang rapi (documents, users, dll)
+    const targetFolder = (folder && folder.trim() && folder !== 'undefined') 
+      ? folder.trim() 
+      : (file.mimetype.startsWith('image/') ? 'users' : 'documents');
+
+    const cleanOriginalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const uniqueName = `${Date.now()}_${cleanOriginalName}`;
+    const relativePath = `${targetFolder}/${uniqueName}`;
+    const gcpDestinationPath = `uploads/${relativePath}`;
+
+    // 1. Simpan langsung ke Google Cloud Storage (GCP Bucket)
+    try {
+      await uploadBufferToGcs(file.buffer, gcpDestinationPath, file.mimetype);
+      console.log(`[GCP Storage] Berhasil upload berkas ke GCS: ${gcpDestinationPath}`);
+    } catch (err) {
+      console.error('[GCP Storage Error] Gagal upload ke GCS:', err);
+    }
+
+    // 2. Simpan juga salinan di folder local uploads/ agar kompatibel 100% dengan aplikasi
+    try {
+      const uploadDir = path.join(process.cwd(), 'uploads', targetFolder);
+      fs.mkdirSync(uploadDir, { recursive: true });
+      const localFilePath = path.join(uploadDir, uniqueName);
+      fs.writeFileSync(localFilePath, file.buffer);
+    } catch (err) {
+      console.warn('[Local Cache Warning] Gagal simpan cache lokal:', err);
+    }
+
+    const publicUrl = `http://localhost:8080/uploads/${relativePath}`;
+    return {
+      url: publicUrl,
+      gcpPath: gcpDestinationPath,
+      bucket: bucketName,
+    };
   }
 
   @Post('upload-public')
@@ -54,16 +81,79 @@ export class GcpItemController {
   async uploadFilePublic(@UploadedFile() file: Express.Multer.File, @Body('folder') folder: string) {
     if (!file) throw new HttpException('File is undefined.', HttpStatus.BAD_REQUEST);
 
-    const uploadDir = path.join(process.cwd(), 'uploads', folder || '');
-    fs.mkdirSync(uploadDir, { recursive: true });
-    
-    const uniqueName = `${Date.now()}_${file.originalname}`;
-    const filePath = path.join(uploadDir, uniqueName);
-    
-    fs.writeFileSync(filePath, file.buffer);
-    
-    const publicUrl = `http://localhost:8080/uploads/${folder ? folder + '/' : ''}${uniqueName}`;
-    return { url: publicUrl };
+    if (file.size > 20 * 1024 * 1024) {
+      throw new HttpException('Ukuran berkas melebihi batas maksimal 20MB.', HttpStatus.BAD_REQUEST);
+    }
+
+    // Pastikan selalu ada subfolder yang rapi (documents, users, dll)
+    const targetFolder = (folder && folder.trim() && folder !== 'undefined') 
+      ? folder.trim() 
+      : (file.mimetype.startsWith('image/') ? 'users' : 'documents');
+
+    const cleanOriginalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const uniqueName = `${Date.now()}_${cleanOriginalName}`;
+    const relativePath = `${targetFolder}/${uniqueName}`;
+    const gcpDestinationPath = `uploads/${relativePath}`;
+
+    // 1. Simpan langsung ke Google Cloud Storage (GCP Bucket)
+    try {
+      await uploadBufferToGcs(file.buffer, gcpDestinationPath, file.mimetype);
+      console.log(`[GCP Storage] Berhasil upload berkas publik ke GCS: ${gcpDestinationPath}`);
+    } catch (err) {
+      console.error('[GCP Storage Error] Gagal upload ke GCS:', err);
+    }
+
+    // 2. Simpan juga salinan di folder local uploads/ agar kompatibel
+    try {
+      const uploadDir = path.join(process.cwd(), 'uploads', targetFolder);
+      fs.mkdirSync(uploadDir, { recursive: true });
+      const localFilePath = path.join(uploadDir, uniqueName);
+      fs.writeFileSync(localFilePath, file.buffer);
+    } catch (err) {
+      console.warn('[Local Cache Warning] Gagal simpan cache lokal:', err);
+    }
+
+    const publicUrl = `http://localhost:8080/uploads/${relativePath}`;
+    return {
+      url: publicUrl,
+      gcpPath: gcpDestinationPath,
+      bucket: bucketName,
+    };
+  }
+
+  @ApiExcludeEndpoint()
+  @Get('file/*')
+  async getGcpFile(@Req() req: any, @Res() res: Response) {
+    const rawPath = req.params[0] || '';
+    const filePath = decodeURIComponent(rawPath);
+    try {
+      const gcpFile = this.bucket.file(filePath);
+      const [exists] = await gcpFile.exists();
+      if (exists) {
+        const [metadata] = await gcpFile.getMetadata();
+        res.set({
+          'Content-Type': metadata.contentType || 'application/octet-stream',
+          'Content-Length': metadata.size,
+          'Cache-Control': 'public, max-age=86400',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
+        });
+        return gcpFile.createReadStream().pipe(res);
+      }
+
+      // Fallback ke file lokal jika belum ada di GCP
+      const localPath = path.join(
+        process.cwd(),
+        filePath.startsWith('uploads') ? filePath : path.join('uploads', filePath)
+      );
+      if (fs.existsSync(localPath)) {
+        return res.sendFile(localPath);
+      }
+
+      throw new HttpException('Berkas tidak ditemukan di storage', HttpStatus.NOT_FOUND);
+    } catch (err) {
+      console.error('[GCP File Stream Error]', err);
+      throw new HttpException('Gagal mengambil berkas dari storage', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   // @Post()

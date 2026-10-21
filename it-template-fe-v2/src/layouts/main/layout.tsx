@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 // routes
 import { usePathname } from 'src/hooks/use-pathname';
 //
+import { HEADER } from '../config-layout';
 import Footer from './footer';
 import Header from './header';
 
@@ -13,10 +14,6 @@ type Props = {
 };
 
 export default function MainLayout({ children }: Props) {
-  const pathname = usePathname();
-
-  const isHome = pathname === '/';
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: 1 }}>
       <Header />
@@ -25,9 +22,7 @@ export default function MainLayout({ children }: Props) {
         component="main"
         sx={{
           flexGrow: 1,
-          ...(!isHome && {
-            pt: { xs: 8, md: 10 },
-          }),
+          pt: { xs: `${HEADER.H_MOBILE}px`, md: `${HEADER.H_DESKTOP}px` },
         }}
       >
         {children}

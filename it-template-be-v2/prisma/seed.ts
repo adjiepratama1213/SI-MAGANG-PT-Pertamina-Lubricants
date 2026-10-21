@@ -54,109 +54,183 @@ async function main() {
     // Upsert users satu-satu agar kita dapat ID-nya untuk relasi profil
     const adminUser = await prisma.user.upsert({
       where: { email: 'admin@example.com' },
-      update: { phone: '081200000001' },
+      update: {
+        name: 'Admin',
+        password: await bcrypt.hash('Admin12345', roundsOfHashing),
+        role: 'SUPERSAIYAN',
+        positionId: '30305042',
+        jobTitle: 'HC & QM Administrator',
+        phone: '081211112222',
+        status: 'active',
+      },
       create: {
         name: 'Admin',
         email: 'admin@example.com',
-        password: await bcrypt.hash('admin', roundsOfHashing),
+        password: await bcrypt.hash('Admin12345', roundsOfHashing),
         role: 'SUPERSAIYAN',
         positionId: '30305042',
         webAuthnId: 'admin_webauthn_id_1',
-        phone: '081200000001',
+        phone: '081211112222',
+        jobTitle: 'HC & QM Administrator',
+        status: 'active',
       },
     });
 
     const vpUser = await prisma.user.upsert({
       where: { email: 'vp@example.com' },
-      update: { phone: '081200000002' },
+      update: {
+        name: 'VP',
+        password: await bcrypt.hash('Vp123456', roundsOfHashing),
+        role: 'EMPLOYEE',
+        positionId: '30305042',
+        jobTitle: 'Vice President',
+        phone: '081233334444',
+        status: 'active',
+      },
       create: {
         name: 'VP',
         email: 'vp@example.com',
-        password: await bcrypt.hash('admin', roundsOfHashing),
+        password: await bcrypt.hash('Vp123456', roundsOfHashing),
         role: 'EMPLOYEE',
         positionId: '30305042',
         webAuthnId: 'vp_webauthn_id_1',
-        phone: '081200000002',
+        phone: '081233334444',
+        jobTitle: 'Vice President',
+        status: 'active',
       },
     });
 
     const mentorUser = await prisma.user.upsert({
       where: { email: 'mentor@example.com' },
-      update: { phone: '081200000003' },
+      update: {
+        name: 'Mentor',
+        password: await bcrypt.hash('Mentor123', roundsOfHashing),
+        role: 'EMPLOYEESTAFF',
+        positionId: '30305042',
+        jobTitle: 'Senior Specialist Human Capital',
+        phone: '081255556666',
+        status: 'active',
+      },
       create: {
         name: 'Mentor',
         email: 'mentor@example.com',
-        password: await bcrypt.hash('mentor123', roundsOfHashing),
+        password: await bcrypt.hash('Mentor123', roundsOfHashing),
         role: 'EMPLOYEESTAFF',
         positionId: '30305042',
         webAuthnId: 'mentor_webauthn_id_1',
-        phone: '081200000003',
+        phone: '081255556666',
+        jobTitle: 'Senior Specialist Human Capital',
+        status: 'active',
       },
     });
 
     const pesertaUser = await prisma.user.upsert({
       where: { email: 'peserta@example.com' },
-      update: { phone: '081200000004' },
+      update: {
+        name: 'Peserta',
+        password: await bcrypt.hash('Peserta123', roundsOfHashing),
+        role: 'PESERTA',
+        positionId: '30305042',
+        jobTitle: 'Peserta Magang',
+        phone: '081277778888',
+        status: 'active',
+      },
       create: {
         name: 'Peserta',
         email: 'peserta@example.com',
-        password: await bcrypt.hash('peserta', roundsOfHashing),
+        password: await bcrypt.hash('Peserta123', roundsOfHashing),
         role: 'PESERTA',
         positionId: '30305042',
         webAuthnId: 'peserta_webauthn_id_1',
-        phone: '081200000004',
+        phone: '081277778888',
+        jobTitle: 'Peserta Magang',
+        status: 'active',
       },
     });
 
-    // Buat EmployeeProfile untuk Admin
+    // Buat / Update EmployeeProfile untuk Admin (Direktorat Finance & Business Support, Fungsi Human Capital & Quality Management)
     const adminProfile = await prisma.employeeProfile.upsert({
       where: { userId: adminUser.id },
-      update: { subFungsi: 'IT Support', gender: 'PRIA' },
+      update: {
+        employeeId: 'NIP-ADMIN-001',
+        jabatan: 'Admin Human Capital & Quality Management',
+        direktorat: 'Finance & Business Support',
+        fungsi: 'Human Capital & Quality Management',
+        subFungsi: 'HR Operations & Quality Management (QMS)',
+        gender: 'PRIA',
+      },
       create: {
         userId: adminUser.id,
         employeeId: 'NIP-ADMIN-001',
-        jabatan: 'IT Administrator',
-        direktorat: 'Direktorat Keuangan',
-        fungsi: 'Teknologi Informasi',
-        subFungsi: 'IT Support',
+        jabatan: 'Admin Human Capital & Quality Management',
+        direktorat: 'Finance & Business Support',
+        fungsi: 'Human Capital & Quality Management',
+        subFungsi: 'HR Operations & Quality Management (QMS)',
         gender: 'PRIA',
       },
     });
 
-    // Buat EmployeeProfile untuk VP
+    // Buat / Update EmployeeProfile untuk VP (Direktorat Finance & Business Support, Fungsi Human Capital & Quality Management)
     const vpProfile = await prisma.employeeProfile.upsert({
       where: { userId: vpUser.id },
-      update: { direktorat: 'FINANCE & BUSINESS SUPPORT', fungsi: 'HUMAN CAPITAL & QUALITY MANAGEMENT', subFungsi: 'HC Admin', gender: 'PRIA' },
+      update: {
+        employeeId: 'NIP-VP-001',
+        jabatan: 'Vice President Human Capital & Quality Management',
+        direktorat: 'Finance & Business Support',
+        fungsi: 'Human Capital & Quality Management',
+        subFungsi: 'HR Operations & Quality Management (QMS)',
+        gender: 'PRIA',
+      },
       create: {
         userId: vpUser.id,
         employeeId: 'NIP-VP-001',
-        jabatan: 'Vice President',
-        direktorat: 'FINANCE & BUSINESS SUPPORT',
-        fungsi: 'HUMAN CAPITAL & QUALITY MANAGEMENT',
-        subFungsi: 'HC Admin',
+        jabatan: 'Vice President Human Capital & Quality Management',
+        direktorat: 'Finance & Business Support',
+        fungsi: 'Human Capital & Quality Management',
+        subFungsi: 'HR Operations & Quality Management (QMS)',
         gender: 'PRIA',
       },
     });
 
-    // Buat EmployeeProfile untuk Mentor
+    // Buat / Update EmployeeProfile untuk Mentor (Sesuai organisasi di database: DIR_FINANCE -> FUNC_HCQM -> SUB_RTM)
     const mentorProfile = await prisma.employeeProfile.upsert({
       where: { userId: mentorUser.id },
-      update: { subFungsi: 'Development', gender: 'PRIA' },
+      update: {
+        employeeId: 'NIP-MENTOR-001',
+        jabatan: 'Sr. Specialist Recruitment & Talent Management',
+        direktorat: 'Finance & Business Support',
+        fungsi: 'Human Capital & Quality Management',
+        subFungsi: 'Recruitment & Talent Management',
+        gender: 'PRIA',
+      },
       create: {
         userId: mentorUser.id,
         employeeId: 'NIP-MENTOR-001',
-        jabatan: 'Staff IT',
-        direktorat: 'Direktorat Keuangan',
-        fungsi: 'Teknologi Informasi',
-        subFungsi: 'Development',
+        jabatan: 'Sr. Specialist Recruitment & Talent Management',
+        direktorat: 'Finance & Business Support',
+        fungsi: 'Human Capital & Quality Management',
+        subFungsi: 'Recruitment & Talent Management',
         gender: 'PRIA',
       },
     });
 
-    // Buat InternProfile untuk Peserta — hubungkan ke Mentor
+    // Buat / Update InternProfile untuk Peserta — sesuai aturan form pendaftaran & terhubung ke Mentor
     const internProfile = await prisma.internProfile.upsert({
       where: { userId: pesertaUser.id },
-      update: {},
+      update: {
+        internId: 'PST-2026-001',
+        university: 'Universitas Indonesia',
+        gender: 'PRIA',
+        dateOfBirth: new Date('2003-05-15'),
+        major: 'Teknik Informatika',
+        startDate: new Date('2026-08-01'),
+        endDate: new Date('2027-01-31'),
+        program: 'Internship PTPL',
+        bankName: 'Bank Mandiri',
+        bankAccount: '1370012345678',
+        documentUrls: ['/uploads/documents/sample-cv.pdf', '/uploads/documents/surat-pengantar.pdf'],
+        mentorProfileId: mentorProfile.id,
+      },
       create: {
         userId: pesertaUser.id,
         internId: 'PST-2026-001',
@@ -166,7 +240,10 @@ async function main() {
         major: 'Teknik Informatika',
         startDate: new Date('2026-08-01'),
         endDate: new Date('2027-01-31'),
-        program: 'PKL',
+        program: 'Internship PTPL',
+        bankName: 'Bank Mandiri',
+        bankAccount: '1370012345678',
+        documentUrls: ['/uploads/documents/sample-cv.pdf', '/uploads/documents/surat-pengantar.pdf'],
         mentorProfileId: mentorProfile.id,
       },
     });

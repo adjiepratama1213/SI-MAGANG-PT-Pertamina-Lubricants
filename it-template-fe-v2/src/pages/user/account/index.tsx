@@ -7,7 +7,7 @@ export default function AccountPage() {
   return (
     <>
       <Helmet>
-        <title> User: Account Settings</title>
+        <title>Profil Saya | SI-Magang</title>
       </Helmet>
 
       <AccountView />

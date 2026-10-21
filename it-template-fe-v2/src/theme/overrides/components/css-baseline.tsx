@@ -15,12 +15,21 @@ export function cssBaseline(theme: Theme) {
           width: '100%',
           height: '100%',
           WebkitOverflowScrolling: 'touch',
+          overflowY: 'scroll',
+          scrollbarGutter: 'stable',
         },
         body: {
           margin: 0,
-          padding: 0,
+          padding: '0 !important',
+          paddingRight: '0 !important',
           width: '100%',
           height: '100%',
+        },
+        'body[style*="padding-right"]': {
+          paddingRight: '0 !important',
+        },
+        '.MuiAppBar-root, .mui-fixed': {
+          paddingRight: '0 !important',
         },
         '#root, #__next': {
           width: '100%',

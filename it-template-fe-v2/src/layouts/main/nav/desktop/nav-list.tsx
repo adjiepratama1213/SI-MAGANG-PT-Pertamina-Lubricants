@@ -5,7 +5,7 @@ import Stack from '@mui/material/Stack';
 import Portal from '@mui/material/Portal';
 // hooks
 import { useBoolean } from 'src/hooks/use-boolean';
-// routes
+import { useLocation } from 'react-router-dom';
 import { usePathname } from 'src/hooks/use-pathname';
 import { useActiveLink } from 'src/hooks/use-active-link';
 //
@@ -22,12 +22,20 @@ type NavListProps = {
 
 export default function NavList({ item, offsetTop }: NavListProps) {
   const pathname = usePathname();
+  const location = useLocation();
 
   const nav = useBoolean();
 
   const { path, children } = item;
 
-  const active = useActiveLink(path, false);
+  const standardActive = useActiveLink(path, false);
+  const isHashLink = path.includes('#');
+  const targetHash = isHashLink ? `#${path.split('#')[1]}` : '';
+  const isAnchorActive =
+    isHashLink &&
+    (location.pathname === '/' || location.pathname === '') &&
+    (location.hash === targetHash || (!location.hash && targetHash === '#beranda'));
+  const active = isHashLink ? isAnchorActive : standardActive;
 
   const externalLink = path.includes('http');
 

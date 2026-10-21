@@ -9,6 +9,7 @@ import IconButton from '@mui/material/IconButton';
 import FormControl from '@mui/material/FormControl';
 import OutlinedInput from '@mui/material/OutlinedInput';
 import InputAdornment from '@mui/material/InputAdornment';
+import Button from '@mui/material/Button';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 // types
 import { IUserTableFilters, IUserTableFilterValue } from 'src/types/user';
@@ -66,9 +67,10 @@ export default function UserTableToolbar({
       >
 
 
-        <Stack direction="row" alignItems="center" spacing={2} flexGrow={1} sx={{ width: 1 }}>
+        <Stack direction="row" alignItems="center" spacing={1.5} flexGrow={1} sx={{ width: 1 }}>
           <TextField
             fullWidth
+            size="small"
             value={filters.name}
             onChange={handleFilterName}
             placeholder="Search..."
@@ -80,6 +82,26 @@ export default function UserTableToolbar({
               ),
             }}
           />
+
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={() => onFilters('name', '')}
+            startIcon={<Iconify icon="solar:restart-bold" />}
+            sx={{
+              height: 40,
+              px: 2,
+              flexShrink: 0,
+              textTransform: 'none',
+              borderColor: '#CBD5E1',
+              borderRadius: 1.5,
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              '&:hover': { borderColor: '#94A3B8', bgcolor: '#F8FAFC' },
+            }}
+          >
+            Reset Filter
+          </Button>
 
           <IconButton onClick={popover.onOpen}>
             <Iconify icon="eva:more-vertical-fill" />

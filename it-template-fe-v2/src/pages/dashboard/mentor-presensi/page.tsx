@@ -1,18 +1,91 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
   Container, Typography, Card, Box, Grid, Stack,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination,
   Button, TextField, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-  IconButton, Divider, MenuItem, Select, FormControl, InputLabel,
+  IconButton, Divider, MenuItem, Select, FormControl, InputLabel
 } from '@mui/material';
 import Iconify from 'src/components/iconify';
 import { useAuthContext } from 'src/auth/hooks';
 import axiosInstance from 'src/utils/axios';
 import { toast } from 'react-toastify';
 import { HOST_API } from 'src/config-global';
+import DashboardBreadcrumbs from 'src/components/dashboard-breadcrumbs';
 
 // ----------------------------------------------------------------------
+
+// Helper untuk format tanggal lokal YYYY-MM-DD
+const getLocalDateKey = (dateInput: string | Date = new Date()): string => {
+  const d = new Date(dateInput);
+  if (Number.isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper render status presensi konsisten (Desain outlined seperti kolom aksi pada data-bimbingan, pertahankan warna status)
+const renderPresensiStatusChip = (status: string | null | undefined) => {
+  if (!status || status === '-') {
+    return <Typography variant="body2" color="text.secondary">-</Typography>;
+  }
+
+  const raw = String(status).trim();
+  const upper = raw.toUpperCase();
+
+  let label = upper;
+  // Pertamina Red: #EC2028 | Hijau: #16A34A | Yellow/Amber: #F59E0B | Default / Belum: #64748B
+  let color = '#64748B';
+
+  if (upper.includes('BELUM') || upper === 'BELUM CHECK IN') {
+    label = 'BELUM CHECK IN';
+    color = '#64748B';
+  } else if (upper === 'HADIR_TERLAMBAT' || upper.includes('TERLAMBAT')) {
+    label = 'HADIR (TERLAMBAT)';
+    color = '#16A34A';
+  } else if (upper.includes('HADIR')) {
+    label = 'HADIR';
+    color = '#16A34A';
+  } else if (upper === 'IZIN' || upper.includes('IZIN')) {
+    label = 'IZIN';
+    color = '#F59E0B'; // Kuning sama seperti di peserta-dashboard
+  } else if (upper === 'SAKIT' || upper.includes('SAKIT')) {
+    label = 'SAKIT';
+    color = '#F59E0B'; // Kuning sama seperti di peserta-dashboard
+  } else if (upper.includes('ALPHA') || upper.includes('ALFA') || upper.includes('TIDAK HADIR') || upper.includes('TOLAK')) {
+    label = upper.includes('TOLAK') ? 'DITOLAK' : 'ALPHA';
+    color = '#EC2028'; // Merah logo Pertamina
+  }
+
+  return (
+    <Chip
+      label={label}
+      size="small"
+      variant="outlined"
+      sx={{
+        minWidth: 90,
+        bgcolor: '#FFFFFF',
+        color,
+        borderColor: color,
+        borderWidth: 1.5,
+        borderStyle: 'solid',
+        fontWeight: 700,
+        fontSize: '0.75rem',
+        borderRadius: 1,
+        height: 28,
+        letterSpacing: '0.3px',
+        '& .MuiChip-label': {
+          px: 1,
+          fontWeight: 700,
+        },
+        '&:hover': {
+          bgcolor: '#FFFFFF',
+        },
+      }}
+    />
+  );
+};
 
 export default function MentorPresensiPage() {
   const { user } = useAuthContext();
@@ -23,8 +96,9 @@ export default function MentorPresensiPage() {
   const [editStatus, setEditStatus] = useState('');
   const [mentorPresensiData, setMentorPresensiData] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+  const [filterDate, setFilterDate] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [isFetching, setIsFetching] = useState(false);
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -38,37 +112,59 @@ export default function MentorPresensiPage() {
     setPage(0);
   };
 
-  const fetchMentorPresensi = async () => {
+  const fetchMentorPresensi = useCallback(async (silent = false) => {
     try {
+      if (!silent) setIsFetching(true);
       const res = await axiosInstance.get('/presensi/mentor');
       if (res.data) {
-        const formatted = res.data.map((item: any) => ({
-          id: item.id,
-          name: item.internProfile?.user?.name || '-',
-          nim: item.internProfile?.internId || '-',
-          kampus: item.internProfile?.university || '-',
-          program: item.internProfile?.program || '-',
-          tanggal: new Date(item.tanggalInput).toLocaleDateString('id-ID'),
-          tanggalInput: item.tanggalInput.split('T')[0],
-          masuk: item.masuk ? new Date(item.masuk).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
-          keluar: item.keluar ? new Date(item.keluar).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
-          presensiStatus: item.presensiStatus,
-          keterangan: item.keterangan || '-',
-          tanggalSelesai: item.tanggalSelesai ? new Date(item.tanggalSelesai).toLocaleDateString('id-ID') : null,
-          fileBukti: item.fileBukti || null,
-          lat: item.lat || null,
-          lng: item.lng || null,
-        }));
+        const formatted = res.data.map((item: any) => {
+          const tglObj = new Date(item.tanggalInput);
+          return {
+            id: item.id,
+            rawTanggal: item.tanggalInput,
+            name: item.internProfile?.user?.name || '-',
+            nim: item.internProfile?.internId || '-',
+            kampus: item.internProfile?.university || '-',
+            program: item.internProfile?.program || '-',
+            tanggal: Number.isNaN(tglObj.getTime()) ? '-' : tglObj.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+            tanggalInput: getLocalDateKey(item.tanggalInput),
+            masuk: item.masuk ? new Date(item.masuk).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
+            keluar: item.keluar ? new Date(item.keluar).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
+            presensiStatus: (getLocalDateKey(item.tanggalInput) === getLocalDateKey(new Date()) && (!item.masuk || item.masuk === '-') && item.presensiStatus === 'ALPHA')
+              ? 'BELUM CHECK IN'
+              : item.presensiStatus,
+            keterangan: item.keterangan || '-',
+            tanggalSelesai: item.tanggalSelesai ? new Date(item.tanggalSelesai).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }) : null,
+            fileBukti: item.fileBukti || null,
+            lat: item.lat || null,
+            lng: item.lng || null,
+          };
+        });
         setMentorPresensiData(formatted);
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      if (!silent) setIsFetching(false);
     }
-  };
-
-  React.useEffect(() => {
-    fetchMentorPresensi();
   }, []);
+
+  // Polling interval setiap 8 detik agar data selalu ter-update secara real-time
+  useEffect(() => {
+    fetchMentorPresensi();
+
+    const interval = setInterval(() => {
+      fetchMentorPresensi(true);
+    }, 8000);
+
+    const handleFocus = () => fetchMentorPresensi(true);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchMentorPresensi]);
 
   const handleOpenDialog = (presensi: any) => {
     setSelectedPresensi(presensi);
@@ -88,7 +184,7 @@ export default function MentorPresensiPage() {
       setIsApproving(true);
       await axiosInstance.patch(`/presensi/${selectedPresensi.id}/status`, { status: editStatus });
       toast.success('Status berhasil diubah');
-      fetchMentorPresensi();
+      await fetchMentorPresensi();
       handleCloseDialog();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Gagal mengubah status');
@@ -99,18 +195,29 @@ export default function MentorPresensiPage() {
 
   const handleResetFilter = () => {
     setSearchQuery('');
-    setFilterDate(new Date().toISOString().split('T')[0]);
+    setFilterDate('');
     setFilterStatus('all');
+    setPage(0);
   };
 
   const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
 
-  const filteredData = useMemo(() => mentorPresensiData.filter(p => {
+  const filteredData = useMemo(() => mentorPresensiData
+    .filter(p => {
       const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.nim.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStatus = filterStatus === 'all' || p.presensiStatus.toLowerCase() === filterStatus.toLowerCase();
+      let matchStatus = true;
+      if (filterStatus !== 'all') {
+        const s = (p.presensiStatus || '').toLowerCase();
+        if (filterStatus === 'hadir') matchStatus = s.includes('hadir');
+        else if (filterStatus === 'izin') matchStatus = s === 'izin' || s === 'sakit';
+        else if (filterStatus === 'alpha') matchStatus = s.includes('alpha');
+        else matchStatus = s.includes(filterStatus.toLowerCase());
+      }
       const matchDate = !filterDate || p.tanggalInput === filterDate;
       return matchSearch && matchStatus && matchDate;
-    }), [mentorPresensiData, searchQuery, filterStatus, filterDate]);
+    })
+    .sort((a, b) => new Date(b.rawTanggal || b.tanggalInput).getTime() - new Date(a.rawTanggal || a.tanggalInput).getTime()),
+    [mentorPresensiData, searchQuery, filterStatus, filterDate]);
 
   const paginatedData = useMemo(() => filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [filteredData, page, rowsPerPage]);
 
@@ -126,127 +233,240 @@ export default function MentorPresensiPage() {
         <title>Presensi Peserta | SI-Magang</title>
       </Helmet>
 
-      <Container maxWidth="xl" sx={{ pb: 10, minHeight: '120vh' }}>
-        {/* HEADER */}
-        <Box sx={{ p: 4, mb: 3, borderRadius: 2, background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Iconify icon="solar:calendar-date-bold-duotone" width={28} />
-            </Box>
-            <Box>
-              <Typography variant="h5" fontWeight="bold">Presensi Peserta</Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                Pantau kehadiran peserta bimbingan Anda
-              </Typography>
-            </Box>
-          </Box>
+      <Container maxWidth="xl" sx={{ pb: 8, pt: 0, minHeight: '120vh' }}>
+        {/* BREADCRUMB: Presensi */}
+        <DashboardBreadcrumbs current="Presensi" />
+
+        {/* PAGE HEADER */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A', mb: 0.5, letterSpacing: -0.3 }}>
+            Presensi Peserta Bimbingan
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#64748B' }}>
+            Pantau dan verifikasi kehadiran harian, pengajuan izin/sakit, serta status check-in peserta bimbingan Anda di PT Pertamina Lubricants.
+          </Typography>
         </Box>
 
         {/* SUMMARY */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={2.5} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ p: 3, border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #22c55e' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                  <Iconify icon="solar:check-circle-bold-duotone" width={24} />
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Hadir</Typography>
+            <Card
+              sx={{
+                p: 3,
+                height: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                bgcolor: '#FFFFFF',
+                borderRadius: 2,
+                border: '1px solid #E2E8F0',
+                borderBottom: '3.5px solid #16A34A',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                  transform: 'translateY(-2px)',
+                },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748B', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                  Hadir
+                </Typography>
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 1.5,
+                    bgcolor: '#DCFCE7',
+                    color: '#16A34A',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Iconify icon="solar:check-circle-bold-duotone" width={22} />
                 </Box>
               </Box>
-              <Typography variant="h3" sx={{ color: '#22c55e', fontWeight: 'bold' }}>
-                {summaryData.filter(p => p.presensiStatus?.toLowerCase().includes('hadir')).length}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', mt: 2 }}>
+                <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>
+                  {summaryData.filter(p => p.presensiStatus?.toLowerCase().includes('hadir')).length}
+                </Typography>
+                <Typography sx={{ ml: 1, fontSize: '0.95rem', fontWeight: 600, color: '#64748B' }}>
+                  Peserta
+                </Typography>
+              </Box>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ p: 3, border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #FFAB00' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(255, 171, 0, 0.1)', color: '#FFAB00', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                  <Iconify icon="solar:clock-circle-bold-duotone" width={24} />
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Izin / Sakit</Typography>
+            <Card
+              sx={{
+                p: 3,
+                height: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                bgcolor: '#FFFFFF',
+                borderRadius: 2,
+                border: '1px solid #E2E8F0',
+                borderBottom: '3.5px solid #F59E0B',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                  transform: 'translateY(-2px)',
+                },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748B', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                  Izin / Sakit
+                </Typography>
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 1.5,
+                    bgcolor: '#FEF3C7',
+                    color: '#F59E0B',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Iconify icon="solar:clock-circle-bold-duotone" width={22} />
                 </Box>
               </Box>
-              <Typography variant="h3" sx={{ color: '#FFAB00', fontWeight: 'bold' }}>
-                {summaryData.filter(p => p.presensiStatus?.toLowerCase() === 'izin' || p.presensiStatus?.toLowerCase() === 'sakit').length}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', mt: 2 }}>
+                <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>
+                  {summaryData.filter(p => p.presensiStatus?.toLowerCase() === 'izin' || p.presensiStatus?.toLowerCase() === 'sakit').length}
+                </Typography>
+                <Typography sx={{ ml: 1, fontSize: '0.95rem', fontWeight: 600, color: '#64748B' }}>
+                  Peserta
+                </Typography>
+              </Box>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ p: 3, border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #ef4444' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                  <Iconify icon="solar:close-circle-bold-duotone" width={24} />
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Alpha</Typography>
+            <Card
+              sx={{
+                p: 3,
+                height: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                bgcolor: '#FFFFFF',
+                borderRadius: 2,
+                border: '1px solid #E2E8F0',
+                borderBottom: '3.5px solid #EE2E24',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                  transform: 'translateY(-2px)',
+                },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748B', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                  Alpha
+                </Typography>
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 1.5,
+                    bgcolor: '#FEE2E2',
+                    color: '#EE2E24',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Iconify icon="solar:close-circle-bold-duotone" width={22} />
                 </Box>
               </Box>
-              <Typography variant="h3" sx={{ color: '#ef4444', fontWeight: 'bold' }}>
-                {summaryData.filter(p => p.presensiStatus?.toLowerCase().includes('alpha')).length}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', mt: 2 }}>
+                <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>
+                  {summaryData.filter(p => p.presensiStatus?.toLowerCase().includes('alpha')).length}
+                </Typography>
+                <Typography sx={{ ml: 1, fontSize: '0.95rem', fontWeight: 600, color: '#64748B' }}>
+                  Peserta
+                </Typography>
+              </Box>
             </Card>
           </Grid>
         </Grid>
 
         {/* SEARCH + FILTER */}
-        <Card sx={{ p: 3, mb: 3, border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              fullWidth
-              placeholder="Cari peserta (Nama/ID Peserta)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: <Iconify icon="eva:search-fill" sx={{ mr: 1, color: 'text.disabled' }} />,
-              }}
-              size="small"
-            />
-            <TextField
-              type="date"
-              size="small"
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 160 }}
-            />
-            <FormControl size="small" sx={{ minWidth: 160 }}>
-              <InputLabel>Status Presensi</InputLabel>
-              <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} label="Status Presensi">
-                <MenuItem value="all">Semua</MenuItem>
-                <MenuItem value="hadir">Hadir</MenuItem>
-                <MenuItem value="izin">Izin</MenuItem>
-                <MenuItem value="alpha">Alpha</MenuItem>
-              </Select>
-            </FormControl>
+        <Card sx={{ p: 2.5, mb: 3, border: '1px solid #E2E8F0', borderRadius: 2, bgcolor: '#FFFFFF', boxShadow: 'none' }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ width: { xs: '100%', md: 'auto' }, flexGrow: 1 }}>
+              <TextField
+                fullWidth
+                placeholder="Cari peserta (Nama / ID)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: <Iconify icon="eva:search-fill" sx={{ mr: 1, color: 'text.disabled' }} />,
+                }}
+                size="small"
+                sx={{ maxWidth: { md: 260 } }}
+              />
+              <TextField
+                type="date"
+                size="small"
+                label="Filter Tanggal"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ minWidth: 160 }}
+              />
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <InputLabel>Status Presensi</InputLabel>
+                <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} label="Status Presensi">
+                  <MenuItem value="all">Semua Status</MenuItem>
+                  <MenuItem value="hadir">Hadir / Terlambat</MenuItem>
+                  <MenuItem value="izin">Izin / Sakit</MenuItem>
+                  <MenuItem value="alpha">Alpha</MenuItem>
+                </Select>
+              </FormControl>
 
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={handleResetFilter}
-            >
-              Reset
-            </Button>
+              <Button
+                variant="outlined"
+                color="inherit"
+                onClick={handleResetFilter}
+                startIcon={<Iconify icon="solar:restart-bold" />}
+                sx={{
+                  textTransform: 'none',
+                  borderColor: '#CBD5E1',
+                  borderRadius: 1.5,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  '&:hover': { borderColor: '#94A3B8', bgcolor: '#F8FAFC' },
+                }}
+              >
+                Reset Filter
+              </Button>
+            </Stack>
           </Stack>
         </Card>
 
         {/* TABLE */}
-        <Card sx={{ border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
+        <Card sx={{ border: '1px solid #E2E8F0', borderRadius: 2, bgcolor: '#FFFFFF', boxShadow: 'none' }}>
           <TableContainer>
             <Table>
-              <TableHead sx={{ bgcolor: '#f4f6f8' }}>
+              <TableHead sx={{ bgcolor: '#F8FAFC' }}>
                 <TableRow>
-                  <TableCell>Nama</TableCell>
-                  <TableCell>ID Peserta</TableCell>
-                  <TableCell>Asal Instansi</TableCell>
-                  <TableCell>Program</TableCell>
-                  <TableCell>Tanggal</TableCell>
-                  <TableCell>Masuk</TableCell>
-                  <TableCell>Keluar</TableCell>
-                  <TableCell align="center" width="15%">Status</TableCell>
-                  <TableCell align="center" width="10%">Aksi</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Nama</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>ID Peserta</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Asal Instansi</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Program</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Tanggal</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Masuk</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Keluar</TableCell>
+                  <TableCell align="center" width="15%" sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Status</TableCell>
+                  <TableCell align="center" width="10%" sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Aksi</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -259,8 +479,8 @@ export default function MentorPresensiPage() {
                   </TableRow>
                 ) : (
                   paginatedData.map((row, index) => (
-                    <TableRow key={row.id} hover>
-                      <TableCell sx={{ fontWeight: 'medium' }}>{row.name}</TableCell>
+                    <TableRow key={row.id} hover sx={{ '& td': { py: 1.5 } }}>
+                      <TableCell sx={{ fontWeight: 'bold' }}>{row.name}</TableCell>
                       <TableCell>{row.nim}</TableCell>
                       <TableCell>{row.kampus}</TableCell>
                       <TableCell>
@@ -276,20 +496,7 @@ export default function MentorPresensiPage() {
                       <TableCell>{row.masuk}</TableCell>
                       <TableCell>{row.keluar}</TableCell>
                       <TableCell align="center">
-                        {row.presensiStatus === '-' ? (
-                          <Typography variant="body2" color="text.secondary">-</Typography>
-                        ) : (
-                          <Chip
-                            label={row.presensiStatus}
-                            size="small"
-                            color={
-                              row.presensiStatus?.toLowerCase().includes('hadir') ? 'success' :
-                                (row.presensiStatus?.toLowerCase() === 'izin' || row.presensiStatus?.toLowerCase() === 'sakit') ? 'warning' :
-                                  row.presensiStatus?.toLowerCase() === 'alpha' ? 'error' : 'default'
-                            }
-                            variant="outlined"
-                          />
-                        )}
+                        {renderPresensiStatusChip(row.presensiStatus)}
                       </TableCell>
                       <TableCell align="center">
                         <Button
@@ -342,27 +549,17 @@ export default function MentorPresensiPage() {
               <Table size="small">
                 <TableHead sx={{ bgcolor: '#f4f6f8' }}>
                   <TableRow>
-                    <TableCell sx={{ py: 1.5, fontWeight: 'bold', color: 'text.secondary', width: '40%' }}>Keterangan</TableCell>
+                    <TableCell sx={{ py: 1.5, fontWeight: 'bold', color: 'text.secondary', width: '32%' }}>Keterangan</TableCell>
                     <TableCell sx={{ py: 1.5, fontWeight: 'bold', color: 'text.secondary' }}>Informasi</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  <TableRow hover>
-                    <TableCell sx={{ py: 1.5 }}>Status Kehadiran</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={selectedPresensi?.presensiStatus || '-'}
-                        size="small"
-                        color={
-                          selectedPresensi?.presensiStatus?.toLowerCase().includes('hadir') ? 'success' :
-                            (selectedPresensi?.presensiStatus?.toLowerCase() === 'izin' || selectedPresensi?.presensiStatus?.toLowerCase() === 'sakit') ? 'warning' :
-                              selectedPresensi?.presensiStatus?.toLowerCase() === 'alpha' ? 'error' : 'default'
-                        }
-                        variant="soft"
-                        sx={{ fontWeight: 'bold' }}
-                      />
-                    </TableCell>
-                  </TableRow>
+                    <TableRow hover>
+                      <TableCell sx={{ py: 1.5 }}>Status Kehadiran</TableCell>
+                      <TableCell>
+                        {renderPresensiStatusChip(selectedPresensi?.presensiStatus)}
+                      </TableCell>
+                    </TableRow>
 
                   <TableRow hover>
                     <TableCell sx={{ py: 1.5 }}>Tanggal Mulai</TableCell>
@@ -389,11 +586,81 @@ export default function MentorPresensiPage() {
 
                       {selectedPresensi?.lat && selectedPresensi?.lng && (
                         <TableRow hover>
-                          <TableCell sx={{ py: 1.5 }}>Lokasi Absen (Koordinat)</TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 'bold' }}>
-                              {selectedPresensi.lat}, {selectedPresensi.lng}
-                            </Typography>
+                          <TableCell sx={{ py: 1.5, verticalAlign: 'top', fontWeight: 500 }}>Lokasi Absen</TableCell>
+                          <TableCell sx={{ py: 1.5 }}>
+                            <Box
+                              sx={{
+                                p: 1.5,
+                                borderRadius: 1.5,
+                                bgcolor: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 1.25,
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box
+                                  sx={{
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: 0.75,
+                                    bgcolor: 'rgba(239, 68, 68, 0.1)',
+                                    color: 'error.main',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <Iconify icon="solar:map-point-bold-duotone" width={18} />
+                                </Box>
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                    Koordinat GPS
+                                  </Typography>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      color: '#1e293b',
+                                      fontFamily: 'monospace',
+                                      fontSize: '0.8rem',
+                                      fontWeight: 600,
+                                      wordBreak: 'break-all',
+                                    }}
+                                  >
+                                    {selectedPresensi.lat}, {selectedPresensi.lng}
+                                  </Typography>
+                                </Box>
+                              </Box>
+
+                              <Button
+                                size="small"
+                                variant="contained"
+                                component="a"
+                                href={`https://maps.google.com/maps?q=${selectedPresensi.lat},${selectedPresensi.lng}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                startIcon={<Iconify icon="solar:map-bold-duotone" width={16} />}
+                                endIcon={<Iconify icon="eva:external-link-fill" width={14} />}
+                                sx={{
+                                  bgcolor: '#004F9F',
+                                  '&:hover': { bgcolor: '#003366' },
+                                  color: '#fff',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 600,
+                                  textTransform: 'none',
+                                  py: 0.6,
+                                  px: 1.5,
+                                  borderRadius: 1,
+                                  alignSelf: 'flex-start',
+                                  whiteSpace: 'nowrap',
+                                  boxShadow: 'none',
+                                }}
+                              >
+                                Buka di Google Maps
+                              </Button>
+                            </Box>
                           </TableCell>
                         </TableRow>
                       )}
@@ -402,6 +669,19 @@ export default function MentorPresensiPage() {
                 </TableBody>
               </Table>
             </TableContainer>
+
+            {selectedPresensi?.lat && selectedPresensi?.lng && (
+              <Box sx={{ mt: 1, height: 180, borderRadius: 2, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                <iframe
+                  src={`https://maps.google.com/maps?q=${selectedPresensi.lat},${selectedPresensi.lng}&hl=id&z=16&output=embed`}
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  title="Peta Lokasi Peserta"
+                />
+              </Box>
+            )}
 
             {/* Keterangan */}
             <Box sx={{ p: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>

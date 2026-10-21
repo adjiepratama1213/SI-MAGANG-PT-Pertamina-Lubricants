@@ -13,9 +13,39 @@ import * as fs from 'fs';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Middleware backward compatibility untuk routing file static uploads
+  // Jika ada request ke /uploads/<filename> (tanpa subfolder), otomatis cek di subfolder
+  app.use('/uploads', (req, res, next) => {
+    const subPath = decodeURIComponent(req.path).replace(/^\/+/, '');
+    if (!subPath.includes('/') && subPath.trim()) {
+      const rootFile = join(process.cwd(), 'uploads', subPath);
+      if (fs.existsSync(rootFile)) {
+        return next();
+      }
+      const candidateFolders = ['laporan', 'presensi', 'reminders', 'documents', 'users', 'certificates'];
+      for (const folder of candidateFolders) {
+        const candidatePath = join(process.cwd(), 'uploads', folder, subPath);
+        if (fs.existsSync(candidatePath)) {
+          res.set({
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+            'Cross-Origin-Resource-Policy': 'cross-origin',
+          });
+          return res.sendFile(candidatePath);
+        }
+      }
+    }
+    next();
+  });
+
   // Serve static uploads folder
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
+    setHeaders: (res) => {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    },
   });
 
   // const multerConfig: multer.Options = {

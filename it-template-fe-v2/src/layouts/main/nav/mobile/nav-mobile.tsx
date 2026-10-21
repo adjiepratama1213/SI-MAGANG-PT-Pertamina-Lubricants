@@ -58,7 +58,7 @@ export default function NavMobile({ offsetTop, data }: NavProps) {
 
           <List component="nav" disablePadding>
             {data.map((link) => (
-              <NavList key={link.title} item={link} />
+              <NavList key={link.title} item={link} onClose={nav.onFalse} />
             ))}
           </List>
         </Scrollbar>

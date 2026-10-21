@@ -17,14 +17,18 @@ import { UserEntity } from 'src/user/entities/user.entity';
 import { AuthEntity } from './entities/auth.entity';
 import type { TokenEntity } from './entities/token.entity';
 import { PasswordService } from './password.service';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class AuthService {
+  private resetOtpStore = new Map<string, { otp: string; expiresAt: number; attempts: number }>();
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly mailService: MailService
   ) {}
 
   private generateAccessToken(payload: { userId: string }): string {
@@ -48,11 +52,48 @@ export class AuthService {
             Team: true,
           },
         },
+        internProfile: true,
       },
     });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+
+    if (user.role === 'PESERTA') {
+      const intern = user.internProfile;
+      const now = new Date();
+      let isDurationExpired = false;
+      if (intern?.endDate) {
+        const end = new Date(intern.endDate);
+        if (end.getHours() === 0 && end.getMinutes() === 0) {
+          end.setHours(23, 59, 59, 999);
+        }
+        isDurationExpired = now > end;
+      }
+
+      if (isDurationExpired || user.status === 'banned') {
+        if (user.status !== 'banned') {
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: { status: 'banned' },
+          });
+          try {
+            await this.mailService.sendInternshipExpiredEmail(user.email, user.name);
+          } catch (mailErr) {
+            console.error('Failed to send expiration email to intern:', user.email, mailErr);
+          }
+        }
+        throw new UnauthorizedException(
+          'Akun Anda telah expired karena masa magang telah berakhir. Akses ke portal magang telah dinonaktifkan secara otomatis. Apabila Anda membutuhkan informasi lebih lanjut mengenai berkas, sertifikat, atau proses perpanjangan, silakan hubungi tim Human Capital melalui email: hr.lubricants@pertamina.com.'
+        );
+      }
+    }
+
+    if (user.status === 'banned') {
+      throw new UnauthorizedException(
+        'Akun Anda telah dinonaktifkan. Silakan hubungi hr.lubricants@pertamina.com'
+      );
     }
 
     const modUser: Partial<UserEntity> = {
@@ -135,6 +176,17 @@ export class AuthService {
   }
 
   async createUser(payload: any): Promise<Partial<UserEntity>> {
+    if (payload.startDate && payload.endDate) {
+      const startDate = new Date(payload.startDate);
+      const endDate = new Date(payload.endDate);
+      const maxEndDate = new Date(startDate);
+      maxEndDate.setMonth(maxEndDate.getMonth() + 6);
+
+      if (endDate > maxEndDate) {
+        throw new BadRequestException('Durasi magang tidak boleh lebih dari 6 bulan dari tanggal mulai');
+      }
+    }
+
     const hashedPassword = await this.passwordService.hashPassword(payload.password);
 
     try {
@@ -173,6 +225,7 @@ export class AuthService {
             endDate: payload.endDate ? new Date(payload.endDate) : null,
             program: payload.program || null,
             documentUrls: payload.documentUrls || [],
+            mentorProfileId: payload.mentorProfileId || null,
             bankName: payload.bankName || null,
             bankAccount: payload.bankAccount || null,
           },
@@ -250,6 +303,7 @@ export class AuthService {
               Team: true,
             },
           },
+          internProfile: true,
         },
       });
 
@@ -261,6 +315,46 @@ export class AuthService {
       // If pending status
       if (user.status === 'pending') {
         throw new NotFoundException(`Please ask your manager approval!`);
+      }
+
+      // Regulasi durasi magang role peserta
+      if (user.role === 'PESERTA') {
+        const intern = user.internProfile;
+        const now = new Date();
+        let isDurationExpired = false;
+        if (intern?.endDate) {
+          const end = new Date(intern.endDate);
+          if (end.getHours() === 0 && end.getMinutes() === 0) {
+            end.setHours(23, 59, 59, 999);
+          }
+          isDurationExpired = now > end;
+        }
+
+        if (isDurationExpired || user.status === 'banned') {
+          // Jika status di DB belum banned, otomatis jadikan tidak aktif (banned) dan kirim email pemberitahuan
+          if (user.status !== 'banned') {
+            await this.prisma.user.update({
+              where: { id: user.id },
+              data: { status: 'banned' },
+            });
+            try {
+              await this.mailService.sendInternshipExpiredEmail(user.email, user.name);
+            } catch (mailErr) {
+              console.error('Failed to send expiration email to intern:', user.email, mailErr);
+            }
+          }
+
+          throw new UnauthorizedException(
+            'Akun Anda telah expired karena masa magang telah berakhir. Akses ke portal magang telah dinonaktifkan secara otomatis. Apabila Anda membutuhkan informasi lebih lanjut mengenai berkas, sertifikat, atau proses perpanjangan, silakan hubungi tim Human Capital melalui email: hr.lubricants@pertamina.com.'
+          );
+        }
+      }
+
+      // Jika user status banned untuk non-peserta
+      if (user.status === 'banned') {
+        throw new UnauthorizedException(
+          'Akun Anda telah dinonaktifkan. Silakan hubungi hr.lubricants@pertamina.com'
+        );
       }
 
       // Step 2: Check if the password is correct
@@ -319,12 +413,49 @@ export class AuthService {
               Team: true,
             },
           },
+          internProfile: true,
         },
       });
 
       // If no user is found, throw an error
       if (!user) {
         throw new NotFoundException(`No user found for id: ${webAuthnId}`);
+      }
+
+      if (user.role === 'PESERTA') {
+        const intern = user.internProfile;
+        const now = new Date();
+        let isDurationExpired = false;
+        if (intern?.endDate) {
+          const end = new Date(intern.endDate);
+          if (end.getHours() === 0 && end.getMinutes() === 0) {
+            end.setHours(23, 59, 59, 999);
+          }
+          isDurationExpired = now > end;
+        }
+
+        if (isDurationExpired || user.status === 'banned') {
+          if (user.status !== 'banned') {
+            await this.prisma.user.update({
+              where: { id: user.id },
+              data: { status: 'banned' },
+            });
+            try {
+              await this.mailService.sendInternshipExpiredEmail(user.email, user.name);
+            } catch (mailErr) {
+              console.error('Failed to send expiration email to intern:', user.email, mailErr);
+            }
+          }
+          throw new UnauthorizedException(
+            'Akun Anda telah expired karena masa magang telah berakhir. Akses ke portal magang telah dinonaktifkan secara otomatis. Apabila Anda membutuhkan informasi lebih lanjut mengenai berkas, sertifikat, atau proses perpanjangan, silakan hubungi tim Human Capital melalui email: hr.lubricants@pertamina.com.'
+          );
+        }
+      }
+
+      if (user.status === 'banned') {
+        throw new UnauthorizedException(
+          'Akun Anda telah dinonaktifkan. Silakan hubungi hr.lubricants@pertamina.com'
+        );
       }
 
       await this.prisma.userLog.create({
@@ -364,12 +495,152 @@ export class AuthService {
     }
   }
 
+  async sendResetPasswordOtp(email: string): Promise<{ message: string; expiresInSeconds: number }> {
+    if (!email) {
+      throw new BadRequestException('Alamat email wajib diisi');
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await this.prisma.user.findFirst({
+      where: { email: cleanEmail },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Akun dengan email ${cleanEmail} tidak ditemukan`);
+    }
+
+    // Generate 6 digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    this.resetOtpStore.set(cleanEmail, {
+      otp,
+      expiresAt,
+      attempts: 0,
+    });
+
+    console.log(`🔑 [FORGOT-PASSWORD] Generated OTP for ${cleanEmail}: ${otp}`);
+
+    try {
+      await this.mailService.sendPasswordResetOTPEmail(cleanEmail, otp);
+    } catch (err: any) {
+      console.warn(
+        `⚠️ [FORGOT-PASSWORD] Could not send email to ${cleanEmail}, but OTP is logged: ${otp}`,
+        err?.message
+      );
+    }
+
+    return {
+      message: 'Kode verifikasi (OTP) telah dikirim ke email Anda. Silakan periksa kotak masuk atau spam.',
+      expiresInSeconds: 600,
+    };
+  }
+
+  async verifyResetPasswordOtp(
+    email: string,
+    otp: string
+  ): Promise<{ message: string; valid: boolean }> {
+    if (!email || !otp) {
+      throw new BadRequestException('Email dan kode verifikasi wajib diisi');
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const record = this.resetOtpStore.get(cleanEmail);
+
+    if (!record || record.expiresAt < Date.now()) {
+      throw new BadRequestException(
+        'Kode verifikasi tidak valid atau telah kedaluwarsa. Silakan minta kode baru.'
+      );
+    }
+
+    if (record.attempts >= 5) {
+      this.resetOtpStore.delete(cleanEmail);
+      throw new BadRequestException(
+        'Batas percobaan verifikasi terlampaui. Silakan minta kode verifikasi baru.'
+      );
+    }
+
+    if (record.otp !== otp.trim()) {
+      record.attempts += 1;
+      const remaining = 5 - record.attempts;
+      throw new BadRequestException(
+        remaining > 0
+          ? `Kode verifikasi salah. Sisa kesempatan: ${remaining} kali.`
+          : 'Batas percobaan terlampaui. Silakan minta kode verifikasi baru.'
+      );
+    }
+
+    return {
+      message: 'Kode verifikasi berhasil divalidasi',
+      valid: true,
+    };
+  }
+
+  async resetPassword(email: string, otp: string, newPw: string): Promise<{ message: string }> {
+    if (!email || !newPw) {
+      throw new BadRequestException('Email dan kata sandi baru wajib diisi');
+    }
+
+    if (!otp) {
+      throw new BadRequestException('Kode verifikasi OTP wajib diisi untuk keamanan akun');
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const record = this.resetOtpStore.get(cleanEmail);
+
+    if (!record || record.expiresAt < Date.now()) {
+      throw new BadRequestException(
+        'Kode verifikasi tidak valid atau telah kedaluwarsa. Silakan minta kode verifikasi baru.'
+      );
+    }
+
+    if (record.attempts >= 5) {
+      this.resetOtpStore.delete(cleanEmail);
+      throw new BadRequestException(
+        'Batas percobaan terlampaui. Silakan minta kode verifikasi baru.'
+      );
+    }
+
+    if (record.otp !== otp.trim()) {
+      record.attempts += 1;
+      throw new BadRequestException('Kode verifikasi yang Anda masukkan tidak sesuai');
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { email: cleanEmail },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Akun dengan email ${cleanEmail} tidak ditemukan`);
+    }
+
+    if (newPw.length < 8 || newPw.length > 32 || !/^(?=.*[A-Za-z])(?=.*\d)/.test(newPw)) {
+      throw new BadRequestException(
+        'Kata sandi harus 8-32 karakter dan mengandung kombinasi huruf dan angka'
+      );
+    }
+
+    const hashedPassword = await this.passwordService.hashPassword(newPw);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+      },
+    });
+
+    // Invalidate OTP after success
+    this.resetOtpStore.delete(cleanEmail);
+
+    return { message: 'Kata sandi berhasil diperbarui' };
+  }
+
   async createPassword(email: string, newPw: string): Promise<TokenEntity> {
     const hashedPassword = await this.passwordService.hashPassword(`${newPw}`);
 
     try {
       const user = await this.prisma.user.update({
-        where: { email: email },
+        where: { email: email.toLowerCase() },
         data: {
           password: hashedPassword,
         },
@@ -389,6 +660,7 @@ export class AuthService {
       });
     } catch (e) {
       console.error(e);
+      throw e;
     }
   }
 
@@ -404,8 +676,22 @@ export class AuthService {
           idamanId: true,
           webAuthnId: true,
           photoUrl: true,
+          phone: true,
+          jobTitle: true,
+          status: true,
           Position: { select: { name: true, Team: true } },
           positionId: true,
+          employeeProfile: true,
+          internProfile: {
+            include: {
+              evaluation: true,
+              mentor: {
+                include: {
+                  user: { select: { name: true, email: true, employeeProfile: true } },
+                },
+              },
+            },
+          },
         },
       });
 
@@ -460,6 +746,7 @@ export class AuthService {
             Team: true,
           },
         },
+        internProfile: true,
       },
     });
 
@@ -471,6 +758,42 @@ export class AuthService {
     // If pending status
     if (user.status === 'pending') {
       throw new NotFoundException(`Please ask your manager approval!`);
+    }
+
+    if (user.role === 'PESERTA') {
+      const intern = user.internProfile;
+      const now = new Date();
+      let isDurationExpired = false;
+      if (intern?.endDate) {
+        const end = new Date(intern.endDate);
+        if (end.getHours() === 0 && end.getMinutes() === 0) {
+          end.setHours(23, 59, 59, 999);
+        }
+        isDurationExpired = now > end;
+      }
+
+      if (isDurationExpired || user.status === 'banned') {
+        if (user.status !== 'banned') {
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: { status: 'banned' },
+          });
+          try {
+            await this.mailService.sendInternshipExpiredEmail(user.email, user.name);
+          } catch (mailErr) {
+            console.error('Failed to send expiration email to intern:', user.email, mailErr);
+          }
+        }
+        throw new UnauthorizedException(
+          'Akun Anda telah expired karena masa magang telah berakhir. Akses ke portal magang telah dinonaktifkan secara otomatis. Apabila Anda membutuhkan informasi lebih lanjut mengenai berkas, sertifikat, atau proses perpanjangan, silakan hubungi tim Human Capital melalui email: hr.lubricants@pertamina.com.'
+        );
+      }
+    }
+
+    if (user.status === 'banned') {
+      throw new UnauthorizedException(
+        'Akun Anda telah dinonaktifkan. Silakan hubungi hr.lubricants@pertamina.com'
+      );
     }
 
     // If pending status

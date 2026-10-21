@@ -74,7 +74,7 @@ const reducer = (state: AuthStateType, action: ActionsType) => {
   if (action.type === Types.VALIDATE) {
     return {
       ...state,
-      user: action.payload.user,
+      user: action.payload.user ?? state.user,
       status: action.payload.status,
     };
   }
@@ -408,6 +408,14 @@ export function AuthProvider({ children }: Props) {
     });
   }, []);
 
+  // NEW PASSWORD / RESET PASSWORD
+  const newPassword = useCallback(async (email: string, code: string, password: string) => {
+    await axios.post(endpoints.auth.resetPassword, {
+      email,
+      newPassword: password,
+    });
+  }, []);
+
   // ----------------------------------------------------------------------
 
   // const checkAuthenticated = state.user ? 'authenticated' : 'unauthenticated';
@@ -433,6 +441,7 @@ export function AuthProvider({ children }: Props) {
       mfaValidate,
       webAuthnLogin,
       loginWithToken,
+      newPassword,
     }),
     [
       initialize,
@@ -442,6 +451,7 @@ export function AuthProvider({ children }: Props) {
       mfaValidate,
       webAuthnLogin,
       loginWithToken,
+      newPassword,
       status,
       state.user,
     ]

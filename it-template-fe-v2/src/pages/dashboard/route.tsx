@@ -11,8 +11,8 @@ import OverviewAnalyticsPage from './analytics';
 import PesertaPage from './peserta/page';
 import MentorPage from './mentor/page';
 import PresensiPage from './presensi/page';
-import PenilaianPage from './penilaian/page';
-import LaporanPage from './laporan/page';
+import EvaluasiPesertaPage from './evaluasi-peserta/page';
+import VpApprovalPage from './vp-approval/page';
 import ReminderPage from './reminder/page';
 import FeedbackPage from './feedback/page';
 // Mentor-specific pages
@@ -29,6 +29,7 @@ import PesertaDashboardPage from './peserta-dashboard/page';
 import PesertaPresensiPage from './peserta-presensi/page';
 import PesertaPenilaianPage from './peserta-penilaian/page';
 import PesertaLaporanPage from './peserta-laporan/page';
+import PesertaFeedbackPage from './peserta-feedback/page';
 
 // ----------------------------------------------------------------------
 
@@ -52,8 +53,8 @@ export const dashboardRoutes: RouteObject[] = [
       { path: 'peserta', element: <PesertaPage /> },
       { path: 'mentor', element: <MentorPage /> },
       { path: 'presensi', element: <PresensiPage /> },
-      { path: 'penilaian', element: <PenilaianPage /> },
-      { path: 'laporan', element: <LaporanPage /> },
+      { path: 'evaluasi-peserta', element: <EvaluasiPesertaPage /> },
+      { path: 'vp-approval', element: <VpApprovalPage /> },
       { path: 'reminder', element: <ReminderPage /> },
       { path: 'feedback', element: <FeedbackPage /> },
       // Mentor-specific routes
@@ -69,6 +70,7 @@ export const dashboardRoutes: RouteObject[] = [
       { path: 'peserta-presensi', element: <PesertaPresensiPage /> },
       { path: 'peserta-penilaian', element: <PesertaPenilaianPage /> },
       { path: 'peserta-laporan', element: <PesertaLaporanPage /> },
+      { path: 'peserta-feedback', element: <PesertaFeedbackPage /> },
       //   { path: 'realization', element: <PagePostCreation /> },
       //   { path: 'realization/:id', element: <PagePostDetail /> },
     ],

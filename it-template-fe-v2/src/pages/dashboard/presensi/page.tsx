@@ -4,12 +4,78 @@ import {
   Container, Typography, Card, Box, Grid, Stack,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination,
   Button, MenuItem, Select, FormControl, InputLabel, TextField, Chip,
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider, LinearProgress,
+  Tooltip, CircularProgress, InputAdornment
 } from '@mui/material';
 import Iconify from 'src/components/iconify';
+import DashboardBreadcrumbs from 'src/components/dashboard-breadcrumbs';
 import axiosInstance from 'src/utils/axios';
 import { endpoints } from 'src/utils/endpoints';
 import { useSearchUsers } from 'src/pages/user-mgmt/query';
+import { HOST_API } from 'src/config-global';
+import { exportPresensiPdf } from 'src/utils/export-pdf';
+
+// Helper render status presensi konsisten (Desain outlined seperti kolom aksi pada data-bimbingan, pertahankan warna status)
+const renderPresensiStatusChip = (status: string | null | undefined) => {
+  if (!status || status === '-') {
+    return <Typography variant="body2" color="text.secondary">-</Typography>;
+  }
+
+  const raw = String(status).trim();
+  const upper = raw.toUpperCase();
+
+  let label = upper;
+  // Pertamina Red: #EC2028 | Hijau: #16A34A | Yellow/Amber: #F59E0B | Default / Belum: #64748B
+  let color = '#64748B';
+
+  if (upper.includes('BELUM') || upper === 'BELUM CHECK IN') {
+    label = 'BELUM CHECK IN';
+    color = '#64748B';
+  } else if (upper === 'HADIR_TERLAMBAT' || upper.includes('TERLAMBAT')) {
+    label = 'HADIR (TERLAMBAT)';
+    color = '#16A34A';
+  } else if (upper.includes('HADIR')) {
+    label = 'HADIR';
+    color = '#16A34A';
+  } else if (upper === 'IZIN' || upper.includes('IZIN')) {
+    label = 'IZIN';
+    color = '#F59E0B'; // Kuning sama seperti di peserta-dashboard
+  } else if (upper === 'SAKIT' || upper.includes('SAKIT')) {
+    label = 'SAKIT';
+    color = '#F59E0B'; // Kuning sama seperti di peserta-dashboard
+  } else if (upper.includes('ALPHA') || upper.includes('ALFA') || upper.includes('TIDAK HADIR') || upper.includes('TOLAK')) {
+    label = upper.includes('TOLAK') ? 'DITOLAK' : 'ALPHA';
+    color = '#EC2028'; // Merah logo Pertamina
+  }
+
+  return (
+    <Chip
+      label={label}
+      size="small"
+      variant="outlined"
+      sx={{
+        minWidth: 90,
+        bgcolor: '#FFFFFF',
+        color,
+        borderColor: color,
+        borderWidth: 1.5,
+        borderStyle: 'solid',
+        fontWeight: 700,
+        fontSize: '0.75rem',
+        borderRadius: 1,
+        height: 28,
+        letterSpacing: '0.3px',
+        '& .MuiChip-label': {
+          px: 1,
+          fontWeight: 700,
+        },
+        '&:hover': {
+          bgcolor: '#FFFFFF',
+        },
+      }}
+    />
+  );
+};
 
 const DUMMY_DATA = [
   {
@@ -59,7 +125,7 @@ export default function Page() {
   
   // New states for real data
   const [adminPresensiData, setAdminPresensiData] = useState<any[]>([]);
-  const [filterBulan, setFilterBulan] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [filterBulan, setFilterBulan] = useState('all'); // 'all' for akumulasi total, or 'YYYY-MM'
   const [isLoading, setIsLoading] = useState(false);
   
   // Filters
@@ -119,6 +185,18 @@ export default function Page() {
 
   useEffect(() => {
     fetchMonthlyData();
+
+    const interval = setInterval(() => {
+      fetchMonthlyData();
+    }, 10000);
+
+    const handleFocus = () => fetchMonthlyData();
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [fetchMonthlyData]);
 
   useEffect(() => {
@@ -127,11 +205,15 @@ export default function Page() {
 
   const { userSearchData } = useSearchUsers('');
 
+  const activePresensiData = useMemo(() => {
+    return (adminPresensiData || []).filter((item) => item?.mentor && item.mentor !== '-');
+  }, [adminPresensiData]);
+
   // Derived stats
-  const totalPeserta = adminPresensiData?.length || 0;
-  const totalHadir = (adminPresensiData || []).reduce((acc, curr) => acc + (curr.totalHadir || 0), 0);
-  const totalIzin = (adminPresensiData || []).reduce((acc, curr) => acc + (curr.totalIzin || 0), 0);
-  const totalAlpha = (adminPresensiData || []).reduce((acc, curr) => acc + (curr.totalAlpha || 0), 0);
+  const totalPeserta = activePresensiData.length;
+  const totalHadir = activePresensiData.reduce((acc, curr) => acc + (curr.totalHadir || 0), 0);
+  const totalIzin = activePresensiData.reduce((acc, curr) => acc + (curr.totalIzin || 0), 0);
+  const totalAlpha = activePresensiData.reduce((acc, curr) => acc + (curr.totalAlpha || 0), 0);
 
   const handleOpenDialog = (data: any) => {
     setSelectedPresensi(data);
@@ -151,17 +233,17 @@ export default function Page() {
   const uniqueMentors = useMemo(() => {
     if (!userSearchData || !Array.isArray(userSearchData)) return [];
     return Array.from(new Set(userSearchData
-      .filter((u: any) => u?.role === 'EMPLOYEESTAFF')
+      .filter((u: any) => u?.role === 'EMPLOYEESTAFF' && u?.status === 'active')
       .map((u: any) => u?.name || 'Unknown')));
   }, [userSearchData]);
 
-  const programs = [...new Set(['PKL', 'Internship PTPL', 'Internship Kemnaker', ...(adminPresensiData || []).map((item) => item?.program).filter(Boolean)])];
-  const direktorats = [...new Set([...uniqueDirs, ...(adminPresensiData || []).map((item) => item?.direktorat).filter(Boolean)])];
-  const fungsis = [...new Set([...uniqueFungsi, ...(adminPresensiData || []).map((item) => item?.fungsi).filter(Boolean)])];
-  const subFungsis = [...new Set([...uniqueSubFungsi, ...(adminPresensiData || []).map((item) => item?.subFungsi).filter(Boolean)])];
-  const mentors = [...new Set([...uniqueMentors, ...(adminPresensiData || []).map((item) => item?.mentor).filter(Boolean)])];
+  const programs = Array.from(new Set(['PKL', 'Internship PTPL', 'Internship Kemnaker', ...(activePresensiData || []).map((item) => item?.program).filter(Boolean)]));
+  const direktorats = Array.from(new Set([...uniqueDirs, ...(activePresensiData || []).map((item) => item?.direktorat).filter(Boolean)]));
+  const fungsis = Array.from(new Set([...uniqueFungsi, ...(activePresensiData || []).map((item) => item?.fungsi).filter(Boolean)]));
+  const subFungsis = Array.from(new Set([...uniqueSubFungsi, ...(activePresensiData || []).map((item) => item?.subFungsi).filter(Boolean)]));
+  const mentors = Array.from(new Set([...uniqueMentors, ...(activePresensiData || []).map((item) => item?.mentor).filter(Boolean)]));
 
-  const filteredData = (adminPresensiData || []).filter((row) => {
+  const filteredData = (activePresensiData || []).filter((row) => {
     const matchProgram = filterProgram === 'all' || row?.program === filterProgram;
     const matchDirektorat = filterDirektorat === 'all' || row?.direktorat === filterDirektorat;
     const matchFungsi = filterFungsi === 'all' || row?.fungsi === filterFungsi;
@@ -176,6 +258,7 @@ export default function Page() {
   });
 
   const handleResetFilters = () => {
+    setFilterBulan('all');
     setFilterProgram('all');
     setFilterDirektorat('all');
     setFilterFungsi('all');
@@ -192,8 +275,10 @@ export default function Page() {
       </Helmet>
 
       <Container maxWidth="xl" sx={{ pb: 10, minHeight: '120vh' }}>
+        <DashboardBreadcrumbs current="Presensi" />
+
         {/* HEADER */}
-        <Box sx={{ p: 4, mb: 3, borderRadius: 2, background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box sx={{ p: 4, mb: 3, borderRadius: 2.5, background: 'radial-gradient(circle at 85% 25%, rgba(56, 189, 248, 0.22) 0%, transparent 60%), linear-gradient(135deg, #002D62 0%, #004F9F 55%, #001E3D 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Iconify icon="solar:calendar-date-bold-duotone" width={28} />
@@ -203,16 +288,22 @@ export default function Page() {
               <Typography variant="body2" sx={{ opacity: 0.9 }}>Kelola dan pantau seluruh aktivitas kehadiran peserta</Typography>
             </Box>
           </Box>
-          <Button variant="contained" sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9' }, fontWeight: 'bold' }}>
-            <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Rekap Presensi
-          </Button>
+          <Stack direction="row" spacing={1.5}>
+            <Button
+              variant="contained"
+              onClick={() => exportPresensiPdf(filteredData, filterBulan)}
+              sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9' }, fontWeight: 'bold' }}
+            >
+              <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Rekap Presensi
+            </Button>
+          </Stack>
         </Box>
 
         {/* SUMMARY CARDS */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           {/* Total Peserta */}
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #004F9F', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
+            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', bgcolor: '#FFFFFF', borderRadius: 2, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', borderBottom: '3.5px solid #004F9F', transition: 'all 0.2s', '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.06)', transform: 'translateY(-2px)' } }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(0, 79, 159, 0.1)', color: '#004F9F', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
                   <Iconify icon="solar:users-group-rounded-bold-duotone" width={24} />
@@ -223,166 +314,281 @@ export default function Page() {
             </Card>
           </Grid>
 
-          {/* Hadir Bulan Ini */}
+          {/* Hadir Bulan Ini / Akumulasi */}
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #8CC63F', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
+            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', bgcolor: '#FFFFFF', borderRadius: 2, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', borderBottom: '3.5px solid #16A34A', transition: 'all 0.2s', '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.06)', transform: 'translateY(-2px)' } }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(140, 198, 63, 0.1)', color: '#8CC63F', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(22, 163, 74, 0.1)', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
                   <Iconify icon="solar:check-circle-bold-duotone" width={24} />
                 </Box>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>Hadir Bulan Ini</Typography>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>
+                  {filterBulan === 'all' ? 'Hadir (Akumulasi)' : 'Hadir Bulan Ini'}
+                </Typography>
               </Box>
-              <Typography variant="h3" sx={{ color: '#8CC63F', fontWeight: 'bold' }}>{totalHadir}</Typography>
+              <Typography variant="h3" sx={{ color: '#16A34A', fontWeight: 'bold' }}>{totalHadir}</Typography>
             </Card>
           </Grid>
 
-          {/* Izin Bulan Ini */}
+          {/* Izin Bulan Ini / Akumulasi */}
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #FFAB00', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
+            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', bgcolor: '#FFFFFF', borderRadius: 2, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', borderBottom: '3.5px solid #F59E0B', transition: 'all 0.2s', '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.06)', transform: 'translateY(-2px)' } }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(255, 171, 0, 0.1)', color: '#FFAB00', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
                   <Iconify icon="solar:info-circle-bold-duotone" width={24} />
                 </Box>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>Izin Bulan Ini</Typography>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>
+                  {filterBulan === 'all' ? 'Izin (Akumulasi)' : 'Izin Bulan Ini'}
+                </Typography>
               </Box>
-              <Typography variant="h3" sx={{ color: '#FFAB00', fontWeight: 'bold' }}>{totalIzin}</Typography>
+              <Typography variant="h3" sx={{ color: '#F59E0B', fontWeight: 'bold' }}>{totalIzin}</Typography>
             </Card>
           </Grid>
 
-          {/* Alpha Bulan Ini */}
+          {/* Alpha Bulan Ini / Akumulasi */}
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #ef4444', '&:hover': { boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' } }}>
+            <Card sx={{ p: 3, position: 'relative', overflow: 'hidden', bgcolor: '#FFFFFF', borderRadius: 2, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', borderBottom: '3.5px solid #EE2E24', transition: 'all 0.2s', '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.06)', transform: 'translateY(-2px)' } }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(238, 46, 36, 0.1)', color: '#EE2E24', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
                   <Iconify icon="solar:close-circle-bold-duotone" width={24} />
                 </Box>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>Alpha Bulan Ini</Typography>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2 }}>
+                  {filterBulan === 'all' ? 'Alpha (Akumulasi)' : 'Alpha Bulan Ini'}
+                </Typography>
               </Box>
-              <Typography variant="h3" sx={{ color: '#ef4444', fontWeight: 'bold' }}>{totalAlpha}</Typography>
+              <Typography variant="h3" sx={{ color: '#EE2E24', fontWeight: 'bold' }}>{totalAlpha}</Typography>
             </Card>
           </Grid>
         </Grid>
 
-        <Card sx={{ p: 3 }}>
-          {/* FILTERS */}
-          <Box sx={{ p: 2.5, mb: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #f1f5f9' }}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={4}>
-                <TextField fullWidth size="small" type="month" label="Bulan" InputLabelProps={{ shrink: true }} value={filterBulan} onChange={(e) => setFilterBulan(e.target.value)} sx={{ bgcolor: 'white' }} />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
-                  <InputLabel>Program</InputLabel>
-                  <Select label="Program" value={filterProgram} onChange={(e) => setFilterProgram(e.target.value)}>
-                    <MenuItem value="all">Semua Program</MenuItem>
-                    {programs.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
-                  <InputLabel>Direktorat</InputLabel>
-                  <Select label="Direktorat" value={filterDirektorat} onChange={(e) => setFilterDirektorat(e.target.value)}>
-                    <MenuItem value="all">Semua Direktorat</MenuItem>
-                    {direktorats.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
-                  <InputLabel>Fungsi</InputLabel>
-                  <Select label="Fungsi" value={filterFungsi} onChange={(e) => setFilterFungsi(e.target.value)}>
-                    <MenuItem value="all">Semua Fungsi</MenuItem>
-                    {fungsis.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
-                  <InputLabel>Sub Fungsi</InputLabel>
-                  <Select label="Sub Fungsi" value={filterSubFungsi} onChange={(e) => setFilterSubFungsi(e.target.value)}>
-                    <MenuItem value="all">Semua Sub Fungsi</MenuItem>
-                    {subFungsis.map(sf => <MenuItem key={sf} value={sf}>{sf}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
-                  <InputLabel>Mentor</InputLabel>
-                  <Select label="Mentor" value={filterMentor} onChange={(e) => setFilterMentor(e.target.value)}>
-                    <MenuItem value="all">Semua Mentor</MenuItem>
-                    {mentors.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12} md={12} sx={{ display: 'flex', gap: 1 }}>
-                <TextField fullWidth size="small" placeholder="Cari nama, ID, atau instansi peserta..." sx={{ bgcolor: 'white' }} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                <Button variant="contained" color="primary" sx={{ px: 3, boxShadow: 'none' }}>
-                  <Iconify icon="eva:search-fill" />
-                </Button>
-                <Button variant="outlined" onClick={handleResetFilters} sx={{ px: 3, borderColor: '#94a3b8', color: 'text.primary', fontWeight: 'bold', '&:hover': { borderColor: '#64748b', bgcolor: '#f8fafc' } }}>
-                  Reset
-                </Button>
-              </Grid>
+        {/* SEARCH & FILTER */}
+        <Card sx={{ p: 3, mb: 3, border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Periode Presensi</InputLabel>
+                <Select
+                  label="Periode Presensi"
+                  value={filterBulan}
+                  onChange={(e) => setFilterBulan(e.target.value)}
+                >
+                  <MenuItem value="all">Semua Periode (Akumulasi Total)</MenuItem>
+                  <MenuItem value="2026-10">Oktober 2026 (Bulan Ini)</MenuItem>
+                  <MenuItem value="2026-09">September 2026</MenuItem>
+                  <MenuItem value="2026-08">Agustus 2026</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
-          </Box>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Program</InputLabel>
+                <Select label="Program" value={filterProgram} onChange={(e) => setFilterProgram(e.target.value)}>
+                  <MenuItem value="all">Semua Program</MenuItem>
+                  {programs.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Direktorat</InputLabel>
+                <Select label="Direktorat" value={filterDirektorat} onChange={(e) => setFilterDirektorat(e.target.value)}>
+                  <MenuItem value="all">Semua Direktorat</MenuItem>
+                  {direktorats.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Fungsi</InputLabel>
+                <Select label="Fungsi" value={filterFungsi} onChange={(e) => setFilterFungsi(e.target.value)}>
+                  <MenuItem value="all">Semua Fungsi</MenuItem>
+                  {fungsis.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Sub Fungsi</InputLabel>
+                <Select label="Sub Fungsi" value={filterSubFungsi} onChange={(e) => setFilterSubFungsi(e.target.value)}>
+                  <MenuItem value="all">Semua Sub Fungsi</MenuItem>
+                  {subFungsis.map(sf => <MenuItem key={sf} value={sf}>{sf}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Mentor</InputLabel>
+                <Select label="Mentor" value={filterMentor} onChange={(e) => setFilterMentor(e.target.value)}>
+                  <MenuItem value="all">Semua Mentor</MenuItem>
+                  {mentors.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
 
-          {/* TABLE */}
+            <Grid item xs={12} md={12} sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Cari nama, ID, atau instansi peserta..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Iconify icon="eva:search-fill" sx={{ color: 'text.disabled' }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Button
+                variant="outlined"
+                color="inherit"
+                onClick={handleResetFilters}
+                startIcon={<Iconify icon="solar:restart-bold" />}
+                sx={{
+                  height: 40,
+                  px: 2,
+                  flexShrink: 0,
+                  textTransform: 'none',
+                  borderColor: '#CBD5E1',
+                  borderRadius: 1.5,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  '&:hover': { borderColor: '#94A3B8', bgcolor: '#F8FAFC' },
+                }}
+              >
+                Reset Filter
+              </Button>
+            </Grid>
+          </Grid>
+        </Card>
+
+        {/* TABLE */}
+        <Card sx={{ border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
           <TableContainer>
-            <Table size="small">
+            <Table>
               <TableHead sx={{ bgcolor: '#f4f6f8' }}>
                 <TableRow>
-                  <TableCell>Nama</TableCell>
-                  <TableCell>ID Peserta</TableCell>
-                  <TableCell>Asal Instansi</TableCell>
-                  <TableCell>Program</TableCell>
-                  <TableCell>Direktorat</TableCell>
-                  <TableCell>Fungsi</TableCell>
-                  <TableCell>Sub Fungsi</TableCell>
-                  <TableCell>Mentor</TableCell>
-                  <TableCell>Hadir</TableCell>
-                  <TableCell>Izin</TableCell>
-                  <TableCell>Alpha</TableCell>
-                  <TableCell align="center">Aksi</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Peserta</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Program & Instansi</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Penempatan</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Mentor</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Hadir</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Izin</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Alpha</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Aksi</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={12} align="center" sx={{ py: 3 }}>
-                      Loading data...
+                    <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                      <LinearProgress />
                     </TableCell>
                   </TableRow>
-                ) : filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>{row.name}</TableCell>
-                    <TableCell>{row.nim}</TableCell>
-                    <TableCell>{row.kampus}</TableCell>
-                    <TableCell>{row.program}</TableCell>
-                    <TableCell>{row.direktorat}</TableCell>
-                    <TableCell>{row.fungsi}</TableCell>
-                    <TableCell>{row.subFungsi}</TableCell>
-                    <TableCell>{row.mentor}</TableCell>
-                    <TableCell>
-                      <Chip label={row.totalHadir} size="small" color="success" variant="soft" sx={{ fontWeight: 'bold' }} />
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={row.totalIzin} size="small" color="warning" variant="soft" sx={{ fontWeight: 'bold' }} />
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={row.totalAlpha} size="small" color="error" variant="soft" sx={{ fontWeight: 'bold' }} />
-                    </TableCell>
-                    <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
-                      <IconButton size="small" color="primary" sx={{ mr: 1, p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0' }} onClick={() => handleOpenDialog(row)} title="Detail / Edit">
-                        <Iconify icon="solar:eye-bold-duotone" width={20} />
-                      </IconButton>
-                      <IconButton size="small" color="error" title="Hapus" sx={{ p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0' }}>
-                        <Iconify icon="solar:trash-bin-trash-bold-duotone" width={20} />
-                      </IconButton>
+                ) : filteredData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                      <Iconify icon="solar:clipboard-remove-bold-duotone" width={48} sx={{ color: 'text.disabled', mb: 1 }} />
+                      <Typography variant="body1" color="text.secondary">Tidak ada data presensi ditemukan</Typography>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => (
+                    <TableRow key={row.id} hover sx={{ '& td': { py: 1.5 } }}>
+                      <TableCell>
+                        <Box>
+                          <Typography variant="body2" fontWeight="bold">{row.name}</Typography>
+                          <Typography variant="caption" color="text.secondary">{row.nim}</Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">{row.program}</Typography>
+                        <Typography variant="caption" color="text.secondary">{row.kampus}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">{row.direktorat}</Typography>
+                        <Typography variant="caption" color="text.secondary">{row.fungsi} • {row.subFungsi}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{row.mentor}</Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={row.totalHadir}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            minWidth: 48,
+                            bgcolor: '#FFFFFF',
+                            color: '#16A34A',
+                            borderColor: '#16A34A',
+                            borderWidth: 1.5,
+                            borderStyle: 'solid',
+                            fontWeight: 700,
+                            fontSize: '0.75rem',
+                            borderRadius: 1,
+                            height: 28,
+                            letterSpacing: '0.3px',
+                            '& .MuiChip-label': { px: 1, fontWeight: 700 },
+                            '&:hover': { bgcolor: '#FFFFFF' },
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={row.totalIzin}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            minWidth: 48,
+                            bgcolor: '#FFFFFF',
+                            color: '#F59E0B',
+                            borderColor: '#F59E0B',
+                            borderWidth: 1.5,
+                            borderStyle: 'solid',
+                            fontWeight: 700,
+                            fontSize: '0.75rem',
+                            borderRadius: 1,
+                            height: 28,
+                            letterSpacing: '0.3px',
+                            '& .MuiChip-label': { px: 1, fontWeight: 700 },
+                            '&:hover': { bgcolor: '#FFFFFF' },
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={row.totalAlpha}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            minWidth: 48,
+                            bgcolor: '#FFFFFF',
+                            color: '#EC2028',
+                            borderColor: '#EC2028',
+                            borderWidth: 1.5,
+                            borderStyle: 'solid',
+                            fontWeight: 700,
+                            fontSize: '0.75rem',
+                            borderRadius: 1,
+                            height: 28,
+                            letterSpacing: '0.3px',
+                            '& .MuiChip-label': { px: 1, fontWeight: 700 },
+                            '&:hover': { bgcolor: '#FFFFFF' },
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                        <IconButton size="small" color="primary" sx={{ mr: 1, p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0', bgcolor: 'white' }} onClick={() => handleOpenDialog(row)} title="Detail / Edit">
+                          <Iconify icon="solar:eye-bold-duotone" width={18} />
+                        </IconButton>
+                        <IconButton size="small" color="error" title="Hapus" sx={{ p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0', bgcolor: 'white' }}>
+                          <Iconify icon="solar:trash-bin-trash-bold-duotone" width={18} />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -403,16 +609,11 @@ export default function Page() {
         {selectedPresensi && (
           <>
             <DialogTitle sx={{ m: 0, p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Iconify icon="solar:user-id-bold" width={28} />
-                </Box>
-                <Box>
-                  <Typography variant="h6" fontWeight="bold">Detail Presensi</Typography>
-                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    {selectedPresensi.name} • {selectedPresensi.nim}
-                  </Typography>
-                </Box>
+              <Box>
+                <Typography variant="h6" fontWeight="bold">Detail Presensi</Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  {selectedPresensi.name} • {selectedPresensi.nim}
+                </Typography>
               </Box>
               <IconButton onClick={handleCloseDialog} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}>
                 <Iconify icon="eva:close-fill" />
@@ -423,8 +624,8 @@ export default function Page() {
 
               {/* Informasi Peserta */}
               <Box sx={{ mb: 4 }}>
-                <Typography variant="subtitle1" fontWeight="bold" color="primary.main" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-                  <Iconify icon="solar:user-id-bold-duotone" sx={{ mr: 1 }} /> Data Peserta
+                <Typography variant="subtitle1" fontWeight="bold" color="primary.main" sx={{ mb: 2 }}>
+                  Data Peserta
                 </Typography>
                 <Box sx={{ p: 2.5, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0', boxShadow: '0px 2px 4px rgba(0,0,0,0.02)' }}>
                   <Grid container spacing={3}>
@@ -459,8 +660,8 @@ export default function Page() {
 
               {/* Data Waktu Presensi */}
               <Box sx={{ mb: 4 }}>
-                <Typography variant="subtitle1" fontWeight="bold" color="primary.main" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-                  <Iconify icon="solar:calendar-bold-duotone" sx={{ mr: 1 }} /> Riwayat Presensi Bulan Ini
+                <Typography variant="subtitle1" fontWeight="bold" color="primary.main" sx={{ mb: 2 }}>
+                  Riwayat Presensi ({filterBulan === 'all' ? 'Seluruh Periode' : 'Bulan ' + filterBulan})
                 </Typography>
 
                 <TableContainer sx={{ border: '1px solid #e2e8f0', borderRadius: 2, bgcolor: 'white' }}>
@@ -472,6 +673,7 @@ export default function Page() {
                         <TableCell>Check-Out</TableCell>
                         <TableCell>Status</TableCell>
                         <TableCell>Keterangan</TableCell>
+                        <TableCell align="center">Lampiran & Lokasi</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -481,14 +683,47 @@ export default function Page() {
                           <TableCell>{detail.masuk}</TableCell>
                           <TableCell>{detail.keluar}</TableCell>
                           <TableCell>
-                            <Chip label={detail.status} size="small" color={detail.status?.toLowerCase().includes('hadir') ? 'success' : detail.status?.toLowerCase() === 'izin' || detail.status?.toLowerCase() === 'sakit' ? 'warning' : 'error'} variant="soft" />
+                            {renderPresensiStatusChip(detail.status)}
                           </TableCell>
                           <TableCell>{detail.keterangan}</TableCell>
+                          <TableCell align="center">
+                            <Stack direction="row" spacing={1} justifyContent="center">
+                              {detail.fileBukti && (
+                                <Tooltip title="Lihat Dokumen / Bukti">
+                                  <IconButton
+                                    size="small"
+                                    color="primary"
+                                    component="a"
+                                    href={`${HOST_API}${detail.fileBukti.replace(/^\//, '')}`}
+                                    target="_blank"
+                                  >
+                                    <Iconify icon="solar:document-bold-duotone" width={18} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                              {detail.lat && detail.lng && (
+                                <Tooltip title={`Lokasi Check-in: ${detail.lat}, ${detail.lng}`}>
+                                  <IconButton
+                                    size="small"
+                                    color="info"
+                                    component="a"
+                                    href={`https://maps.google.com/maps?q=${detail.lat},${detail.lng}`}
+                                    target="_blank"
+                                  >
+                                    <Iconify icon="solar:map-point-bold-duotone" width={18} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                              {!detail.fileBukti && (!detail.lat || !detail.lng) && (
+                                <Typography variant="caption" color="text.disabled">-</Typography>
+                              )}
+                            </Stack>
+                          </TableCell>
                         </TableRow>
                       ))}
                       {(!selectedPresensi.presensiDetail || selectedPresensi.presensiDetail.length === 0) && (
                         <TableRow>
-                          <TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                          <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                             Belum ada riwayat presensi di bulan ini
                           </TableCell>
                         </TableRow>
@@ -511,7 +746,20 @@ export default function Page() {
             </DialogContent>
 
             <DialogActions sx={{ p: 3, pt: 1 }}>
-              <Button onClick={handleCloseDialog} variant="contained" sx={{ bgcolor: '#e2e8f0', color: '#475569', '&:hover': { bgcolor: '#cbd5e1' } }}>
+              <Button 
+                onClick={handleCloseDialog} 
+                variant="contained" 
+                sx={{ 
+                  bgcolor: '#004F9F', 
+                  '&:hover': { bgcolor: '#003366' }, 
+                  px: 3, 
+                  py: 0.85, 
+                  borderRadius: 1.5, 
+                  textTransform: 'none', 
+                  fontWeight: 600,
+                  boxShadow: 'none'
+                }}
+              >
                 Tutup
               </Button>
             </DialogActions>

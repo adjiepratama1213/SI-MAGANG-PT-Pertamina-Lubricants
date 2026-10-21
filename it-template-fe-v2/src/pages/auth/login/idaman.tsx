@@ -12,6 +12,7 @@ import { useSearchParams } from 'src/hooks/use-search-params';
 import Oidc from 'oidc-client';
 import { isValidToken, jwtDecode } from 'src/auth/context/jwt/utils';
 import { LoadingScreen } from 'src/components/loading-screen';
+import Iconify from 'src/components/iconify';
 import { paths } from 'src/pages/paths';
 
 // ----------------------------------------------------------------------
@@ -104,25 +105,27 @@ export default function IdamanLoginView() {
   } else {
     content = (
       <Button
+        fullWidth
         size="large"
-        color="info"
-        variant="outlined"
+        variant="contained"
         disabled={isButtonDisabled}
-        startIcon={
-          <Box
-            component="img"
-            alt="idaman"
-            src="/assets/illustrations/ic-ptmn-idaman.svg"
-            sx={{
-              width: 32,
-              height: 32,
-            }}
-          />
-        }
         onClick={idamanLogin}
-        sx={{ backgroundColor: '#0156B8', borderColor: '#0056b8', color: '#FFF' }}
+        sx={{
+          backgroundColor: '#0156B8',
+          color: '#FFF',
+          height: 46,
+          borderRadius: '10px',
+          fontWeight: 600,
+          fontSize: '14px',
+          textTransform: 'none',
+          boxShadow: 'none',
+          '&:hover': {
+            backgroundColor: '#004599',
+            boxShadow: '0 4px 12px rgba(1, 86, 184, 0.25)',
+          },
+        }}
       >
-        Login with IdAMan
+        Login dengan IdAMan
       </Button>
     );
   }

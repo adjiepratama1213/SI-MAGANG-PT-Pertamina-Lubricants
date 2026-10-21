@@ -9,6 +9,9 @@ export const endpoints = {
     verifyEmail: '/auth/verify-email',
     loginWebAuthn: '/auth/webauthn',
     updatePassword: '/auth/change-password',
+    resetPassword: '/auth/reset-password',
+    sendResetOtp: '/auth/forgot-password/send-otp',
+    verifyResetOtp: '/auth/forgot-password/verify-otp',
   },
 
   chat: {
@@ -207,5 +210,27 @@ export const endpoints = {
     search: '/intern-profile/search',
     details: (id: string) => `/intern-profile/${id}`,
     byUser: (userId: string) => `/intern-profile/by-user/${userId}`,
+    extend: (id?: string) => (id ? `/intern-profile/${id}/extend` : '/intern-profile/extensions/request'),
+    requestExtension: '/intern-profile/extensions/request',
+    allExtensions: '/intern-profile/extensions/all',
+    myExtensions: '/intern-profile/extensions/my',
+    approveExtension: (id: string) => `/intern-profile/extensions/${id}/approve`,
+    rejectExtension: (id: string) => `/intern-profile/extensions/${id}/reject`,
+  },
+
+  notification: {
+    list: '/notification',
+    markRead: (id: string) => `/notification/${id}/read`,
+    markAllRead: '/notification/mark-all-read',
+    delete: (id: string) => `/notification/${id}`,
+    reminder: '/notification/reminder',
+    deleteReminder: (id: string) => `/notification/reminder/${id}`,
+    mentorMentees: '/notification/mentor/mentees',
+    mentorReminder: '/notification/mentor-reminder',
+    updateMentorReminder: (id: string) => `/notification/mentor-reminder/${id}`,
+    deleteMentorReminder: (id: string) => `/notification/mentor-reminder/${id}`,
+    feedback: '/notification/feedback',
+    myFeedback: '/notification/feedback/my',
+    updateFeedbackStatus: (id: string) => `/notification/feedback/${id}/status`,
   },
 };

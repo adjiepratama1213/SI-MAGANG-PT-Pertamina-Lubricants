@@ -16,6 +16,8 @@ export default function OverviewAppPage() {
       navigate(paths.dashboard.mentorDashboard, { replace: true });
     } else if (user?.role === 'PESERTA') {
       navigate(paths.dashboard.pesertaDashboard, { replace: true });
+    } else if (user?.role === 'EMPLOYEE') {
+      navigate(paths.dashboard.vpApproval, { replace: true });
     }
   }, [user, navigate]);
   useEffect(() => {

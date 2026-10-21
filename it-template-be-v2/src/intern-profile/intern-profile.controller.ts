@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -14,6 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
+import { uploadLocalFileToGcs } from 'src/common/utils/gcs.utils';
 import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { InternProfileService } from './intern-profile.service';
@@ -39,6 +41,51 @@ export class InternProfileController {
   @ApiBody({ type: SearchInternProfileDto, required: false })
   async search(@Body() search?: SearchInternProfileDto) {
     return this.internProfileService.findAll(search);
+  }
+
+  @Get('extensions/all')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async getAllExtensions() {
+    return this.internProfileService.getAllExtensions();
+  }
+
+  @Get('extensions/my')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async getMyExtensions(@Req() req: any) {
+    return this.internProfileService.getMyExtensions(req.user.id);
+  }
+
+  @Patch('extensions/:id/approve')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async approveExtension(
+    @Param('id') id: string,
+    @Body('adminNote') adminNote?: string,
+  ) {
+    return this.internProfileService.approveExtension(id, adminNote);
+  }
+
+  @Patch('extensions/:id/reject')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async rejectExtension(
+    @Param('id') id: string,
+    @Body('adminNote') adminNote?: string,
+  ) {
+    return this.internProfileService.rejectExtension(id, adminNote);
+  }
+
+  @Post('extensions/request')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async requestMyExtension(
+    @Req() req: any,
+    @Body('newEndDate') newEndDate: string,
+    @Body('reason') reason?: string,
+  ) {
+    return this.internProfileService.requestExtension(req.user.id, newEndDate, reason);
   }
 
   @Get(':id')
@@ -130,6 +177,11 @@ export class InternProfileController {
     @Param('internProfileId') internProfileId: string,
     @UploadedFile() file: Express.Multer.File
   ) {
+    if (file && file.path) {
+      uploadLocalFileToGcs(file.path, `uploads/certificates/${file.filename}`, file.mimetype)
+        .then(() => console.log(`[GCP Storage] Sertifikat tersimpan di GCP: uploads/certificates/${file.filename}`))
+        .catch(err => console.error(`[GCP Storage Error] Sertifikat gagal ke GCP:`, err));
+    }
     return this.internProfileService.uploadCertificate(internProfileId, file);
   }
 }

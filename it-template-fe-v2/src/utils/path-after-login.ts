@@ -8,5 +8,8 @@ export function pathAfterLogin(_role?: string) {
   if (_role === 'PESERTA') {
     return paths.dashboard.pesertaDashboard;
   }
+  if (_role === 'EMPLOYEE') {
+    return paths.dashboard.vpApproval;
+  }
   return PATH_AFTER_LOGIN;
 }

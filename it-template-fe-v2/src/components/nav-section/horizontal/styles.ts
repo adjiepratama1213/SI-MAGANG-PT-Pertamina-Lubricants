@@ -16,9 +16,11 @@ export const StyledItem = styled(ListItemButton, {
 })<StyledItemProps>(({ active, open, depth, config, theme }) => {
   const subItem = depth !== 1;
 
+  const NAV_BLUE = '#004F9F';
+
   const activeStyles = {
-    color: theme.palette.text.primary,
-    backgroundColor: theme.palette.action.selected,
+    color: config.currentRole === 'PESERTA' ? NAV_BLUE : theme.palette.text.primary,
+    backgroundColor: config.currentRole === 'PESERTA' ? `${NAV_BLUE}14` : theme.palette.action.selected,
   };
 
   return {

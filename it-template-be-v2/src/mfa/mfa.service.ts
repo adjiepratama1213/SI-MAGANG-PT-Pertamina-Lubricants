@@ -79,10 +79,48 @@ export class MfaService {
     try {
       const record = await this.prisma.user.findUnique({
         where: { email: email },
+        include: { internProfile: true },
       });
       if (!record) {
         throw new NotFoundException();
       }
+
+      if (record.role === 'PESERTA') {
+        const intern = record.internProfile;
+        const now = new Date();
+        let isDurationExpired = false;
+        if (intern?.endDate) {
+          const end = new Date(intern.endDate);
+          if (end.getHours() === 0 && end.getMinutes() === 0) {
+            end.setHours(23, 59, 59, 999);
+          }
+          isDurationExpired = now > end;
+        }
+
+        if (isDurationExpired || record.status === 'banned') {
+          if (record.status !== 'banned') {
+            await this.prisma.user.update({
+              where: { id: record.id },
+              data: { status: 'banned' },
+            });
+            try {
+              await this.mailService.sendInternshipExpiredEmail(record.email, record.name);
+            } catch (mailErr) {
+              console.error('Failed to send expiration email to intern:', record.email, mailErr);
+            }
+          }
+          throw new UnauthorizedException(
+            'Akun Anda telah expired karena masa magang telah berakhir. Akses ke portal magang telah dinonaktifkan secara otomatis. Apabila Anda membutuhkan informasi lebih lanjut mengenai berkas, sertifikat, atau proses perpanjangan, silakan hubungi tim Human Capital melalui email: hr.lubricants@pertamina.com.'
+          );
+        }
+      }
+
+      if (record.status === 'banned') {
+        throw new UnauthorizedException(
+          'Akun Anda telah dinonaktifkan. Silakan hubungi hr.lubricants@pertamina.com'
+        );
+      }
+
       const { id, encryptedSecret } = record;
 
       return {
@@ -313,13 +351,19 @@ export class MfaService {
       console.log(`OTP stored successfully for ${email}`);
       console.log(`[DEV] Generated OTP: ${otp}`);
 
-      // Send OTP via email
-      await this.mailService.sendOTPEmail(email, otp);
-      console.log(`OTP email sent successfully to ${email}`);
+      // Send OTP via email with graceful fallback if SMTP is slow/interrupted
+      try {
+        await this.mailService.sendOTPEmail(email, otp);
+        console.log(`OTP email sent successfully to ${email}`);
+      } catch (mailError: any) {
+        console.warn(
+          `⚠️ [MFA] Tidak dapat mengirim email OTP ke ${email} (${mailError?.message || mailError}). Kode OTP tetap aktif di database & log: ${otp}`
+        );
+      }
 
       return { otp, expiresAt };
     } catch (error) {
-      console.error('Failed to send email OTP:', error);
+      console.error('Failed to generate/send email OTP:', error);
       throw error;
     }
   }

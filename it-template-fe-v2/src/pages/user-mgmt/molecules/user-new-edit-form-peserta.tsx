@@ -32,7 +32,7 @@ import FormProvider, {
 import { userRoles } from 'src/assets/ptpl/roles';
 import { useSearchPosition } from 'src/pages/position/query';
 import { useBoolean } from 'src/hooks/use-boolean';
-import { IconButton, InputAdornment, MenuItem } from '@mui/material';
+import { IconButton, InputAdornment, MenuItem, TextField, Autocomplete } from '@mui/material';
 import Iconify from 'src/components/iconify';
 import { toast } from 'react-toastify';
 import axiosInstance from 'src/utils/axios';
@@ -59,8 +59,12 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
   const NewUserSchema = Yup.object().shape({
     id: Yup.string(),
     name: Yup.string().required('Name is required'),
-    password: Yup.string().when('id', (id, schema) =>
-      id ? schema.nullable() : schema.required('Password is required')
+    password: Yup.string().when('id', ([id], schema) =>
+      id ? schema.nullable() : schema
+        .required('Password is required')
+        .min(8, 'Minimal 8 karakter, maksimal 32 karakter, harus mengandung huruf dan angka.')
+        .max(32, 'Minimal 8 karakter, maksimal 32 karakter, harus mengandung huruf dan angka.')
+        .matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, 'Minimal 8 karakter, maksimal 32 karakter, harus mengandung huruf dan angka.')
     ),
     email: Yup.string().required('Email is required').email('Email must be a valid email address'),
     phone: Yup.string().required('Phone Number is required'),
@@ -81,8 +85,25 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
     startDate: Yup.date().required('Start Date is required'),
     endDate: Yup.date().required('End Date is required'),
     program: Yup.string().required('Program is required'),
-    documentUrls: Yup.array().of(Yup.string()).nullable(),
+    documentUrls: Yup.array().test(
+      'fileSize',
+      'Ukuran berkas tidak boleh melebihi 5MB',
+      (files) => {
+        if (!files || files.length === 0) return true;
+        return files.every((f: any) => {
+          if (f instanceof File) {
+            return f.size <= 5 * 1024 * 1024;
+          }
+          return true;
+        });
+      }
+    ).nullable(),
     mentorProfileId: Yup.string().nullable(),
+    bankName: Yup.string().nullable(),
+    bankAccount: Yup.string().nullable(),
+    direktorat: Yup.string().nullable(),
+    fungsi: Yup.string().nullable(),
+    subFungsi: Yup.string().nullable(),
   });
 
   const defaultValues = useMemo(
@@ -111,6 +132,11 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
       program: currentUser?.internProfile?.program || '',
       documentUrls: currentUser?.internProfile?.documentUrls || [],
       mentorProfileId: currentUser?.internProfile?.mentorProfileId || '',
+      bankName: (currentUser?.internProfile as any)?.bankName || '',
+      bankAccount: (currentUser?.internProfile as any)?.bankAccount || '',
+      direktorat: (currentUser?.internProfile?.mentor as any)?.direktorat || '',
+      fungsi: (currentUser?.internProfile?.mentor as any)?.fungsi || '',
+      subFungsi: (currentUser?.internProfile?.mentor as any)?.subFungsi || '',
     }),
     [currentUser]
   );
@@ -130,6 +156,12 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
   } = methods;
 
   const values = watch();
+
+  useEffect(() => {
+    if (currentUser) {
+      reset(defaultValues);
+    }
+  }, [currentUser, defaultValues, reset]);
 
   useEffect(() => {
     const position = searchPositionResults?.find((pos) => pos.id === values.positionId);
@@ -156,6 +188,31 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
     },
   });
 
+  const mentorsList = useMemo(() => {
+    if (!Array.isArray(mentorsData)) return [];
+    return mentorsData.filter(
+      (u: any) => u?.role === 'EMPLOYEESTAFF' && !!u?.employeeProfile
+    );
+  }, [mentorsData]);
+
+  // Sinkronisasi data mentor ke direktorat, fungsi, subFungsi
+  useEffect(() => {
+    if (mentorsList && values.mentorProfileId) {
+      const found = mentorsList.find((m: any) => m.employeeProfile?.id === values.mentorProfileId);
+      if (found?.employeeProfile) {
+        if (!values.direktorat) setValue('direktorat', found.employeeProfile.direktorat || '');
+        if (!values.fungsi) setValue('fungsi', found.employeeProfile.fungsi || '');
+        if (!values.subFungsi) setValue('subFungsi', found.employeeProfile.subFungsi || '');
+      }
+    }
+  }, [mentorsList, values.mentorProfileId, values.direktorat, values.fungsi, values.subFungsi, setValue]);
+
+  const isKemnaker =
+    (values.program || '').toLowerCase().includes('kemnaker') ||
+    (values.program || '').toLowerCase().includes('kemenaker');
+  const isPtpl = (values.program || '').toLowerCase().includes('ptpl');
+  const showBankInfo = isKemnaker || isPtpl;
+
   const onSubmit = handleSubmit(async (data) => {
     const toastId = toast.loading('Your request have been processing, please wait...');
     try {
@@ -173,49 +230,94 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
         program,
         documentUrls,
         mentorProfileId,
+        bankName,
+        bankAccount,
+        direktorat,
+        fungsi,
+        subFungsi,
         ...dataWithoutPassword
       } = data;
 
       let finalDocumentUrls = [...(documentUrls || [])];
 
       if (documentUrls && documentUrls.length > 0) {
-        finalDocumentUrls = await Promise.all(
-          documentUrls.map(async (doc: any) => {
-            if (doc instanceof File) {
-              const formData = new FormData();
-              formData.append('file', doc);
-              formData.append('folder', 'documents');
+        for (const doc of documentUrls) {
+          if (doc instanceof File && doc.size > 5 * 1024 * 1024) {
+            toast.error(`Berkas "${doc.name}" melebihi batas maksimal 5MB!`);
+            toast.dismiss(toastId);
+            return;
+          }
+        }
 
-              const uploadRes = await axiosInstance.post('/gcp-item/upload', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-              });
-              return uploadRes.data.url;
-            }
-            return doc;
-          })
-        );
+        finalDocumentUrls = (
+          await Promise.all(
+            documentUrls.map(async (doc: any) => {
+              if (doc instanceof File || (typeof doc === 'object' && doc !== null && 'name' in doc && 'size' in doc)) {
+                const formData = new FormData();
+                formData.append('file', doc);
+                formData.append('folder', 'documents');
+
+                const uploadRes = await axiosInstance.post('/gcp-item/upload', formData, {
+                  headers: { 'Content-Type': 'multipart/form-data' },
+                });
+                return uploadRes.data.url;
+              }
+              if (typeof doc === 'string' && doc.trim() && doc !== '[object File]' && !doc.includes('[object')) {
+                return doc;
+              }
+              return null;
+            })
+          )
+        ).filter(Boolean);
       }
+
+      const registerData = {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        phone: data.phone,
+        status: data.status,
+        positionId: data.positionId,
+        jobTitle: data.jobTitle,
+        teamId: data.teamId,
+        role: data.role || 'PESERTA',
+        photoUrl: data.photoUrl,
+        internId: internId || null,
+        university: university || null,
+        gender: gender || null,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString() : null,
+        major: major || null,
+        startDate: startDate ? new Date(startDate).toISOString() : null,
+        endDate: endDate ? new Date(endDate).toISOString() : null,
+        program: program || null,
+        documentUrls: finalDocumentUrls || [],
+        mentorProfileId: mentorProfileId || null,
+        bankName: bankName || null,
+        bankAccount: bankAccount || null,
+      };
 
       const res =
         data.id === ''
-          ? await axiosInstance.post(`${endpoints.auth.register}`, data)
+          ? await axiosInstance.post(`${endpoints.auth.register}`, registerData)
           : await axiosInstance.patch(`${endpoints.user.edit(data.id || '')}`, dataWithoutPassword);
 
       const userId = res.data?.id || currentUser?.id;
 
       // Handle Intern Profile
-      const profileData = {
+      const profileData: any = {
         userId,
         internId: internId || null,
         university: university || null,
         gender: gender || null,
-        dateOfBirth: dateOfBirth ? dateOfBirth.toISOString() : null,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString() : null,
         major: major || null,
-        startDate: startDate ? startDate.toISOString() : null,
-        endDate: endDate ? endDate.toISOString() : null,
+        startDate: startDate ? new Date(startDate).toISOString() : null,
+        endDate: endDate ? new Date(endDate).toISOString() : null,
         program: program || null,
         documentUrls: finalDocumentUrls || [],
         mentorProfileId: mentorProfileId || null,
+        bankName: bankName || null,
+        bankAccount: bankAccount || null,
       };
 
       if (currentUser?.internProfile?.id) {
@@ -225,8 +327,20 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
           profileData
         );
       } else {
-        // Create new profile
-        await axiosInstance.post(`${endpoints.internProfile.list}`, profileData);
+        // Create new or update profile
+        try {
+          const existingProfile = await axiosInstance.get(endpoints.internProfile.byUser(userId));
+          if (existingProfile.data?.id) {
+            await axiosInstance.patch(
+              `${endpoints.internProfile.details(existingProfile.data.id)}`,
+              profileData
+            );
+          } else {
+            await axiosInstance.post(`${endpoints.internProfile.list}`, profileData);
+          }
+        } catch {
+          await axiosInstance.post(`${endpoints.internProfile.list}`, profileData);
+        }
       }
 
       toast.update(toastId, {
@@ -246,13 +360,15 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
       } else {
         router.push(paths.userManagement.root);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      const msg = error?.response?.data?.message;
+      const errorMsg = Array.isArray(msg) ? msg.join(', ') : msg || 'Gagal menyimpan data pengguna!';
       toast.update(toastId, {
-        render: 'Data error!',
+        render: errorMsg,
         type: 'error',
         isLoading: false,
-        autoClose: 3000,
+        autoClose: 5000,
       });
     }
   });
@@ -274,13 +390,26 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
 
   const handleDropDocuments = useCallback(
     (acceptedFiles: File[]) => {
+      const MAX_SIZE = 5 * 1024 * 1024; // 5MB
       const files = values.documentUrls || [];
-      const newFiles = acceptedFiles.map((file) =>
-        Object.assign(file, {
-          preview: URL.createObjectURL(file),
-        })
-      );
-      setValue('documentUrls', [...files, ...newFiles], { shouldValidate: true });
+      const validFiles: File[] = [];
+
+      acceptedFiles.forEach((file) => {
+        if (file.size > MAX_SIZE) {
+          toast.error(`Berkas "${file.name}" melebihi batas maksimal 5MB!`);
+        } else {
+          validFiles.push(file);
+        }
+      });
+
+      if (validFiles.length > 0) {
+        const newFiles = validFiles.map((file) =>
+          Object.assign(file, {
+            preview: URL.createObjectURL(file),
+          })
+        );
+        setValue('documentUrls', [...files, ...newFiles], { shouldValidate: true });
+      }
     },
     [setValue, values.documentUrls]
   );
@@ -435,6 +564,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                     name="password"
                     type={password.value ? 'text' : 'password'}
                     label="Password"
+                    helperText="Minimal 8 karakter, maksimal 32 karakter, harus mengandung huruf dan angka."
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
@@ -586,16 +716,194 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                   <MenuItem value="Internship Kemnaker">Internship Kemnaker</MenuItem>
                 </RHFSelect>
 
-                <RHFUpload
-                  multiple
-                  thumbnail
-                  name="documentUrls"
-                  maxSize={3145728}
-                  onDrop={handleDropDocuments}
-                  onRemove={handleRemoveDocument}
-                  onRemoveAll={handleRemoveAllDocuments}
-                  disabled={isViewOnly}
-                />
+                {isKemnaker && (
+                  <>
+                    <Box sx={{ gridColumn: '1 / -1', mt: 1 }}>
+                      <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 1.5, border: '1px solid #bbf7d0' }}>
+                        <Typography variant="subtitle2" sx={{ color: '#166534', display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+                          <Iconify icon="solar:info-circle-bold" />
+                          Pendataan Khusus Program Internship Kemnaker
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#15803d', mt: 0.5, display: 'block' }}>
+                          Peserta program Internship Kemnaker menggunakan portal mandiri Kemnaker. Formulir ini khusus untuk pendataan internal termasuk penugasan mentor, penempatan struktur organisasi, dan nomor rekening peserta.
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Box sx={{ gridColumn: '1 / -1' }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                        Penugasan Mentor
+                      </Typography>
+                      <Autocomplete
+                        options={mentorsList}
+                        getOptionLabel={(option: any) => `${option?.name || 'Unknown'}`}
+                        value={mentorsList.find((m: any) => m.employeeProfile?.id === values.mentorProfileId) || null}
+                        onChange={(_, newValue: any) => {
+                          if (newValue) {
+                            setValue('mentorProfileId', newValue.employeeProfile?.id || '', { shouldValidate: true });
+                            setValue('direktorat', newValue.employeeProfile?.direktorat || '', { shouldValidate: true });
+                            setValue('fungsi', newValue.employeeProfile?.fungsi || '', { shouldValidate: true });
+                            setValue('subFungsi', newValue.employeeProfile?.subFungsi || '', { shouldValidate: true });
+                          } else {
+                            setValue('mentorProfileId', '', { shouldValidate: true });
+                            setValue('direktorat', '', { shouldValidate: true });
+                            setValue('fungsi', '', { shouldValidate: true });
+                            setValue('subFungsi', '', { shouldValidate: true });
+                          }
+                        }}
+                        disabled={isViewOnly}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Pilih Mentor..."
+                            placeholder="Ketik nama mentor"
+                            helperText="Hanya menampilkan akun mentor. Data Direktorat, Fungsi, dan Sub Fungsi otomatis terisi"
+                          />
+                        )}
+                        renderOption={(props, option: any) => (
+                          <li {...props} key={option.id}>
+                            <Box>
+                              <Typography variant="body2" fontWeight="bold">{option.name}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {option.employeeProfile?.jabatan || 'Staff'} • {option.employeeProfile?.direktorat || '-'} • {option.employeeProfile?.fungsi || '-'}
+                              </Typography>
+                            </Box>
+                          </li>
+                        )}
+                      />
+                    </Box>
+
+                    <RHFTextField
+                      name="direktorat"
+                      label="Direktorat"
+                      disabled={isViewOnly}
+                      InputProps={{
+                        readOnly: true,
+                        sx: { bgcolor: '#f8fafc' },
+                      }}
+                      helperText="Otomatis ditarik dari database mentor"
+                    />
+
+                    <RHFTextField
+                      name="fungsi"
+                      label="Fungsi"
+                      disabled={isViewOnly}
+                      InputProps={{
+                        readOnly: true,
+                        sx: { bgcolor: '#f8fafc' },
+                      }}
+                      helperText="Otomatis ditarik dari database mentor"
+                    />
+
+                    <Box sx={{ gridColumn: { xs: 'span 1', sm: 'span 2' } }}>
+                      <RHFTextField
+                        name="subFungsi"
+                        label="Sub Fungsi"
+                        disabled={isViewOnly}
+                        InputProps={{
+                          readOnly: true,
+                          sx: { bgcolor: '#f8fafc' },
+                        }}
+                        helperText="Otomatis ditarik dari database mentor"
+                      />
+                    </Box>
+                  </>
+                )}
+
+                {showBankInfo && (
+                  <>
+                    <Box sx={{ gridColumn: '1 / -1', mt: 1 }}>
+                      <Typography variant="subtitle2" sx={{ mb: 0.5, color: 'text.secondary' }}>
+                        Informasi Pembayaran / Rekening {isPtpl ? '(Internship PTPL)' : '(Internship Kemnaker)'}
+                      </Typography>
+                    </Box>
+
+                    <RHFTextField
+                      name="bankName"
+                      label="Nama Bank"
+                      placeholder="Contoh: Mandiri, BNI, BRI, BCA"
+                      disabled={isViewOnly}
+                    />
+
+                    <RHFTextField
+                      name="bankAccount"
+                      label="Nomor Rekening"
+                      placeholder="Contoh: 1234567890"
+                      disabled={isViewOnly}
+                    />
+                  </>
+                )}
+
+                <Box sx={{ gridColumn: '1 / -1', mt: 1 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                    Dokumen Pendukung
+                  </Typography>
+                  <RHFUpload
+                    multiple
+                    thumbnail={false}
+                    name="documentUrls"
+                    maxSize={5242880}
+                    onDrop={handleDropDocuments}
+                    onRemove={handleRemoveDocument}
+                    onRemoveAll={handleRemoveAllDocuments}
+                    disabled={isViewOnly}
+                    placeholder={
+                      <Stack spacing={2} alignItems="center" justifyContent="center" sx={{ py: 2 }}>
+                        <Box
+                          sx={{
+                            width: 52,
+                            height: 52,
+                            borderRadius: '50%',
+                            bgcolor: '#f1f5f9',
+                            border: '1px solid #e2e8f0',
+                            color: '#004F9F',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Iconify icon="solar:document-add-bold-duotone" width={28} />
+                        </Box>
+
+                        <Stack spacing={0.5} sx={{ textAlign: 'center' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                            Unggah Dokumen Pendukung
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            Tarik dan letakkan berkas di sini, atau{' '}
+                            <Box
+                              component="span"
+                              sx={{
+                                color: 'primary.main',
+                                fontWeight: 600,
+                                textDecoration: 'underline',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              telusuri berkas
+                            </Box>{' '}
+                            dari komputer Anda
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.72rem', mt: 0.5 }}>
+                            Format: PDF, DOC, DOCX, JPG, PNG (Maksimal 5MB per berkas)
+                          </Typography>
+                        </Stack>
+                      </Stack>
+                    }
+                    helperText={
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          mt: 1,
+                          display: 'block',
+                          color: 'text.disabled',
+                        }}
+                      >
+                        * Berkas yang diunggah dapat berupa CV, Surat Pengantar, Proposal, Transkrip Nilai, dll.
+                      </Typography>
+                    }
+                  />
+                </Box>
 
               </Box>
 

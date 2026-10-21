@@ -29,6 +29,55 @@ export class UserService {
   async findAll(search: SearchUserDto): Promise<{ results: User[]; count: number }> {
     const { skip, take, where, orderBy } = search;
     try {
+      // Periksa otomatis masa magang seluruh peserta
+      try {
+        const now = new Date();
+        const expiredInterns = await this.prisma.internProfile.findMany({
+          where: {
+            endDate: { lt: now },
+            user: { role: 'PESERTA', status: 'active' },
+          },
+          include: { user: true },
+        });
+
+        for (const intern of expiredInterns) {
+          if (intern.user && intern.endDate) {
+            const end = new Date(intern.endDate);
+            if (end.getHours() === 0 && end.getMinutes() === 0) {
+              end.setHours(23, 59, 59, 999);
+            }
+            if (now > end) {
+              await this.prisma.user.update({
+                where: { id: intern.user.id },
+                data: { status: 'banned' },
+              });
+              try {
+                await this.mailService.sendInternshipExpiredEmail(intern.user.email, intern.user.name);
+              } catch (mailErr) {
+                console.error('Failed to send expired email in UserService.findAll:', mailErr);
+              }
+              try {
+                await this.prisma.notification.create({
+                  data: {
+                    userId: intern.user.id,
+                    title: 'Masa Magang Telah Berakhir',
+                    message:
+                      'Durasi magang Anda telah selesai. Status akun Anda otomatis dinonaktifkan. Silakan hubungi hr.lubricants@pertamina.com jika memerlukan informasi lebih lanjut.',
+                    category: 'SISTEM',
+                    type: 'WARNING',
+                  },
+                });
+              } catch (notifErr) {
+                console.error('Failed to create notif in UserService.findAll:', notifErr);
+              }
+              console.log(`[Regulasi Magang] Peserta ${intern.user.name} (${intern.user.email}) dinonaktifkan via UserService.findAll.`);
+            }
+          }
+        }
+      } catch (checkErr) {
+        console.warn('Check expired interns in UserService.findAll warning:', checkErr);
+      }
+
       const results = await this.prisma.user.findMany({
         take,
         skip,
@@ -45,7 +94,7 @@ export class UserService {
             include: {
               internsMentored: {
                 include: {
-                  user: { select: { name: true, email: true } },
+                  user: { select: { id: true, name: true, email: true, status: true } },
                 },
               },
             },
@@ -55,7 +104,7 @@ export class UserService {
               evaluation: true,
               mentor: {
                 include: {
-                  user: { select: { name: true, email: true, employeeProfile: true } },
+                  user: { select: { id: true, name: true, email: true, status: true, employeeProfile: true } },
                 },
               },
             },

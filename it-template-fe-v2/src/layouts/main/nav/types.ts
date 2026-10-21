@@ -29,6 +29,7 @@ export interface NavItemMobileProps extends ListItemButtonProps {
   active?: boolean;
   open?: boolean;
   externalLink?: boolean;
+  onClose?: VoidFunction;
 }
 
 export type NavProps = {

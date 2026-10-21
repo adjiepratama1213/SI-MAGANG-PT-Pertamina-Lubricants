@@ -1,5 +1,6 @@
 import isEqual from 'lodash/isEqual';
 import { useState, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 // @mui
 import { alpha } from '@mui/material/styles';
 import Tab from '@mui/material/Tab';
@@ -28,6 +29,7 @@ import Scrollbar from 'src/components/scrollbar';
 import { ConfirmDialog } from 'src/components/custom-dialog';
 import { useSettingsContext } from 'src/components/settings';
 import CustomBreadcrumbs from 'src/components/custom-breadcrumbs';
+import DashboardBreadcrumbs from 'src/components/dashboard-breadcrumbs';
 import {
   useTable,
   getComparator,
@@ -216,21 +218,35 @@ export default function UserListView({ defaultRole }: Props) {
   );
 
 
+  const { pathname } = useLocation();
+
+  const roleSubtext = (defaultRole === 'SUPERSAIYAN' || pathname.includes('/user-management/admin'))
+    ? 'Admin'
+    : (defaultRole === 'EMPLOYEE' || pathname.includes('/user-management/vp'))
+      ? 'VP'
+      : (defaultRole === 'EMPLOYEESTAFF' || pathname.includes('/user-management/mentor'))
+        ? 'Mentor'
+        : (defaultRole === 'PESERTA' || pathname.includes('/user-management/peserta'))
+          ? 'Peserta'
+          : 'Admin';
+
   return (
     <>
       <Container maxWidth="xl" sx={{ pb: 10, minHeight: '120vh' }}>
+        <DashboardBreadcrumbs parent="User Management" current={roleSubtext} />
+
         {/* HEADER */}
-        <Box sx={{ p: 4, mb: 3, borderRadius: 2, background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box sx={{ p: { xs: 2.5, md: 3 }, mb: 3, borderRadius: 2.5, background: 'radial-gradient(circle at 85% 25%, rgba(56, 189, 248, 0.22) 0%, transparent 60%), linear-gradient(135deg, #002D62 0%, #004F9F 55%, #001E3D 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Iconify icon="solar:users-group-two-rounded-bold-duotone" width={28} />
             </Box>
             <Box>
               <Typography variant="h5" fontWeight="bold">
-                {defaultRole ? `Manajemen ${defaultRole.replace('SUPERSAIYAN', 'Admin').replace('EMPLOYEESTAFF', 'Mentor')}` : 'Manajemen Pengguna'}
+                Manajemen {roleSubtext}
               </Typography>
               <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                {defaultRole ? `Kelola data ${defaultRole.replace('SUPERSAIYAN', 'Admin').replace('EMPLOYEESTAFF', 'Mentor')} sistem` : 'Kelola seluruh akses, peran, dan data pengguna sistem'}
+                Kelola seluruh data {roleSubtext.toLowerCase()} sistem
               </Typography>
             </Box>
           </Box>
@@ -272,7 +288,7 @@ export default function UserListView({ defaultRole }: Props) {
           </Stack>
         </Box>
 
-        <Card>
+        <Card sx={{ border: '1px solid #E2E8F0', borderRadius: 2, bgcolor: '#FFFFFF', boxShadow: 'none' }}>
           <Tabs
             value={filters.status}
             onChange={handleFilterStatus}

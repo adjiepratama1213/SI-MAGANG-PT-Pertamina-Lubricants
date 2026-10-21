@@ -79,12 +79,50 @@ const SUCCESS = {
 };
 
 const WARNING = {
-  lighter: '#FFF5CC',
-  light: '#FFD666',
-  main: '#FFAB00',
-  dark: '#B76E00',
-  darker: '#7A4100',
+  lighter: '#FEF3C7',
+  light: '#FCD34D',
+  main: '#F59E0B',
+  dark: '#B45309',
+  darker: '#78350F',
   contrastText: GREY[800],
+};
+
+// ======================================================================
+// PANDUAN DESAIN & TOKEN WARNA SISTEM (PT PERTAMINA LUBRICANTS)
+// ======================================================================
+// File ini adalah pusat penyimpanan seluruh palet warna dan token desain aplikasi.
+//
+// 1. KATEGORI WARNA KORPORAT & UTAMA (NAVY / PERTAMINA BLUE):
+//    - navy (#004F9F): Biru korporat resmi PT Pertamina Lubricants dari Welcome Page.
+//      Digunakan pada: Banner Sambutan, Card Total Kehadiran, Sidebar Aktif
+//      (Role Peserta), Tombol Utama (Check In, Kirim, Submit), & Ikon Lokasi GPS.
+//    - navyHover (#002D62): Varian hover untuk tombol aksi & interaktif dari Welcome Page.
+//    - bannerGradient ('radial-gradient(circle at 85% 25%, rgba(56, 189, 248, 0.22) 0%, transparent 60%), linear-gradient(135deg, #002D62 0%, #004F9F 55%, #001E3D 100%)'):
+//      Gradasi header modern di seluruh halaman role peserta dan welcome page.
+//
+// 2. KATEGORI CAPAIAN & EVALUASI (GREEN):
+//    - green (#10B981) / greenDark (#059669):
+//      Digunakan pada: Card Nilai Evaluasi Akhir, Chip status Hadir,
+//      dan indikator performa magang.
+//
+// 3. KATEGORI STATUS PERINGATAN & IZIN (YELLOW / AMBER):
+//    - yellow (#F59E0B):
+//      Digunakan pada: Status Izin & Sakit, Banner Pemberitahuan Presensi,
+//      Modal Keterlambatan Check-In, dan segmen Donut Chart.
+//
+// 4. KATEGORI ALFA & AKSEN PROGRAM (RED):
+//    - red (#EF4444):
+//      Digunakan pada: Card Program Magang, Status Alfa / Tidak Hadir,
+//      dan error alert.
+// ======================================================================
+export const PERTAMINA_TOKENS = {
+  navy: '#004F9F',
+  navyHover: '#002D62',
+  bannerGradient: 'radial-gradient(circle at 85% 25%, rgba(56, 189, 248, 0.22) 0%, transparent 60%), linear-gradient(135deg, #002D62 0%, #004F9F 55%, #001E3D 100%)',
+  green: '#10B981',
+  greenDark: '#059669',
+  yellow: '#F59E0B',
+  red: '#EF4444',
 };
 
 const ERROR = {

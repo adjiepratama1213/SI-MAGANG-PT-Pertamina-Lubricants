@@ -3,6 +3,7 @@ import Link from '@mui/material/Link';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 // routes
+import { useNavigate, useLocation } from 'react-router-dom';
 import { RouterLink } from 'src/components/router-link';
 // components
 import Iconify from 'src/components/iconify';
@@ -17,9 +18,35 @@ export default function NavItem({
   open,
   active,
   externalLink,
+  onClose,
   ...other
 }: NavItemMobileProps) {
   const { title, path, icon, children } = item;
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (path.includes('#')) {
+      const hash = path.split('#')[1];
+      if (location.pathname === '/' || location.pathname === '') {
+        e.preventDefault();
+        navigate(`/#${hash}`);
+        onClose?.();
+        setTimeout(() => {
+          if (hash === 'beranda') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            const target = document.getElementById(hash);
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
+        }, 150);
+        return;
+      }
+    }
+    onClose?.();
+  };
 
   const renderContent = (
     <ListItem active={active} {...other}>
@@ -53,7 +80,7 @@ export default function NavItem({
 
   // Default
   return (
-    <Link component={RouterLink} href={path} underline="none">
+    <Link component={RouterLink} href={path} underline="none" onClick={handleAnchorClick}>
       {renderContent}
     </Link>
   );

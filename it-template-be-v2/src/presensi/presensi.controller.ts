@@ -19,6 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
+import { uploadLocalFileToGcs } from 'src/common/utils/gcs.utils';
 
 @Controller('presensi')
 @UseGuards(JwtAuthGuard)
@@ -30,7 +31,7 @@ export class PresensiController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (req, file, cb) => {
-          const uploadPath = './uploads';
+          const uploadPath = './uploads/presensi';
           if (!fs.existsSync(uploadPath)) {
             fs.mkdirSync(uploadPath, { recursive: true });
           }
@@ -44,6 +45,11 @@ export class PresensiController {
     })
   )
   async checkIn(@Req() req: any, @Body() dto: CheckInOutDto, @UploadedFile() file?: Express.Multer.File) {
+    if (file && file.path) {
+      uploadLocalFileToGcs(file.path, `uploads/presensi/${file.filename}`, file.mimetype)
+        .then(() => console.log(`[GCP Storage] Foto selfie presensi tersimpan di GCP: uploads/presensi/${file.filename}`))
+        .catch(err => console.error(`[GCP Storage Error] Foto selfie gagal ke GCP:`, err));
+    }
     return this.presensiService.checkIn(req.user.id, dto, file);
   }
 
@@ -56,7 +62,13 @@ export class PresensiController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: './uploads',
+        destination: (req, file, cb) => {
+          const uploadPath = './uploads/presensi';
+          if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+          }
+          cb(null, uploadPath);
+        },
         filename: (req, file, cb) => {
           const randomName = Array(32)
             .fill(null)
@@ -72,6 +84,11 @@ export class PresensiController {
     @Body() dto: IzinDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
+    if (file && file.path) {
+      uploadLocalFileToGcs(file.path, `uploads/presensi/${file.filename}`, file.mimetype)
+        .then(() => console.log(`[GCP Storage] Surat izin tersimpan di GCP: uploads/presensi/${file.filename}`))
+        .catch(err => console.error(`[GCP Storage Error] Surat izin gagal ke GCP:`, err));
+    }
     return this.presensiService.submitIzin(req.user.id, dto, file);
   }
 
@@ -86,7 +103,7 @@ export class PresensiController {
   }
 
   @Get('admin/monthly')
-  async getAdminMonthlyPresensi(@Req() req: any, @Query('month') month: string) {
+  async getAdminMonthlyPresensi(@Req() req: any, @Query('month') month?: string) {
     // Usually here you'd check if user is admin, based on req.user.role
     return this.presensiService.getAdminMonthlyPresensi(month);
   }

@@ -1,11 +1,12 @@
 import { ApexOptions } from 'apexcharts';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 // @mui
 import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import MenuItem from '@mui/material/MenuItem';
 import CardHeader from '@mui/material/CardHeader';
 import ButtonBase from '@mui/material/ButtonBase';
+import IconButton from '@mui/material/IconButton';
 import Card, { CardProps } from '@mui/material/Card';
 // components
 import Iconify from 'src/components/iconify';
@@ -49,6 +50,32 @@ export default function AppAreaInstalled({ height, title, subheader, chart, ...o
 
   const [seriesData, setSeriesData] = useState(String(new Date().getFullYear()));
 
+  useEffect(() => {
+    if (series && series.length > 0 && !series.some((s) => s.year === seriesData)) {
+      const currentYearStr = String(new Date().getFullYear());
+      const hasCurrent = series.some((s) => s.year === currentYearStr);
+      setSeriesData(hasCurrent ? currentYearStr : series[0].year);
+    }
+  }, [series, seriesData]);
+
+  const currentIndex = series.findIndex((item) => item.year === seriesData);
+
+  const handlePrevYear = () => {
+    if (currentIndex > 0) {
+      setSeriesData(series[currentIndex - 1].year);
+    }
+  };
+
+  const handleNextYear = () => {
+    if (currentIndex < series.length - 1 && currentIndex !== -1) {
+      setSeriesData(series[currentIndex + 1].year);
+    }
+  };
+
+  const dynamicSubheader = subheader
+    ? (subheader.includes('tahun') ? subheader.replace(/tahun \d+/, `tahun ${seriesData}`) : `${subheader} (${seriesData})`)
+    : `Tren kehadiran peserta magang tahun ${seriesData}`;
+
   const chartOptions = useChart({
     colors: colors.map((colr) => colr[1]),
     fill: {
@@ -65,10 +92,9 @@ export default function AppAreaInstalled({ height, title, subheader, chart, ...o
     },
     yaxis: {
       min: 0,
-      // max: 0, // Paksa Y-axis maksimal sampai 10
       forceNiceScale: true,
       labels: {
-        formatter: (val) => Math.floor(val).toString(), // pastikan tidak ada koma
+        formatter: (val) => Math.floor(val).toString(),
       },
     },
     legend: {
@@ -96,27 +122,50 @@ export default function AppAreaInstalled({ height, title, subheader, chart, ...o
       <Card {...other}>
         <CardHeader
           title={title}
-          subheader={subheader}
+          subheader={dynamicSubheader}
           action={
-            <ButtonBase
-              onClick={popover.onOpen}
-              sx={{
-                pl: 1,
-                py: 0.5,
-                pr: 0.5,
-                borderRadius: 1,
-                typography: 'subtitle2',
-                bgcolor: 'background.neutral',
-              }}
-            >
-              {seriesData}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <IconButton
+                size="small"
+                onClick={handlePrevYear}
+                disabled={currentIndex <= 0}
+                title="Tahun Sebelumnya"
+                sx={{ p: 0.5, borderRadius: 1 }}
+              >
+                <Iconify icon="eva:chevron-left-fill" width={18} />
+              </IconButton>
 
-              <Iconify
-                width={16}
-                icon={popover.open ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
-                sx={{ ml: 0.5 }}
-              />
-            </ButtonBase>
+              <ButtonBase
+                onClick={popover.onOpen}
+                sx={{
+                  px: 1,
+                  py: 0.5,
+                  borderRadius: 1,
+                  typography: 'subtitle2',
+                  bgcolor: 'background.neutral',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                {seriesData}
+
+                <Iconify
+                  width={16}
+                  icon={popover.open ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
+                  sx={{ ml: 0.5 }}
+                />
+              </ButtonBase>
+
+              <IconButton
+                size="small"
+                onClick={handleNextYear}
+                disabled={currentIndex >= series.length - 1 || currentIndex === -1}
+                title="Tahun Berikutnya"
+                sx={{ p: 0.5, borderRadius: 1 }}
+              >
+                <Iconify icon="eva:chevron-right-fill" width={18} />
+              </IconButton>
+            </Box>
           }
         />
 

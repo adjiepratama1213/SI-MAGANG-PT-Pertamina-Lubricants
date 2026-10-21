@@ -5,7 +5,7 @@ import { Outlet, RouteObject } from 'react-router-dom';
 // components
 import { LoadingScreen } from 'src/components/loading-screen';
 
-import AuthCompactLayout from '../auth/compact-auth-layout';
+import AuthClassicLayout from '../auth/layout';
 import PageMFAReset from './reset';
 import PageMFASetup from './setup';
 import PageMFAValidation from './validation';
@@ -19,11 +19,11 @@ export const mfaRoute: RouteObject[] = [
     path: 'mfa',
     element: (
       // <AuthGuard>
-      <AuthCompactLayout title="Multi Factor Authentication">
+      <AuthClassicLayout title="Multi-Factor Authentication">
         <Suspense fallback={<LoadingScreen />}>
           <Outlet />
         </Suspense>
-      </AuthCompactLayout>
+      </AuthClassicLayout>
       // </AuthGuard>
     ),
     children: [

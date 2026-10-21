@@ -36,7 +36,7 @@ export default function PrivacyPolicyAlertDialog() {
           },
         }}
       >
-        <DialogTitle>Agreement to Privacy Policy of PT Pertamina Lubricants</DialogTitle>
+        <DialogTitle>Persetujuan Kebijakan Privasi PT Pertamina Lubricants</DialogTitle>
         <DialogContent
           sx={{
             color: 'text.secondary',
@@ -46,27 +46,26 @@ export default function PrivacyPolicyAlertDialog() {
           }}
         >
           <Typography variant="body2">
-            I have carefully read, understood, and agree to abide by the terms and conditions
-            outlined in the{' '}
+            Saya telah membaca dengan saksama, memahami, dan menyetujui untuk mematuhi syarat dan ketentuan yang tercantum dalam{' '}
             <Typography
               component="span"
               variant="body2"
-              sx={{ color: 'blue', textDecoration: 'underline', cursor: 'pointer' }}
+              sx={{ color: '#003882', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
               onClick={handleOpen}
             >
-              Privacy Policy
+              Kebijakan Privasi
             </Typography>{' '}
-            of PT Pertamina Lubricants.
+            PT Pertamina Lubricants.
           </Typography>
           <Typography variant="body2">
-            By clicking &apos;Agree,&apos; I acknowledge and accept how my personal data will be collected,
-            used, and processed as stated in the policy.
+            Dengan mengeklik &apos;Setuju&apos;, saya mengakui dan menyetujui bahwa data pribadi saya akan dikumpulkan,
+            digunakan, dan diproses sebagaimana tercantum dalam kebijakan privasi.
           </Typography>
         </DialogContent>
 
         <DialogActions>
           <Button variant="contained" onClick={dialog.onFalse} autoFocus>
-            Agree
+            Setuju
           </Button>
         </DialogActions>
       </Dialog>

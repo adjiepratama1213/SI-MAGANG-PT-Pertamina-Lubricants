@@ -21,6 +21,7 @@ import { EmployeeProfileModule } from './employee-profile/employee-profile.modul
 import { InternProfileModule } from './intern-profile/intern-profile.module';
 import { PresensiModule } from './presensi/presensi.module';
 import { LaporanModule } from './laporan/laporan.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { LaporanModule } from './laporan/laporan.module';
     InternProfileModule,
     PresensiModule,
     LaporanModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [

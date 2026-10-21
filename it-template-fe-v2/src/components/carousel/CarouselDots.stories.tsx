@@ -1,15 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import CarouselDots from './carousel-dots';
 
-const meta: Meta<typeof CarouselDots> = {
+const meta: Meta<any> = {
   title: 'Components/Other/Carousel/CarouselDots',
-  component: CarouselDots,
+  component: CarouselDots as any,
   tags: ['autodocs'],
 };
 
 export default meta;
 
-type Story = StoryObj<typeof CarouselDots>;
+type Story = StoryObj<any>;
 
 function DotsPreview({ rounded = false }: { rounded?: boolean }) {
   const { appendDots, customPaging } = CarouselDots({ rounded });

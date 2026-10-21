@@ -85,5 +85,5 @@ export function RootBoundary() {
     }
   }
 
-  return <UnknownError />;
+  return <UnknownError error={error} />;
 }

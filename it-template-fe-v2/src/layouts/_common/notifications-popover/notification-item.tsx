@@ -1,253 +1,298 @@
 // @mui
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
-import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
 import ListItemButton from '@mui/material/ListItemButton';
+import Chip from '@mui/material/Chip';
 // utils
 import { fToNow } from 'src/utils/format-time';
 // components
-import Label from 'src/components/label';
-import FileThumbnail from 'src/components/file-thumbnail';
+import Iconify from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
-type NotificationItemProps = {
-  notification: {
-    id: string;
-    title: string;
-    category: string;
-    createdAt: Date;
-    isUnRead: boolean;
-    type: string;
-    avatarUrl: string | null;
-  };
+export type NotificationData = {
+  id: string;
+  userId?: string;
+  title: string;
+  message: string;
+  category: 'REMINDER_ADMIN' | 'FEEDBACK_PESERTA' | 'PRESENSI' | 'LAPORAN' | 'BERKAS' | 'EVALUASI' | 'APPROVAL_VP' | 'SISTEM' | string;
+  type: 'INFO' | 'SUCCESS' | 'WARNING' | 'URGENT' | string;
+  isRead: boolean;
+  redirectUrl?: string | null;
+  metadata?: any;
+  createdAt: string | Date;
 };
 
-export default function NotificationItem({ notification }: NotificationItemProps) {
-  const renderAvatar = (
-    <ListItemAvatar>
-      {notification.avatarUrl ? (
-        <Avatar src={notification.avatarUrl} sx={{ bgcolor: 'background.neutral' }} />
-      ) : (
+type Props = {
+  notification: NotificationData;
+  onClickItem: (notification: NotificationData) => void;
+};
+
+// ----------------------------------------------------------------------
+
+const formatTimeAgoIndo = (dateStr: string | Date | undefined) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
+  if (diffSec < 60) return 'Baru saja';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} menit yang lalu`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour} jam yang lalu`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 30) return `${diffDay} hari yang lalu`;
+  const diffMonth = Math.floor(diffDay / 30);
+  if (diffMonth < 12) return `${diffMonth} bulan yang lalu`;
+  return `${Math.floor(diffDay / 365)} tahun yang lalu`;
+};
+
+// ----------------------------------------------------------------------
+
+export default function NotificationItem({ notification, onClickItem }: Props) {
+  const getCategoryConfig = (category: string, type: string) => {
+    switch (category) {
+      case 'REMINDER_ADMIN': {
+        const isUrgent = type === 'URGENT';
+        const isWarning = type === 'WARNING';
+        return {
+          icon: 'solar:volume-loud-bold-duotone',
+          color: isUrgent ? '#e11d48' : isWarning ? '#d97706' : '#004F9F',
+          bgColor: isUrgent
+            ? 'rgba(225, 29, 72, 0.15)'
+            : isWarning
+            ? 'rgba(245, 158, 11, 0.18)'
+            : 'rgba(0, 79, 159, 0.12)',
+          label: 'Pengumuman Admin',
+          chipColor: isUrgent ? ('error' as const) : isWarning ? ('warning' as const) : ('primary' as const),
+        };
+      }
+      case 'FEEDBACK_PESERTA':
+        return {
+          icon: 'solar:chat-round-dots-bold-duotone',
+          color: '#8b5cf6',
+          bgColor: 'rgba(139, 92, 246, 0.12)',
+          label: 'Feedback Peserta',
+          chipColor: 'secondary' as const,
+        };
+      case 'PRESENSI':
+        return {
+          icon: 'solar:calendar-date-bold-duotone',
+          color: '#f59e0b',
+          bgColor: 'rgba(245, 158, 11, 0.12)',
+          label: 'Presensi & Izin',
+          chipColor: 'warning' as const,
+        };
+      case 'LAPORAN':
+        return {
+          icon: 'solar:document-text-bold-duotone',
+          color: '#0284c7',
+          bgColor: 'rgba(2, 132, 199, 0.12)',
+          label: 'Laporan Magang',
+          chipColor: 'info' as const,
+        };
+      case 'BERKAS':
+        return {
+          icon: 'solar:user-id-bold-duotone',
+          color: '#10b981',
+          bgColor: 'rgba(16, 185, 129, 0.12)',
+          label: 'Status Berkas / Mentor',
+          chipColor: 'success' as const,
+        };
+      case 'EVALUASI':
+        return {
+          icon: 'solar:star-bold-duotone',
+          color: '#8CC63F',
+          bgColor: 'rgba(140, 198, 63, 0.15)',
+          label: 'Evaluasi & Sertifikat',
+          chipColor: 'success' as const,
+        };
+      case 'APPROVAL_VP':
+        return {
+          icon: 'solar:shield-check-bold-duotone',
+          color: '#6366f1',
+          bgColor: 'rgba(99, 102, 241, 0.12)',
+          label: 'Approval VP',
+          chipColor: 'primary' as const,
+        };
+      case 'REMINDER_MENTOR':
+        return {
+          icon: type === 'WARNING' ? 'solar:clipboard-check-bold-duotone' : 'solar:bell-bing-bold-duotone',
+          color: type === 'WARNING' ? '#d97706' : '#004F9F',
+          bgColor: type === 'WARNING' ? 'rgba(245, 158, 11, 0.18)' : 'rgba(0, 79, 159, 0.12)',
+          label: type === 'WARNING' ? 'Tugas Mentor' : 'Pengingat Mentor',
+          chipColor: type === 'WARNING' ? ('warning' as const) : ('primary' as const),
+        };
+      default:
+        return {
+          icon: 'solar:bell-bing-bold-duotone',
+          color: '#64748b',
+          bgColor: 'rgba(100, 116, 139, 0.12)',
+          label: 'Sistem',
+          chipColor: 'default' as const,
+        };
+    }
+  };
+
+  const config = getCategoryConfig(notification.category, notification.type);
+
+  return (
+    <ListItemButton
+      onClick={() => onClickItem(notification)}
+      sx={{
+        p: 2,
+        alignItems: 'flex-start',
+        borderBottom: (theme) => `1px dashed ${theme.palette.divider}`,
+        bgcolor: notification.isRead ? 'transparent' : 'rgba(0, 79, 159, 0.04)',
+        transition: 'all 0.2s ease',
+        position: 'relative',
+        overflow: 'hidden',
+        width: '100%',
+        maxWidth: '100%',
+        '&:hover': {
+          bgcolor: notification.isRead ? 'rgba(0, 0, 0, 0.02)' : 'rgba(0, 79, 159, 0.08)',
+        },
+      }}
+    >
+      {/* Indicator dot unread */}
+      {!notification.isRead && (
+        <Box
+          sx={{
+            top: 18,
+            right: 14,
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            bgcolor: '#e11d48',
+            position: 'absolute',
+            boxShadow: '0 0 0 3px rgba(225, 29, 72, 0.2)',
+          }}
+        />
+      )}
+
+      {/* Avatar Icon */}
+      <ListItemAvatar sx={{ minWidth: 44, mr: 1.5, mt: 0.25, flexShrink: 0 }}>
         <Stack
           alignItems="center"
           justifyContent="center"
           sx={{
             width: 40,
             height: 40,
-            borderRadius: '50%',
-            bgcolor: 'background.neutral',
+            borderRadius: '12px',
+            bgcolor: config.bgColor,
+            color: config.color,
           }}
         >
-          <Box
-            component="img"
-            src={`/assets/icons/notification/${
-              (notification.type === 'order' && 'ic_order') ||
-              (notification.type === 'chat' && 'ic_chat') ||
-              (notification.type === 'mail' && 'ic_mail') ||
-              (notification.type === 'delivery' && 'ic_delivery')
-            }.svg`}
-            sx={{ width: 24, height: 24 }}
-          />
+          <Iconify icon={config.icon} width={22} />
         </Stack>
-      )}
-    </ListItemAvatar>
-  );
+      </ListItemAvatar>
 
-  const renderText = (
-    <ListItemText
-      disableTypography
-      primary={reader(notification.title)}
-      secondary={
-        <Stack
-          direction="row"
-          alignItems="center"
-          sx={{ typography: 'caption', color: 'text.disabled' }}
-          divider={
-            <Box
-              sx={{
-                width: 2,
-                height: 2,
-                bgcolor: 'currentColor',
-                mx: 0.5,
-                borderRadius: '50%',
-              }}
-            />
-          }
-        >
-          {fToNow(notification.createdAt)}
-          {notification.category}
-        </Stack>
-      }
-    />
-  );
-
-  const renderUnReadBadge = notification.isUnRead && (
-    <Box
-      sx={{
-        top: 26,
-        width: 8,
-        height: 8,
-        right: 20,
-        borderRadius: '50%',
-        bgcolor: 'info.main',
-        position: 'absolute',
-      }}
-    />
-  );
-
-  const friendAction = (
-    <Stack spacing={1} direction="row" sx={{ mt: 1.5 }}>
-      <Button size="small" variant="contained">
-        Accept
-      </Button>
-      <Button size="small" variant="outlined">
-        Decline
-      </Button>
-    </Stack>
-  );
-
-  const projectAction = (
-    <Stack alignItems="flex-start">
-      <Box
+      {/* Text Info */}
+      <ListItemText
+        disableTypography
         sx={{
-          p: 1.5,
-          my: 1.5,
-          borderRadius: 1.5,
-          color: 'text.secondary',
-          bgcolor: 'background.neutral',
+          minWidth: 0,
+          m: 0,
+          width: '100%',
+          overflow: 'hidden',
         }}
-      >
-        {reader(
-          `<p><strong>@Jaydon Frankie</strong> feedback by asking questions or just leave a note of appreciation.</p>`
-        )}
-      </Box>
-
-      <Button size="small" variant="contained">
-        Reply
-      </Button>
-    </Stack>
-  );
-
-  const fileAction = (
-    <Stack
-      spacing={1}
-      direction="row"
-      sx={{
-        pl: 1,
-        p: 1.5,
-        mt: 1.5,
-        borderRadius: 1.5,
-        bgcolor: 'background.neutral',
-      }}
-    >
-      <FileThumbnail
-        file="http://localhost:8080/httpsdesign-suriname-2015.mp3"
-        sx={{ width: 40, height: 40 }}
-      />
-
-      <Stack spacing={1} direction={{ xs: 'column', sm: 'row' }} flexGrow={1} sx={{ minWidth: 0 }}>
-        <ListItemText
-          disableTypography
-          primary={
-            <Typography variant="subtitle2" component="div" sx={{ color: 'text.secondary' }} noWrap>
-              design-suriname-2015.mp3
-            </Typography>
-          }
-          secondary={
-            <Stack
-              direction="row"
-              alignItems="center"
-              sx={{ typography: 'caption', color: 'text.disabled' }}
-              divider={
-                <Box
+        primary={
+          <Stack spacing={0.6} sx={{ pr: 1.5, minWidth: 0 }}>
+            <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 0.25 }}>
+              <Chip
+                label={config.label}
+                size="small"
+                color={config.chipColor}
+                sx={{
+                  height: 20,
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  borderRadius: '4px',
+                }}
+              />
+              {notification.type === 'URGENT' && (
+                <Chip
+                  label="Mendesak"
+                  size="small"
+                  color="error"
+                  variant="outlined"
+                  sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }}
+                />
+              )}
+              {notification.type === 'WARNING' && (
+                <Chip
+                  label="Penting"
+                  size="small"
+                  color="warning"
+                  variant="outlined"
                   sx={{
-                    mx: 0.5,
-                    width: 2,
-                    height: 2,
-                    borderRadius: '50%',
-                    bgcolor: 'currentColor',
+                    height: 20,
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    borderColor: '#f59e0b',
+                    color: '#d97706',
                   }}
                 />
-              }
-            >
-              <span>2.3 GB</span>
-              <span>30 min ago</span>
+              )}
             </Stack>
-          }
-        />
 
-        <Button size="small" variant="outlined">
-          Download
-        </Button>
-      </Stack>
-    </Stack>
-  );
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: notification.isRead ? 600 : 700,
+                color: notification.isRead ? 'text.primary' : '#004F9F',
+                lineHeight: 1.35,
+                fontSize: '0.875rem',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                wordBreak: 'break-word',
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {notification.title.replace(/^\[(PENGUMUMAN|PENGINGAT MENTOR)\]\s*/i, '')}
+              {(notification.metadata?.fileUrl || (Array.isArray(notification.metadata?.fileUrls) && notification.metadata.fileUrls.length > 0)) && (
+                <Iconify
+                  icon="solar:paperclip-linear"
+                  width={14}
+                  sx={{ color: 'text.secondary', ml: 0.6, verticalAlign: 'middle', display: 'inline' }}
+                />
+              )}
+            </Typography>
+          </Stack>
+        }
+        secondary={
+          <Stack spacing={0.75} sx={{ mt: 0.5, pr: 1.5, minWidth: 0 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                fontSize: '0.8rem',
+                lineHeight: 1.45,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                wordBreak: 'break-word',
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {notification.message.replace(/Dibuka:\s*[^\n\r]+/gi, '').replace(/Batas Waktu:\s*[^\n\r]+/gi, '').trim() || notification.message}
+            </Typography>
 
-  const tagsAction = (
-    <Stack direction="row" spacing={0.75} flexWrap="wrap" sx={{ mt: 1.5 }}>
-      <Label variant="outlined" color="info">
-        Design
-      </Label>
-      <Label variant="outlined" color="warning">
-        Dashboard
-      </Label>
-      <Label variant="outlined">Design system</Label>
-    </Stack>
-  );
-
-  const paymentAction = (
-    <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-      <Button size="small" variant="contained">
-        Pay
-      </Button>
-      <Button size="small" variant="outlined">
-        Decline
-      </Button>
-    </Stack>
-  );
-
-  return (
-    <ListItemButton
-      disableRipple
-      sx={{
-        p: 2.5,
-        alignItems: 'flex-start',
-        borderBottom: (theme) => `dashed 1px ${theme.palette.divider}`,
-      }}
-    >
-      {renderUnReadBadge}
-
-      {renderAvatar}
-
-      <Stack sx={{ flexGrow: 1 }}>
-        {renderText}
-        {notification.type === 'friend' && friendAction}
-        {notification.type === 'project' && projectAction}
-        {notification.type === 'file' && fileAction}
-        {notification.type === 'tags' && tagsAction}
-        {notification.type === 'payment' && paymentAction}
-      </Stack>
+            <Stack direction="row" alignItems="center" spacing={0.75} sx={{ color: 'text.disabled', typography: 'caption' }}>
+              <Iconify icon="solar:clock-circle-linear" width={13} sx={{ flexShrink: 0 }} />
+              <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.72rem' }}>
+                {formatTimeAgoIndo(notification.createdAt)}
+              </Typography>
+            </Stack>
+          </Stack>
+        }
+      />
     </ListItemButton>
-  );
-}
-
-// ----------------------------------------------------------------------
-
-function reader(data: string) {
-  return (
-    <Box
-      dangerouslySetInnerHTML={{ __html: data }}
-      sx={{
-        mb: 0.5,
-        '& p': { typography: 'body2', m: 0 },
-        '& a': { color: 'inherit', textDecoration: 'none' },
-        '& strong': { typography: 'subtitle2' },
-      }}
-    />
   );
 }

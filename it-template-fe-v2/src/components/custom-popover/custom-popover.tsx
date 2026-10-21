@@ -20,6 +20,7 @@ export default function CustomPopover({
 
   return (
     <Popover
+      disableScrollLock
       open={Boolean(open)}
       anchorEl={open}
       anchorOrigin={anchorOrigin as PopoverOrigin}

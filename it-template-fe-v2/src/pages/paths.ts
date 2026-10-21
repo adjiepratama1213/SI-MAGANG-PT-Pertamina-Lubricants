@@ -25,7 +25,7 @@ const ROOTS = {
 export const paths = {
   minimalUI: 'https://mui.com/store/items/minimal-dashboard/',
   ptpl: 'https://www.pertaminalubricants.com/',
-  waSystem: 'https://wa.me/6285283370217',
+  waSystem: 'https://wa.me/6287785604920',
   home: '/',
   // AUTH
   auth: {
@@ -67,8 +67,8 @@ export const paths = {
     peserta: `${ROOTS.DASHBOARD}/peserta`,
     mentor: `${ROOTS.DASHBOARD}/mentor`,
     presensi: `${ROOTS.DASHBOARD}/presensi`,
-    penilaian: `${ROOTS.DASHBOARD}/penilaian`,
-    laporan: `${ROOTS.DASHBOARD}/laporan`,
+    evaluasiPeserta: `${ROOTS.DASHBOARD}/evaluasi-peserta`,
+    vpApproval: `${ROOTS.DASHBOARD}/vp-approval`,
     reminder: `${ROOTS.DASHBOARD}/reminder`,
     feedback: `${ROOTS.DASHBOARD}/feedback`,
     // Mentor-specific pages
@@ -84,6 +84,7 @@ export const paths = {
     pesertaPresensi: `${ROOTS.DASHBOARD}/peserta-presensi`,
     pesertaLaporan: `${ROOTS.DASHBOARD}/peserta-laporan`,
     pesertaPenilaian: `${ROOTS.DASHBOARD}/peserta-penilaian`,
+    pesertaFeedback: `${ROOTS.DASHBOARD}/peserta-feedback`,
   },
 
   user: {

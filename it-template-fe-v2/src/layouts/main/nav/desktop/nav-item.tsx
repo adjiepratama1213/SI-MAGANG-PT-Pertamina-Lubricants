@@ -5,6 +5,7 @@ import Box from '@mui/material/Box';
 import Link, { LinkProps } from '@mui/material/Link';
 import CardActionArea from '@mui/material/CardActionArea';
 // routes
+import { useNavigate, useLocation } from 'react-router-dom';
 import { RouterLink } from 'src/components/router-link';
 // components
 import Iconify from 'src/components/iconify';
@@ -17,6 +18,26 @@ import { ListItem } from './styles';
 export const NavItem = forwardRef<HTMLDivElement, NavItemDesktopProps>(
   ({ item, open, offsetTop, active, subItem, externalLink, ...other }, ref) => {
     const { title, path, children } = item;
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (path.includes('#')) {
+        const hash = path.split('#')[1];
+        if (location.pathname === '/' || location.pathname === '') {
+          e.preventDefault();
+          navigate(`/#${hash}`);
+          if (hash === 'beranda') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            const target = document.getElementById(hash);
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
+        }
+      }
+    };
 
     const renderContent = (
       <ListItem
@@ -50,7 +71,7 @@ export const NavItem = forwardRef<HTMLDivElement, NavItemDesktopProps>(
 
     // Default
     return (
-      <Link component={RouterLink} href={path} underline="none">
+      <Link component={RouterLink} href={path} underline="none" onClick={handleAnchorClick}>
         {renderContent}
       </Link>
     );

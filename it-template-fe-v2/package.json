@@ -1,7 +1,7 @@
 {
   "name": "post-it",
   "author": "IT PTPL",
-  "version": "1.0.24",
+  "version": "1.0.26",
   "description": "Team Documentation Management Apps",
   "private": true,
   "type": "module",
@@ -64,6 +64,8 @@
     "framer-motion": "^11.18.2",
     "highlight.js": "^11.11.1",
     "jodit-react": "^5.2.38",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
     "lodash": "^4.17.23",
     "mui-one-time-password-input": "^2.0.3",
     "notistack": "^3.0.2",

@@ -119,6 +119,31 @@ export function defaultProps(theme: Theme) {
         deleteIcon: <Iconify icon="solar:close-circle-bold" />,
       },
     },
+    MuiModal: {
+      defaultProps: {
+        disableScrollLock: true,
+      },
+    },
+    MuiDialog: {
+      defaultProps: {
+        disableScrollLock: true,
+      },
+    },
+    MuiPopover: {
+      defaultProps: {
+        disableScrollLock: true,
+      },
+    },
+    MuiMenu: {
+      defaultProps: {
+        disableScrollLock: true,
+      },
+    },
+    MuiDrawer: {
+      defaultProps: {
+        disableScrollLock: true,
+      },
+    },
     MuiDialogActions: {
       defaultProps: {
         disableSpacing: true,
@@ -201,6 +226,9 @@ export function defaultProps(theme: Theme) {
     MuiSelect: {
       defaultProps: {
         IconComponent: ArrowDownIcon,
+        MenuProps: {
+          disableScrollLock: true,
+        },
       },
     },
     MuiNativeSelect: {

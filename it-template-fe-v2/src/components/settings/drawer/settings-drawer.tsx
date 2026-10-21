@@ -157,6 +157,7 @@ export default function SettingsDrawer() {
   return (
     <Drawer
       anchor="right"
+      disableScrollLock
       open={settings.open}
       onClose={settings.onClose}
       slotProps={{

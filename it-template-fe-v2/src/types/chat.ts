@@ -56,7 +56,7 @@ export type Message = {
   from?: string;
   text?: string;
   attachment?: File;
-  type?: 'divider';
+  type?: string;
   createdAt?: string;
 };
 

@@ -6,8 +6,6 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-// assets
-import { UploadIllustration } from 'src/assets/illustrations';
 //
 import Iconify from '../iconify';
 //
@@ -23,6 +21,7 @@ export default function Upload({
   multiple = false,
   error,
   helperText,
+  placeholder,
   //
   file,
   onDelete,
@@ -47,24 +46,41 @@ export default function Upload({
 
   const hasError = isDragReject || !!error;
 
-  const renderPlaceholder = (
-    <Stack spacing={3} alignItems="center" justifyContent="center" flexWrap="wrap">
-      <UploadIllustration sx={{ width: 1, maxWidth: 200 }} />
-      <Stack spacing={1} sx={{ textAlign: 'center' }}>
-        <Typography variant="h6">Drop or Select file</Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          Drop files here or click
+  const renderPlaceholder = placeholder || (
+    <Stack spacing={2} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ py: 1.5 }}>
+      <Box
+        sx={{
+          width: 56,
+          height: 56,
+          borderRadius: '50%',
+          bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+          color: 'primary.main',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Iconify icon="solar:cloud-upload-bold-duotone" width={32} />
+      </Box>
+
+      <Stack spacing={0.5} sx={{ textAlign: 'center' }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+          Pilih berkas atau tarik ke sini
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>
+          Tarik berkas ke area ini atau{' '}
           <Box
             component="span"
             sx={{
-              mx: 0.5,
               color: 'primary.main',
+              fontWeight: 600,
               textDecoration: 'underline',
+              cursor: 'pointer',
             }}
           >
-            browse
-          </Box>
-          thorough your machine
+            telusuri
+          </Box>{' '}
+          dari perangkat Anda
         </Typography>
       </Stack>
     </Stack>
@@ -97,13 +113,13 @@ export default function Upload({
   const renderMultiPreview = hasFiles && (
     <>
       <Box sx={{ my: 3 }}>
-        <MultiFilePreview files={files} thumbnail={thumbnail} onRemove={onRemove} />
+        <MultiFilePreview files={files} thumbnail={thumbnail} onRemove={disabled ? undefined : onRemove} />
       </Box>
 
       <Stack direction="row" justifyContent="flex-end" spacing={1.5}>
-        {onRemoveAll && (
+        {onRemoveAll && !disabled && (
           <Button color="inherit" variant="outlined" size="small" onClick={onRemoveAll}>
-            Remove All
+            Hapus Semua
           </Button>
         )}
 

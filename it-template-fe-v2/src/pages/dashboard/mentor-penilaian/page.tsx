@@ -11,6 +11,7 @@ import { useAuthContext } from 'src/auth/hooks';
 import { useSearchUsers } from 'src/pages/user-mgmt/query';
 import axios from 'src/utils/axios';
 import { toast } from 'react-toastify';
+import DashboardBreadcrumbs from 'src/components/dashboard-breadcrumbs';
 
 // ----------------------------------------------------------------------
 
@@ -159,88 +160,197 @@ export default function MentorPenilaianPage() {
         <title>Penilaian Peserta | SI-Magang</title>
       </Helmet>
 
-      <Container maxWidth="xl" sx={{ pb: 10, minHeight: '120vh' }}>
-        {/* HEADER */}
-        <Box sx={{ p: 4, mb: 3, borderRadius: 2, background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Iconify icon="solar:star-bold-duotone" width={28} />
-            </Box>
-            <Box>
-              <Typography variant="h5" fontWeight="bold">Penilaian Peserta</Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                Berikan penilaian untuk peserta bimbingan Anda
-              </Typography>
-            </Box>
-          </Box>
+      <Container maxWidth="xl" sx={{ pb: 8, pt: 0, minHeight: '120vh' }}>
+        {/* BREADCRUMB: Penilaian */}
+        <DashboardBreadcrumbs current="Penilaian" />
+
+        {/* PAGE HEADER */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A', mb: 0.5, letterSpacing: -0.3 }}>
+            Penilaian Peserta Magang
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#64748B' }}>
+            Berikan evaluasi performa akhir, penilaian aspek kompetensi, dan catatan bimbingan bagi peserta di PT Pertamina Lubricants.
+          </Typography>
         </Box>
 
         {/* SUMMARY */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={2.5} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ p: 3, border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #004F9F' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(0, 79, 159, 0.1)', color: '#004F9F', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                  <Iconify icon="solar:users-group-rounded-bold-duotone" width={24} />
+            <Card
+              sx={{
+                p: 3,
+                height: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                bgcolor: '#FFFFFF',
+                borderRadius: 2,
+                border: '1px solid #E2E8F0',
+                borderBottom: '3.5px solid #004F9F',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                  transform: 'translateY(-2px)',
+                },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748B', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                  Total Peserta
+                </Typography>
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 1.5,
+                    bgcolor: '#EDF5FE',
+                    color: '#004F9F',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Iconify icon="solar:users-group-rounded-bold-duotone" width={22} />
                 </Box>
-                <Typography variant="subtitle2" color="text.secondary">Total Peserta</Typography>
               </Box>
-              <Typography variant="h3" sx={{ color: '#004F9F', fontWeight: 'bold' }}>{myInterns.length}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', mt: 2 }}>
+                <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>
+                  {myInterns.length}
+                </Typography>
+                <Typography sx={{ ml: 1, fontSize: '0.95rem', fontWeight: 600, color: '#64748B' }}>
+                  Peserta
+                </Typography>
+              </Box>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ p: 3, border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #22c55e' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                  <Iconify icon="solar:check-circle-bold-duotone" width={24} />
+            <Card
+              sx={{
+                p: 3,
+                height: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                bgcolor: '#FFFFFF',
+                borderRadius: 2,
+                border: '1px solid #E2E8F0',
+                borderBottom: '3.5px solid #16A34A',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                  transform: 'translateY(-2px)',
+                },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748B', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                  Sudah Dinilai
+                </Typography>
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 1.5,
+                    bgcolor: '#DCFCE7',
+                    color: '#16A34A',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Iconify icon="solar:check-circle-bold-duotone" width={22} />
                 </Box>
-                <Typography variant="subtitle2" color="text.secondary">Sudah Dinilai</Typography>
               </Box>
-              <Typography variant="h3" sx={{ color: '#22c55e', fontWeight: 'bold' }}>{sudahDinilai}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', mt: 2 }}>
+                <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>
+                  {sudahDinilai}
+                </Typography>
+                <Typography sx={{ ml: 1, fontSize: '0.95rem', fontWeight: 600, color: '#64748B' }}>
+                  Peserta
+                </Typography>
+              </Box>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ p: 3, border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #FFAB00' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(255, 171, 0, 0.1)', color: '#FFAB00', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                  <Iconify icon="solar:clock-circle-bold-duotone" width={24} />
+            <Card
+              sx={{
+                p: 3,
+                height: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                bgcolor: '#FFFFFF',
+                borderRadius: 2,
+                border: '1px solid #E2E8F0',
+                borderBottom: '3.5px solid #F59E0B',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                  transform: 'translateY(-2px)',
+                },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748B', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                  Belum Dinilai
+                </Typography>
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 1.5,
+                    bgcolor: '#FEF3C7',
+                    color: '#F59E0B',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Iconify icon="solar:clock-circle-bold-duotone" width={22} />
                 </Box>
-                <Typography variant="subtitle2" color="text.secondary">Belum Dinilai</Typography>
               </Box>
-              <Typography variant="h3" sx={{ color: '#FFAB00', fontWeight: 'bold' }}>{belumDinilai}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', mt: 2 }}>
+                <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>
+                  {belumDinilai}
+                </Typography>
+                <Typography sx={{ ml: 1, fontSize: '0.95rem', fontWeight: 600, color: '#64748B' }}>
+                  Peserta
+                </Typography>
+              </Box>
             </Card>
           </Grid>
         </Grid>
 
-
-
         {/* SEARCH & FILTER */}
-        <Card sx={{ p: 3, mb: 3, border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+        <Card sx={{ p: 2.5, mb: 3, border: '1px solid #E2E8F0', borderRadius: 2, bgcolor: '#FFFFFF', boxShadow: 'none' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" flexWrap="wrap">
             <TextField
-              fullWidth
-              placeholder="Cari peserta (Nama/ID Peserta/Asal Instansi)..."
+              placeholder="Cari peserta (Nama/ID)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               InputProps={{
                 startAdornment: <Iconify icon="eva:search-fill" sx={{ mr: 1, color: 'text.disabled' }} />,
               }}
               size="small"
-              sx={{ flexGrow: 1 }}
+              sx={{ width: { xs: '100%', sm: 240 } }}
             />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
+            <FormControl size="small" sx={{ width: { xs: '100%', sm: 150 } }}>
               <InputLabel>Program</InputLabel>
               <Select value={filterProgram} onChange={(e) => setFilterProgram(e.target.value)} label="Program">
-                <MenuItem value="all">Semua</MenuItem>
+                <MenuItem value="all">Semua Program</MenuItem>
                 <MenuItem value="pkl">PKL</MenuItem>
                 <MenuItem value="internship ptpl">Internship PTPL</MenuItem>
                 <MenuItem value="internship kemnaker">Internship Kemnaker</MenuItem>
               </Select>
             </FormControl>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
+            <FormControl size="small" sx={{ width: { xs: '100%', sm: 140 } }}>
               <InputLabel>Kategori</InputLabel>
               <Select value={filterKategori} onChange={(e) => setFilterKategori(e.target.value)} label="Kategori">
-                <MenuItem value="all">Semua</MenuItem>
+                <MenuItem value="all">Semua Kategori</MenuItem>
                 <MenuItem value="sangat baik">Sangat Baik</MenuItem>
                 <MenuItem value="baik">Baik</MenuItem>
                 <MenuItem value="cukup">Cukup</MenuItem>
@@ -248,39 +358,50 @@ export default function MentorPenilaianPage() {
                 <MenuItem value="-">-</MenuItem>
               </Select>
             </FormControl>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
+            <FormControl size="small" sx={{ width: { xs: '100%', sm: 140 } }}>
               <InputLabel>Status</InputLabel>
               <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} label="Status">
-                <MenuItem value="all">Semua</MenuItem>
+                <MenuItem value="all">Semua Status</MenuItem>
                 <MenuItem value="sudah dinilai">Sudah Dinilai</MenuItem>
                 <MenuItem value="belum dinilai">Belum Dinilai</MenuItem>
               </Select>
             </FormControl>
             <Button
               variant="outlined"
-              color="error"
+              color="inherit"
               onClick={handleResetFilter}
-
+              startIcon={<Iconify icon="solar:restart-bold" />}
+              sx={{
+                height: 40,
+                px: 2,
+                flexShrink: 0,
+                textTransform: 'none',
+                borderColor: '#CBD5E1',
+                borderRadius: 1.5,
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                '&:hover': { borderColor: '#94A3B8', bgcolor: '#F8FAFC' },
+              }}
             >
-              Reset
+              Reset Filter
             </Button>
           </Stack>
         </Card>
 
         {/* TABLE */}
-        <Card sx={{ border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
+        <Card sx={{ border: '1px solid #E2E8F0', borderRadius: 2, bgcolor: '#FFFFFF', boxShadow: 'none' }}>
           <TableContainer>
             <Table>
-              <TableHead sx={{ bgcolor: '#f4f6f8' }}>
+              <TableHead sx={{ bgcolor: '#F8FAFC' }}>
                 <TableRow>
-                  <TableCell>Nama</TableCell>
-                  <TableCell>ID Peserta</TableCell>
-                  <TableCell>Asal Instansi</TableCell>
-                  <TableCell>Program</TableCell>
-                  <TableCell align="center">Nilai</TableCell>
-                  <TableCell align="center">Kategori</TableCell>
-                  <TableCell align="center">Status</TableCell>
-                  <TableCell align="center" width="10%">Aksi</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Nama</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>ID Peserta</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Asal Instansi</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Program</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Nilai</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Kategori</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Status</TableCell>
+                  <TableCell align="center" width="10%" sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Aksi</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -293,8 +414,8 @@ export default function MentorPenilaianPage() {
                   </TableRow>
                 ) : (
                   filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, index) => (
-                    <TableRow key={row.id} hover>
-                      <TableCell sx={{ fontWeight: 'medium' }}>{row.name}</TableCell>
+                    <TableRow key={row.id} hover sx={{ '& td': { py: 1.5 } }}>
+                      <TableCell sx={{ fontWeight: 'bold' }}>{row.name}</TableCell>
                       <TableCell>{row.nim}</TableCell>
                       <TableCell>{row.kampus}</TableCell>
                       <TableCell>
@@ -312,8 +433,22 @@ export default function MentorPenilaianPage() {
                         <Chip
                           label={row.status}
                           size="small"
-                          color={row.status === 'Sudah Dinilai' ? 'success' : 'warning'}
                           variant="outlined"
+                          sx={{
+                            minWidth: 90,
+                            bgcolor: '#FFFFFF',
+                            borderColor: row.status === 'Sudah Dinilai' ? '#16A34A' : '#F59E0B',
+                            borderWidth: 1.5,
+                            borderStyle: 'solid',
+                            color: row.status === 'Sudah Dinilai' ? '#16A34A' : '#F59E0B',
+                            fontWeight: 700,
+                            fontSize: '0.75rem',
+                            borderRadius: 1,
+                            height: 28,
+                            letterSpacing: '0.3px',
+                            '& .MuiChip-label': { px: 1, fontWeight: 700 },
+                            '&:hover': { bgcolor: '#FFFFFF' },
+                          }}
                         />
                       </TableCell>
                       <TableCell align="center">
@@ -349,7 +484,7 @@ export default function MentorPenilaianPage() {
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ m: 0, p: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', color: '#004F9F' }}>
-            <Iconify icon="solar:star-bold-duotone" width={28} sx={{ mr: 1.5 }} />
+            <Iconify icon="solar:diploma-verified-bold-duotone" width={28} sx={{ mr: 1.5 }} />
             <Typography variant="h6" fontWeight="bold">Penilaian Peserta: {selectedPeserta?.name}</Typography>
           </Box>
           <IconButton onClick={handleCloseDialog} sx={{ color: 'text.secondary' }}>

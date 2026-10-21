@@ -9,7 +9,7 @@ import { HEADER, NAV } from 'src/layouts/config-layout';
 
 // ----------------------------------------------------------------------
 
-const SPACING = 32;
+const SPACING = 14;
 
 export default function Main({ children, sx, ...other }: BoxProps) {
   const settings = useSettingsContext();
@@ -28,11 +28,11 @@ export default function Main({ children, sx, ...other }: BoxProps) {
           minHeight: 1,
           display: 'flex',
           flexDirection: 'column',
-          pt: `${HEADER.H_MOBILE + 24}px`,
-          pb: 10,
+          pt: `${HEADER.H_MOBILE + 16}px`,
+          pb: 8,
           ...(lgUp && {
-            pt: `${HEADER.H_MOBILE * 2 + 40}px`,
-            pb: 15,
+            pt: `${HEADER.H_MOBILE * 2 + 24}px`,
+            pb: 10,
           }),
         }}
       >
@@ -49,11 +49,13 @@ export default function Main({ children, sx, ...other }: BoxProps) {
         minHeight: 1,
         display: 'flex',
         flexDirection: 'column',
-        py: `${HEADER.H_MOBILE + SPACING}px`,
+        pt: `${HEADER.H_MOBILE + SPACING}px`,
+        pb: 8,
         bgcolor: '#F4F6F8', // subtle gray background to contrast with white sidebar and cards
         ...(lgUp && {
           px: 2,
-          py: `${HEADER.H_DESKTOP + SPACING}px`,
+          pt: `${HEADER.H_DESKTOP + SPACING}px`,
+          pb: 8,
           width: `calc(100% - ${NAV.W_VERTICAL}px)`,
           ...(isNavMini && {
             width: `calc(100% - ${NAV.W_MINI}px)`,

@@ -21,17 +21,16 @@ export default function PrivacyPolicySeamlessDialog({ variant = 'body2' }: Priva
   return (
     <>
       <Typography variant={variant}>
-        I have carefully read, understood, and agree to abide by the terms and conditions outlined
-        in the{' '}
+        Saya telah membaca dengan saksama, memahami, dan menyetujui untuk mematuhi syarat dan ketentuan yang tercantum dalam{' '}
         <Typography
           component="span"
           variant={variant}
-          sx={{ color: 'blue', textDecoration: 'underline', cursor: 'pointer' }}
+          sx={{ color: '#003882', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
           onClick={handleOpen}
         >
-          Privacy Policy
+          Kebijakan Privasi
         </Typography>{' '}
-        of PT Pertamina Lubricants.
+        PT Pertamina Lubricants.
       </Typography>
 
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>

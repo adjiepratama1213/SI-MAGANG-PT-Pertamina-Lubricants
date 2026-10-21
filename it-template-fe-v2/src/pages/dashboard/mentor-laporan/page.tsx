@@ -4,12 +4,13 @@ import {
   Container, Typography, Card, Box, Stack,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination,
   Button, TextField, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Tabs, Tab,
-  FormControl, InputLabel, Select, MenuItem, Grid
+  FormControl, InputLabel, Select, MenuItem, Grid, Tooltip
 } from '@mui/material';
 import Iconify from 'src/components/iconify';
 import axiosInstance from 'src/utils/axios';
 import { toast } from 'react-toastify';
 import { HOST_API } from 'src/config-global';
+import DashboardBreadcrumbs from 'src/components/dashboard-breadcrumbs';
 
 export default function MentorLaporanPage() {
   const [laporans, setLaporans] = useState<any[]>([]);
@@ -105,77 +106,183 @@ export default function MentorLaporanPage() {
         <title>Laporan Peserta | SI-Magang</title>
       </Helmet>
 
-      <Container maxWidth="xl" sx={{ pb: 10, minHeight: '120vh' }}>
-        {/* HEADER */}
-        <Box sx={{ p: 4, mb: 3, borderRadius: 2, background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Iconify icon="solar:document-text-bold-duotone" width={28} />
-            </Box>
-            <Box>
-              <Typography variant="h5" fontWeight="bold">Laporan Peserta Magang</Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                Kelola dan beri penilaian untuk laporan peserta yang dibimbing
-              </Typography>
-            </Box>
-          </Box>
+      <Container maxWidth="xl" sx={{ pb: 8, pt: 0, minHeight: '120vh' }}>
+        {/* BREADCRUMB: Laporan */}
+        <DashboardBreadcrumbs current="Laporan" />
+
+        {/* PAGE HEADER */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A', mb: 0.5, letterSpacing: -0.3 }}>
+            Laporan Peserta Magang
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#64748B' }}>
+            Kelola, tinjau progres mingguan, dan beri evaluasi resmi untuk laporan berkas peserta bimbingan Anda di PT Pertamina Lubricants.
+          </Typography>
         </Box>
 
         {/* SUMMARY CARDS */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={2.5} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={4}>
-            <Card sx={{ p: 3, border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #004F9F' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(0, 79, 159, 0.1)', color: '#004F9F', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                  <Iconify icon="solar:document-bold-duotone" width={24} />
+            <Card
+              sx={{
+                p: 3,
+                height: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                bgcolor: '#FFFFFF',
+                borderRadius: 2,
+                border: '1px solid #E2E8F0',
+                borderBottom: '3.5px solid #004F9F',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                  transform: 'translateY(-2px)',
+                },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748B', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                  Total Laporan
+                </Typography>
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 1.5,
+                    bgcolor: '#EDF5FE',
+                    color: '#004F9F',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Iconify icon="solar:document-bold-duotone" width={22} />
                 </Box>
-                <Typography variant="subtitle2" color="text.secondary">Total Laporan</Typography>
               </Box>
-              <Typography variant="h3" sx={{ color: '#004F9F', fontWeight: 'bold' }}>
-                {laporans.length}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', mt: 2 }}>
+                <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>
+                  {laporans.length}
+                </Typography>
+                <Typography sx={{ ml: 1, fontSize: '0.95rem', fontWeight: 600, color: '#64748B' }}>
+                  Berkas
+                </Typography>
+              </Box>
             </Card>
           </Grid>
           <Grid item xs={12} sm={4}>
-            <Card sx={{ p: 3, border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #f59e0b' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                  <Iconify icon="solar:clock-circle-bold-duotone" width={24} />
+            <Card
+              sx={{
+                p: 3,
+                height: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                bgcolor: '#FFFFFF',
+                borderRadius: 2,
+                border: '1px solid #E2E8F0',
+                borderBottom: '3.5px solid #F59E0B',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                  transform: 'translateY(-2px)',
+                },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748B', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                  Menunggu Evaluasi
+                </Typography>
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 1.5,
+                    bgcolor: '#FEF3C7',
+                    color: '#F59E0B',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Iconify icon="solar:clock-circle-bold-duotone" width={22} />
                 </Box>
-                <Typography variant="subtitle2" color="text.secondary">Menunggu Evaluasi</Typography>
               </Box>
-              <Typography variant="h3" sx={{ color: '#f59e0b', fontWeight: 'bold' }}>
-                {laporans.filter(l => l.statusFeedback !== 'Telah Dievaluasi').length}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', mt: 2 }}>
+                <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>
+                  {laporans.filter(l => l.statusFeedback !== 'Telah Dievaluasi').length}
+                </Typography>
+                <Typography sx={{ ml: 1, fontSize: '0.95rem', fontWeight: 600, color: '#64748B' }}>
+                  Berkas
+                </Typography>
+              </Box>
             </Card>
           </Grid>
           <Grid item xs={12} sm={4}>
-            <Card sx={{ p: 3, border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #22c55e' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                  <Iconify icon="solar:check-circle-bold-duotone" width={24} />
+            <Card
+              sx={{
+                p: 3,
+                height: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                bgcolor: '#FFFFFF',
+                borderRadius: 2,
+                border: '1px solid #E2E8F0',
+                borderBottom: '3.5px solid #16A34A',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                  transform: 'translateY(-2px)',
+                },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748B', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                  Telah Dievaluasi
+                </Typography>
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 1.5,
+                    bgcolor: '#DCFCE7',
+                    color: '#16A34A',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Iconify icon="solar:check-circle-bold-duotone" width={22} />
                 </Box>
-                <Typography variant="subtitle2" color="text.secondary">Telah Dievaluasi</Typography>
               </Box>
-              <Typography variant="h3" sx={{ color: '#22c55e', fontWeight: 'bold' }}>
-                {laporans.filter(l => l.statusFeedback === 'Telah Dievaluasi').length}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', mt: 2 }}>
+                <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>
+                  {laporans.filter(l => l.statusFeedback === 'Telah Dievaluasi').length}
+                </Typography>
+                <Typography sx={{ ml: 1, fontSize: '0.95rem', fontWeight: 600, color: '#64748B' }}>
+                  Berkas
+                </Typography>
+              </Box>
             </Card>
           </Grid>
         </Grid>
 
         {/* PENCARIAN & FILTER */}
-        <Card sx={{ p: 3, mb: 3, border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+        <Card sx={{ p: 2.5, mb: 3, border: '1px solid #E2E8F0', borderRadius: 2, bgcolor: '#FFFFFF', boxShadow: 'none' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" flexWrap="wrap">
             <TextField
-              fullWidth
-              placeholder="Cari laporan berdasarkan Nama atau ID Peserta..."
+              placeholder="Cari nama / ID peserta..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               InputProps={{
                 startAdornment: <Iconify icon="eva:search-fill" sx={{ mr: 1, color: 'text.disabled' }} />,
               }}
               size="small"
+              sx={{ width: { xs: '100%', sm: 260 } }}
             />
             
             <TextField
@@ -184,17 +291,17 @@ export default function MentorLaporanPage() {
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
               InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 160 }}
+              sx={{ width: { xs: '100%', sm: 160 } }}
             />
 
-            <FormControl size="small" sx={{ minWidth: 160 }}>
+            <FormControl size="small" sx={{ width: { xs: '100%', sm: 180 } }}>
               <InputLabel>Status Laporan</InputLabel>
               <Select 
                 value={filterStatus} 
                 onChange={(e) => setFilterStatus(e.target.value)} 
                 label="Status Laporan"
               >
-                <MenuItem value="all">Semua</MenuItem>
+                <MenuItem value="all">Semua Status</MenuItem>
                 <MenuItem value="Menunggu Evaluasi">Menunggu Evaluasi</MenuItem>
                 <MenuItem value="Telah Dievaluasi">Telah Dievaluasi</MenuItem>
               </Select>
@@ -202,10 +309,22 @@ export default function MentorLaporanPage() {
 
             <Button
               variant="outlined"
-              color="error"
+              color="inherit"
               onClick={handleResetFilter}
+              startIcon={<Iconify icon="solar:restart-bold" />}
+              sx={{
+                height: 40,
+                px: 2,
+                flexShrink: 0,
+                textTransform: 'none',
+                borderColor: '#CBD5E1',
+                borderRadius: 1.5,
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                '&:hover': { borderColor: '#94A3B8', bgcolor: '#F8FAFC' },
+              }}
             >
-              Reset
+              Reset Filter
             </Button>
           </Stack>
         </Card>
@@ -214,7 +333,7 @@ export default function MentorLaporanPage() {
         <Tabs
           value={currentTab}
           onChange={(e, val) => setCurrentTab(val)}
-          sx={{ mb: 2, '& .MuiTab-root': { fontWeight: 'bold' } }}
+          sx={{ mb: 2.5, '& .MuiTab-root': { fontWeight: 700, textTransform: 'none', fontSize: '0.9rem' } }}
         >
           <Tab label="Semua Laporan" value="Semua" />
           <Tab label="Laporan Progres" value="Laporan Progres" />
@@ -222,37 +341,38 @@ export default function MentorLaporanPage() {
         </Tabs>
 
         {/* TABLE */}
-        <Card sx={{ border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
+        <Card sx={{ border: '1px solid #E2E8F0', borderRadius: 2, bgcolor: '#FFFFFF', boxShadow: 'none' }}>
           <TableContainer>
             <Table>
-              <TableHead sx={{ bgcolor: '#f4f6f8' }}>
+              <TableHead sx={{ bgcolor: '#F8FAFC' }}>
                 <TableRow>
-                  <TableCell width="18%">Nama Peserta</TableCell>
-                  <TableCell width="15%">Asal Instansi</TableCell>
-                  <TableCell width="12%">Tgl. Unggah</TableCell>
-                  <TableCell width="12%">Kategori</TableCell>
-                  <TableCell width="20%">Keterangan</TableCell>
-                  <TableCell width="10%">Lampiran</TableCell>
-                  <TableCell align="center" width="8%">Status</TableCell>
-                  <TableCell align="center" width="5%">Aksi</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }} width="15%">Nama Peserta</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }} width="10%">ID Peserta</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }} width="15%">Asal Instansi</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }} width="10%">Tgl. Unggah</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }} width="10%">Kategori</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }} width="17%">Keterangan</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }} width="10%">Lampiran</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }} width="8%">Status</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }} width="5%">Aksi</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                    <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                       <Iconify icon="solar:document-bold-duotone" width={48} sx={{ color: 'text.disabled', mb: 1 }} />
                       <Typography variant="body1" color="text.secondary">Belum ada laporan yang ditemukan</Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedData.map((row) => (
-                    <TableRow key={row.id} hover>
+                    <TableRow key={row.id} hover sx={{ '& td': { verticalAlign: 'top', pt: 2.5 } }}>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{row.intern?.user?.name || '-'}</Typography>
-                        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mt: 0.5 }}>
-                          ID: {row.intern?.internId || '-'}
-                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{row.intern?.internId || '-'}</Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">{row.intern?.university || '-'}</Typography>
@@ -272,9 +392,15 @@ export default function MentorLaporanPage() {
                       <TableCell>
                         {(() => {
                            const desc = (row.keterangan || '').replace(/\[.*?\]/, '').trim();
-                           return (
-                             <Typography variant="body2" sx={{ color: desc ? 'text.primary' : 'text.disabled', fontStyle: desc ? 'normal' : 'italic', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                               {desc || 'Tidak ada keterangan tambahan'}
+                           return desc ? (
+                             <Tooltip title={desc} arrow placement="top-start">
+                               <Typography variant="body2" sx={{ color: 'text.primary', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word', lineHeight: 1.6 }}>
+                                 {desc}
+                               </Typography>
+                             </Tooltip>
+                           ) : (
+                             <Typography variant="body2" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                               Tidak ada keterangan tambahan
                              </Typography>
                            );
                         })()}
@@ -300,9 +426,22 @@ export default function MentorLaporanPage() {
                         <Chip
                           label={row.statusFeedback}
                           size="small"
-                          color={row.statusFeedback === 'Telah Dievaluasi' ? 'success' : 'warning'}
                           variant="outlined"
-                          sx={{ fontWeight: 'bold' }}
+                          sx={{
+                            minWidth: 90,
+                            bgcolor: '#FFFFFF',
+                            borderColor: row.statusFeedback === 'Telah Dievaluasi' ? '#16A34A' : '#F59E0B',
+                            borderWidth: 1.5,
+                            borderStyle: 'solid',
+                            color: row.statusFeedback === 'Telah Dievaluasi' ? '#16A34A' : '#F59E0B',
+                            fontWeight: 700,
+                            fontSize: '0.75rem',
+                            borderRadius: 1,
+                            height: 28,
+                            letterSpacing: '0.3px',
+                            '& .MuiChip-label': { px: 1, fontWeight: 700 },
+                            '&:hover': { bgcolor: '#FFFFFF' },
+                          }}
                         />
                       </TableCell>
                       <TableCell align="center">

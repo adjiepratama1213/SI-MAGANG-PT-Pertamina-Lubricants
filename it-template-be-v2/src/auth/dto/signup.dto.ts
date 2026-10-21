@@ -1,6 +1,6 @@
-//src/auth/dto/login.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsMaxDurationMonths } from 'src/intern-profile/validators/max-duration.validator';
 
 export class SignUpDto {
   @IsEmail()
@@ -12,7 +12,9 @@ export class SignUpDto {
   @IsNotEmpty()
   @MinLength(8, { message: 'Password minimal 8 karakter' })
   @MaxLength(32, { message: 'Password maksimal 32 karakter' })
-  @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, { message: 'Password harus mengandung huruf dan angka' })
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, {
+    message: 'Password harus mengandung huruf dan angka',
+  })
   @ApiProperty()
   password: string;
 
@@ -93,6 +95,9 @@ export class SignUpDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsMaxDurationMonths('startDate', 6, {
+    message: 'Durasi magang tidak boleh lebih dari 6 bulan dari tanggal mulai',
+  })
   endDate?: string;
 
   @ApiPropertyOptional()
@@ -103,4 +108,19 @@ export class SignUpDto {
   @ApiPropertyOptional()
   @IsOptional()
   documentUrls?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  mentorProfileId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  bankName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  bankAccount?: string;
 }

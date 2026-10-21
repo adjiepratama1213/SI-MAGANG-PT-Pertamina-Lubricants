@@ -90,6 +90,7 @@ export default function NavVertical({ openNav, onCloseNav }: Props) {
         </Stack>
       ) : (
         <Drawer
+          disableScrollLock
           open={openNav}
           onClose={onCloseNav}
           PaperProps={{

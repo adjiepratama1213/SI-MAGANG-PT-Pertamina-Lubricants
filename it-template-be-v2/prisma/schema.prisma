@@ -59,6 +59,11 @@ model User {
   // Relasi ke profil peserta magang
   internProfile   InternProfile?   @relation("UserToInternProfile")
 
+  // Relasi ke notifikasi & pengumuman
+  notifications          Notification[]
+  remindersCreated       AdminReminder[]
+  mentorRemindersCreated MentorReminder[]
+
   @@index([role])
   @@index([positionId])
 }
@@ -191,6 +196,7 @@ model InternProfile {
   presensi          Presensi[]
   evaluation        InternEvaluation?
   extensionRequests InternExtensionRequest[]
+  feedbacks         InternFeedback[]
 }
 
 model Laporan {
@@ -266,4 +272,120 @@ model InternExtensionRequest {
   previousEndDate DateTime
   newEndDate      DateTime
   reason          String?
+  status          String        @default("PENDING") // PENDING, APPROVED, REJECTED
+  adminNote       String?
+}
+
+// ----------------------------------------------------
+// SISTEM NOTIFIKASI, REMINDER & FEEDBACK
+// ----------------------------------------------------
+
+enum NotificationCategory {
+  REMINDER_ADMIN   // Pengumuman / Reminder manual dari Admin
+  FEEDBACK_PESERTA // Feedback dari peserta untuk Admin
+  PRESENSI         // Check-in, check-out, izin, sakit
+  LAPORAN          // Upload logbook, feedback mentor
+  BERKAS           // Validasi pendaftaran, revisi dokumen
+  EVALUASI         // Nilai akhir, sertifikat
+  APPROVAL_VP      // Kuota & persetujuan manajemen
+  SISTEM           // Info teknis sistem
+  REMINDER_MENTOR  // Reminder / Tugas dari Mentor untuk Peserta Bimbingan
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  URGENT
+}
+
+model Notification {
+  id          String               @id @default(uuid())
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  userId      String               // Penerima notifikasi
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title       String               @db.VarChar(255)
+  message     String               @db.Text
+  category    NotificationCategory @default(SISTEM)
+  type        NotificationType     @default(INFO)
+  isRead      Boolean              @default(false)
+  redirectUrl String?              // URL redirect saat diklik
+  metadata    Json?                // Data tambahan
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+enum ReminderTarget {
+  ALL
+  PESERTA
+  MENTOR
+  VP
+}
+
+model AdminReminder {
+  id          String           @id @default(uuid())
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  title       String           @db.VarChar(255)
+  content     String           @db.Text
+  target      ReminderTarget   @default(ALL)
+  urgency     NotificationType @default(INFO)
+  fileUrl     String?          // URL lampiran berkas (opsional)
+  fileName    String?          // Nama asli berkas lampiran
+
+  createdById String
+  createdBy   User             @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([target])
+  @@index([createdAt])
+}
+
+model MentorReminder {
+  id               String   @id @default(uuid())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  title            String   @db.VarChar(255)
+  content          String   @db.Text
+  tipe             String   @default("informasi") // "tugas" | "informasi" | "lainnya"
+  targetType       String   @default("semua")     // "semua" | "spesifik"
+  targetPesertaIds String[] @default([])
+  targetNames      String[] @default([])
+  jadwal           DateTime?
+  openedAt         DateTime?
+  dueAt            DateTime?
+  fileUrls         String[] @default([])
+  fileNames        String[] @default([])
+  status           String   @default("Terkirim")  // "Terkirim" | "Terjadwal"
+
+  createdById      String
+  createdBy        User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+model InternFeedback {
+  id          String        @id @default(uuid())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  internId    String
+  intern      InternProfile @relation(fields: [internId], references: [id], onDelete: Cascade)
+
+  category    String        // Fasilitas, Mentor, Sistem, Umum
+  rating      Int           @default(5)
+  message     String        @db.Text
+  isAnonymous Boolean       @default(false)
+  status      String        @default("Baru") // Baru, Ditinjau, Ditindaklanjuti
+  response    String?       @db.Text
+
+  @@index([internId])
+  @@index([createdAt])
 }

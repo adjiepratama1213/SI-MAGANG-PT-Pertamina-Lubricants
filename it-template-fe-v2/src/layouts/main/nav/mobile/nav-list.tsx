@@ -16,9 +16,10 @@ import NavItem from './nav-item';
 
 type NavListProps = {
   item: NavItemProps;
+  onClose?: VoidFunction;
 };
 
-export default function NavList({ item }: NavListProps) {
+export default function NavList({ item, onClose }: NavListProps) {
   const pathname = usePathname();
 
   const { path, children } = item;
@@ -32,9 +33,10 @@ export default function NavList({ item }: NavListProps) {
       <NavItem
         item={item}
         open={nav.value}
-        onClick={nav.onToggle}
+        onClick={children ? nav.onToggle : undefined}
         active={pathname === path}
         externalLink={externalLink}
+        onClose={onClose}
       />
 
       {!!children && (

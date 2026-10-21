@@ -1,17 +1,40 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationCategory, NotificationType } from '@prisma/client';
 
 @Injectable()
 export class LaporanService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService,
+  ) {}
 
   async createLaporan(userId: string, data: { keterangan?: string; fileUrls: string[] }) {
-    const intern = await this.prisma.internProfile.findUnique({
-      where: { userId }
+    let intern = await this.prisma.internProfile.findUnique({
+      where: { userId },
+      include: {
+        user: true,
+        mentor: {
+          include: { user: true }
+        }
+      }
     });
-    if (!intern) throw new NotFoundException('Intern profile not found');
+    if (!intern) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (!user) throw new NotFoundException('User not found');
+      intern = await this.prisma.internProfile.create({
+        data: { userId },
+        include: {
+          user: true,
+          mentor: {
+            include: { user: true }
+          }
+        }
+      });
+    }
 
-    return this.prisma.laporan.create({
+    const createdLaporan = await this.prisma.laporan.create({
       data: {
         internId: intern.id,
         keterangan: data.keterangan || '',
@@ -19,6 +42,22 @@ export class LaporanService {
         statusFeedback: 'Menunggu Evaluasi'
       }
     });
+
+    // Kirim notifikasi ke Mentor jika peserta sudah memiliki mentor
+    if (intern.mentor?.user?.id) {
+      const internName = intern.user?.name || 'Peserta Magang';
+      await this.notificationService.createNotification({
+        userId: intern.mentor.user.id,
+        title: 'Laporan Baru dari Peserta',
+        message: `${internName} telah mengunggah Laporan Mingguan. Menunggu evaluasi & catatan dari Anda.`,
+        category: NotificationCategory.LAPORAN,
+        type: NotificationType.INFO,
+        redirectUrl: '/dashboard/mentor-laporan',
+        metadata: { laporanId: createdLaporan.id, internId: intern.id }
+      });
+    }
+
+    return createdLaporan;
   }
 
   async getLaporanByUserId(userId: string) {
@@ -47,13 +86,34 @@ export class LaporanService {
   }
 
   async updateFeedback(id: string, data: { statusFeedback: string; komentar?: string }) {
-    return this.prisma.laporan.update({
+    const updated = await this.prisma.laporan.update({
       where: { id },
       data: {
         statusFeedback: data.statusFeedback,
         komentar: data.komentar
+      },
+      include: {
+        intern: {
+          include: { user: true }
+        }
       }
     });
+
+    // Kirim notifikasi ke Peserta Magang bahwa laporannya sudah dinilai/diberi feedback
+    if (updated.intern?.user?.id) {
+      const notePreview = data.komentar ? `: "${data.komentar.slice(0, 80)}"` : '';
+      await this.notificationService.createNotification({
+        userId: updated.intern.user.id,
+        title: 'Feedback Laporan dari Mentor',
+        message: `Status laporan Anda: ${data.statusFeedback}${notePreview}. Silakan cek catatan mentor.`,
+        category: NotificationCategory.LAPORAN,
+        type: NotificationType.SUCCESS,
+        redirectUrl: '/dashboard/peserta-laporan',
+        metadata: { laporanId: id, status: data.statusFeedback }
+      });
+    }
+
+    return updated;
   }
 
   async deleteLaporan(id: string, userId: string) {

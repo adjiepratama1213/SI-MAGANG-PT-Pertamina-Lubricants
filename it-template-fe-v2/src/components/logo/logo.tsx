@@ -4,7 +4,7 @@ import { forwardRef } from 'react';
 
 import Box from '@mui/material/Box';
 
-import type { TLogoOrientation } from '../ptpl';
+import type { TLogoColor, TLogoOrientation } from '../ptpl';
 import { PTPLLogo } from '../ptpl';
 import { RouterLink } from '../router-link';
 import { logoClasses } from './classes';
@@ -16,6 +16,7 @@ export type LogoProps = BoxProps & {
   isSingle?: boolean;
   disabledLink?: boolean;
   opt?: TLogoOrientation;
+  fillStyle?: TLogoColor;
 };
 
 const Logo = forwardRef<HTMLDivElement, LogoProps>(
@@ -29,22 +30,23 @@ const Logo = forwardRef<HTMLDivElement, LogoProps>(
       className,
       sx,
       opt = 'horizontal',
+      fillStyle,
       ...other
     },
     ref
   ) => {
     const singleLogo =
       opt === 'horizontal' ? (
-        <PTPLLogo orientation="horizontal" />
+        <PTPLLogo orientation="horizontal" fillStyle={fillStyle} />
       ) : (
-        <PTPLLogo orientation="vertical" />
+        <PTPLLogo orientation="vertical" fillStyle={fillStyle} />
       );
 
     const fullLogo =
       opt === 'horizontal' ? (
-        <PTPLLogo orientation="horizontal" />
+        <PTPLLogo orientation="horizontal" fillStyle={fillStyle} />
       ) : (
-        <PTPLLogo orientation="vertical" />
+        <PTPLLogo orientation="vertical" fillStyle={fillStyle} />
       );
 
     const baseSize = {

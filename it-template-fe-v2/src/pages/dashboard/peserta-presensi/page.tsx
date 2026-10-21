@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
   Container, Typography, Card, Box, Grid, Stack,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination,
   Button, TextField, Chip, MenuItem, Select, FormControl, InputLabel,
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider, Alert
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider, Alert,
+  CircularProgress
 } from '@mui/material';
 import Iconify from 'src/components/iconify';
 import { useAuthContext } from 'src/auth/hooks';
@@ -12,7 +13,85 @@ import axiosInstance from 'src/utils/axios';
 import { toast } from 'react-toastify';
 import { HOST_API } from 'src/config-global';
 
+import { PERTAMINA_TOKENS } from 'src/theme/palette';
+import DashboardBreadcrumbs from 'src/components/dashboard-breadcrumbs';
+
 // ----------------------------------------------------------------------
+
+const BRAND_NAVY = PERTAMINA_TOKENS.navy;
+const BRAND_NAVY_HOVER = PERTAMINA_TOKENS.navyHover;
+
+// Helper untuk format tanggal lokal YYYY-MM-DD tanpa terpengaruh pergeseran timezone UTC
+const getLocalDateKey = (dateInput: string | Date = new Date()): string => {
+  const d = new Date(dateInput);
+  if (Number.isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper render status presensi konsisten (Desain outlined seperti kolom aksi pada data-bimbingan, pertahankan warna status)
+export const renderPresensiStatusChip = (status: string | null | undefined) => {
+  if (!status || status === '-') {
+    return <Typography variant="body2" color="text.secondary">-</Typography>;
+  }
+
+  const raw = String(status).trim();
+  const upper = raw.toUpperCase();
+
+  let label = upper;
+  // Pertamina Red: #EC2028 | Hijau: #16A34A | Yellow/Amber: #F59E0B | Default / Belum: #64748B
+  let color = '#64748B';
+
+  if (upper.includes('BELUM') || upper === 'BELUM CHECK IN') {
+    label = 'BELUM CHECK IN';
+    color = '#64748B';
+  } else if (upper === 'HADIR_TERLAMBAT' || upper.includes('TERLAMBAT')) {
+    label = 'HADIR (TERLAMBAT)';
+    color = '#16A34A';
+  } else if (upper.includes('HADIR')) {
+    label = 'HADIR';
+    color = '#16A34A';
+  } else if (upper === 'IZIN' || upper.includes('IZIN')) {
+    label = 'IZIN';
+    color = '#F59E0B'; // Kuning sama seperti di peserta-dashboard
+  } else if (upper === 'SAKIT' || upper.includes('SAKIT')) {
+    label = 'SAKIT';
+    color = '#F59E0B'; // Kuning sama seperti di peserta-dashboard
+  } else if (upper.includes('ALPHA') || upper.includes('ALFA') || upper.includes('TIDAK HADIR') || upper.includes('TOLAK')) {
+    label = upper.includes('TOLAK') ? 'DITOLAK' : 'ALPHA';
+    color = '#EC2028'; // Merah logo Pertamina
+  }
+
+  return (
+    <Chip
+      label={label}
+      size="small"
+      variant="outlined"
+      sx={{
+        minWidth: 90,
+        bgcolor: '#FFFFFF',
+        color,
+        borderColor: color,
+        borderWidth: 1.5,
+        borderStyle: 'solid',
+        fontWeight: 700,
+        fontSize: '0.75rem',
+        borderRadius: 1,
+        height: 28,
+        letterSpacing: '0.3px',
+        '& .MuiChip-label': {
+          px: 1,
+          fontWeight: 700,
+        },
+        '&:hover': {
+          bgcolor: '#FFFFFF',
+        },
+      }}
+    />
+  );
+};
 
 class ErrorBoundary extends React.Component<any, any> {
   constructor(props: any) {
@@ -42,9 +121,22 @@ function PesertaPresensiPageContent() {
   const { user } = useAuthContext();
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDate, setFilterDate] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  // States untuk fitur Absensi
-  const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // States untuk fitur Absensi & Lokasi Maps (murni ditentukan oleh perangkat untuk mencegah kecurangan)
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locAccuracy, setLocAccuracy] = useState<number | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
   const [locError, setLocError] = useState('');
   const [checkInTime, setCheckInTime] = useState<Date | null>(null);
   const [checkOutTime, setCheckOutTime] = useState<Date | null>(null);
@@ -54,8 +146,8 @@ function PesertaPresensiPageContent() {
   const [openIzin, setOpenIzin] = useState(false);
   const [formIzin, setFormIzin] = useState({
     tipe: 'Izin',
-    tanggalMulai: new Date().toISOString().split('T')[0],
-    tanggalSelesai: new Date().toISOString().split('T')[0],
+    tanggalMulai: getLocalDateKey(new Date()),
+    tanggalSelesai: getLocalDateKey(new Date()),
     keterangan: ''
   });
   const [fileIzin, setFileIzin] = useState<File | null>(null);
@@ -76,31 +168,123 @@ function PesertaPresensiPageContent() {
   const handleCloseDetail = () => setOpenDetail(false);
 
   const [myPresensi, setMyPresensi] = useState<any[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
 
-  const fetchPresensi = async () => {
+  // Deteksi lokasi murni dari perangkat peserta (anti-kecurangan)
+  const detectLocation = useCallback(() => {
+    if (!('geolocation' in navigator)) {
+      setLocError('Browser Anda tidak mendukung Geolokasi');
+      return;
+    }
+
+    setLocLoading(true);
+    setLocError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocAccuracy(Math.round(pos.coords.accuracy));
+        setLocLoading(false);
+        setLocError('');
+      },
+      (err) => {
+        setLocLoading(false);
+        console.warn('Geolocation warning:', err.message);
+        setLocError(err.message || 'Gagal mendeteksi lokasi perangkat. Pastikan izin lokasi aktif.');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0,
+      }
+    );
+  }, []);
+
+  // Ambil lokasi saat komponen dimuat & pantau perubahan posisi perangkat
+  useEffect(() => {
     try {
+      localStorage.removeItem('peserta_presensi_custom_loc');
+    } catch (e) { }
+
+    detectLocation();
+
+    let watchId: number | null = null;
+    if ('geolocation' in navigator) {
+      try {
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+            setLocAccuracy(Math.round(pos.coords.accuracy));
+            setLocError('');
+          },
+          () => { },
+          {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 15000,
+          }
+        );
+      } catch (e) {
+        // Fallback
+      }
+    }
+
+    return () => {
+      if (watchId !== null && 'geolocation' in navigator) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [detectLocation]);
+
+  // Fetch data presensi peserta
+  const fetchPresensi = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setIsFetching(true);
       const res = await axiosInstance.get('/presensi/me');
       if (res.data) {
-        const formatted = res.data.map((item: any) => ({
-          id: item.id,
-          tanggal: new Date(item.tanggalInput).toLocaleDateString('id-ID'),
-          tanggalInput: item.tanggalInput.split('T')[0],
-          masuk: item.masuk ? new Date(item.masuk).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
-          keluar: item.keluar ? new Date(item.keluar).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
-          presensiStatus: item.presensiStatus,
-          keterangan: item.keterangan || '-',
-          tanggalSelesai: item.tanggalSelesai ? new Date(item.tanggalSelesai).toLocaleDateString('id-ID') : null,
-          fileBukti: item.fileBukti || null,
-        }));
+        const formatted = res.data.map((item: any) => {
+          const localKey = getLocalDateKey(item.tanggalInput);
+          const tglObj = new Date(item.tanggalInput);
+          return {
+            id: item.id,
+            rawTanggal: item.tanggalInput,
+            tanggal: Number.isNaN(tglObj.getTime()) ? '-' : tglObj.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+            tanggalInput: localKey,
+            masuk: item.masuk ? new Date(item.masuk).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
+            keluar: item.keluar ? new Date(item.keluar).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
+            presensiStatus: (localKey === getLocalDateKey(new Date()) && (!item.masuk || item.masuk === '-') && item.presensiStatus === 'ALPHA')
+              ? 'BELUM CHECK IN'
+              : item.presensiStatus,
+            keterangan: item.keterangan || '-',
+            tanggalSelesai: item.tanggalSelesai ? new Date(item.tanggalSelesai).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }) : null,
+            fileBukti: item.fileBukti || null,
+            lat: item.lat || null,
+            lng: item.lng || null,
+          };
+        });
         setMyPresensi(formatted);
 
-        // Determine today's status
-        const todayStr = new Date().toISOString().split('T')[0];
+        // Tentukan status hari ini secara akurat dengan tanggal lokal
+        const todayStr = getLocalDateKey(new Date());
         const todayRecord = formatted.find((f: any) => f.tanggalInput === todayStr);
+
         if (todayRecord) {
-          setTodayStatus(todayRecord.presensiStatus);
-          if (todayRecord.masuk !== '-') setCheckInTime(new Date()); // simple flag
-          if (todayRecord.keluar !== '-') setCheckOutTime(new Date()); // simple flag
+          if (todayRecord.masuk && todayRecord.masuk !== '-') {
+            setTodayStatus(todayRecord.presensiStatus);
+            setCheckInTime(new Date());
+          } else if (todayRecord.presensiStatus === 'IZIN' || todayRecord.presensiStatus === 'SAKIT') {
+            setTodayStatus(todayRecord.presensiStatus);
+            setCheckInTime(null);
+          } else {
+            setTodayStatus('Belum Check In');
+            setCheckInTime(null);
+          }
+
+          if (todayRecord.keluar && todayRecord.keluar !== '-') {
+            setCheckOutTime(new Date());
+          } else {
+            setCheckOutTime(null);
+          }
         } else {
           setTodayStatus('Belum Check In');
           setCheckInTime(null);
@@ -109,29 +293,32 @@ function PesertaPresensiPageContent() {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      if (!silent) setIsFetching(false);
     }
-  };
+  }, []);
 
+  // Polling interval setiap 8 detik agar data presensi ter-update berkala
   useEffect(() => {
     fetchPresensi();
-  }, []);
 
-  // Ambil lokasi saat komponen dimuat
-  useEffect(() => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        (err) => setLocError(err.message),
-        { enableHighAccuracy: true }
-      );
-    } else {
-      setLocError('Browser Anda tidak mendukung Geolokasi');
-    }
-  }, []);
+    const interval = setInterval(() => {
+      fetchPresensi(true);
+    }, 8000);
+
+    const handleFocus = () => fetchPresensi(true);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchPresensi]);
 
   const handleResetFilter = () => {
     setFilterDate('');
     setFilterStatus('all');
+    setPage(0);
   };
 
   const handleOpenIzin = () => setOpenIzin(true);
@@ -153,7 +340,7 @@ function PesertaPresensiPageContent() {
       });
 
       toast.success('Pengajuan Izin/Sakit berhasil');
-      fetchPresensi();
+      await fetchPresensi();
       handleCloseIzin();
       setFileIzin(null);
     } catch (err: any) {
@@ -178,7 +365,7 @@ function PesertaPresensiPageContent() {
         lng: location.lng.toString(),
       });
       toast.success('Check In berhasil');
-      fetchPresensi();
+      await fetchPresensi();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Gagal Check In');
     }
@@ -206,7 +393,7 @@ function PesertaPresensiPageContent() {
       });
 
       toast.success('Check In (Terlambat) berhasil');
-      fetchPresensi();
+      await fetchPresensi();
       setOpenTerlambat(false);
       setKeteranganTerlambat('');
       setFileTerlambat(null);
@@ -226,20 +413,33 @@ function PesertaPresensiPageContent() {
         lng: location?.lng?.toString(),
       });
       toast.success('Check Out berhasil');
-      fetchPresensi();
+      await fetchPresensi();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Gagal Check Out');
     }
   };
 
-  const filteredPresensi = myPresensi
-    .filter(item => {
-      const matchDate = !filterDate || item.tanggalInput === filterDate;
-      const matchStatus = filterStatus === 'all' || item.presensiStatus?.toLowerCase()?.includes(filterStatus);
-      return matchDate && matchStatus;
-    })
-    .sort((a, b) => new Date(b.tanggalInput).getTime() - new Date(a.tanggalInput).getTime())
-    .slice(0, 7);
+  const filteredPresensi = useMemo(() => {
+    return myPresensi
+      .filter(item => {
+        const matchDate = !filterDate || item.tanggalInput === filterDate;
+        let matchStatus = true;
+        if (filterStatus !== 'all') {
+          const statusLower = (item.presensiStatus || '').toLowerCase();
+          if (filterStatus === 'hadir') {
+            matchStatus = statusLower.includes('hadir');
+          } else if (filterStatus === 'izin') {
+            matchStatus = statusLower === 'izin' || statusLower === 'sakit';
+          } else if (filterStatus === 'alpha') {
+            matchStatus = statusLower.includes('alpha');
+          } else {
+            matchStatus = statusLower.includes(filterStatus);
+          }
+        }
+        return matchDate && matchStatus;
+      })
+      .sort((a, b) => new Date(b.rawTanggal || b.tanggalInput).getTime() - new Date(a.rawTanggal || a.tanggalInput).getTime());
+  }, [myPresensi, filterDate, filterStatus]);
 
   return (
     <>
@@ -247,110 +447,140 @@ function PesertaPresensiPageContent() {
         <title>Presensi Peserta | SI-Magang</title>
       </Helmet>
 
-      <Container maxWidth="xl" sx={{ pb: 10, minHeight: '120vh' }}>
-        {/* HEADER */}
-        <Box sx={{ p: 4, mb: 3, borderRadius: 2, background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', mr: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Iconify icon="solar:calendar-date-bold-duotone" width={28} />
-            </Box>
-            <Box>
-              <Typography variant="h5" fontWeight="bold">Presensi Saya</Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                Kelola dan pantau kehadiran harian Anda
-              </Typography>
-            </Box>
-          </Box>
+      <Container maxWidth="xl" sx={{ pb: 8, pt: 0, minHeight: '120vh' }}>
+        {/* BREADCRUMB: Presensi */}
+        <DashboardBreadcrumbs current="Presensi" />
+
+        {/* PAGE HEADER */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A', mb: 0.5, letterSpacing: -0.3 }}>
+            Presensi Saya
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#64748B' }}>
+            Kelola dan pantau kehadiran harian Anda, pengajuan izin/sakit, serta status check-in harian di PT Pertamina Lubricants.
+          </Typography>
         </Box>
 
-
-
-        {/* SUMMARY */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ p: 3, border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #22c55e' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                  <Iconify icon="solar:check-circle-bold-duotone" width={24} />
-                </Box>
-                <Typography variant="subtitle2" color="text.secondary">Total Hadir</Typography>
-              </Box>
-              <Typography variant="h3" sx={{ color: '#22c55e', fontWeight: 'bold' }}>
-                {myPresensi.filter(p => p.presensiStatus?.toLowerCase().includes('hadir')).length}
-              </Typography>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ p: 3, border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #FFAB00' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(255, 171, 0, 0.1)', color: '#FFAB00', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                  <Iconify icon="solar:clock-circle-bold-duotone" width={24} />
-                </Box>
-                <Typography variant="subtitle2" color="text.secondary">Total Izin / Sakit</Typography>
-              </Box>
-              <Typography variant="h3" sx={{ color: '#FFAB00', fontWeight: 'bold' }}>
-                {myPresensi.filter(p => p.presensiStatus?.toLowerCase() === 'izin' || p.presensiStatus?.toLowerCase() === 'sakit').length}
-              </Typography>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ p: 3, border: '1px solid #e2e8f0', boxShadow: 'none', borderBottom: '4px solid #ef4444' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                  <Iconify icon="solar:close-circle-bold-duotone" width={24} />
-                </Box>
-                <Typography variant="subtitle2" color="text.secondary">Total Alpha</Typography>
-              </Box>
-              <Typography variant="h3" sx={{ color: '#ef4444', fontWeight: 'bold' }}>
-                {myPresensi.filter(p => p.presensiStatus?.toLowerCase().includes('alpha')).length}
-              </Typography>
-            </Card>
-          </Grid>
-        </Grid>
-
-        <Alert severity="warning" sx={{ mb: 3, borderRadius: 2, '& .MuiAlert-icon': { mt: 0.5 } }}>
-          <Typography variant="subtitle2" fontWeight="bold">Pemberitahuan Presensi:</Typography>
-          <Typography variant="body2">
+        {/* PEMBERITAHUAN WAKTU PRESENSI */}
+        <Alert
+          severity="warning"
+          sx={{
+            mb: 3,
+            borderRadius: 2,
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            bgcolor: 'rgba(245, 158, 11, 0.08)',
+            '& .MuiAlert-icon': { mt: 0.5, color: '#F59E0B' },
+          }}
+        >
+          <Typography variant="subtitle2" fontWeight="bold" sx={{ color: '#92400E' }}>
+            Pemberitahuan Presensi:
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#78350F' }}>
             Peserta magang <strong>wajib melakukan Check In sebelum pukul 08:00 pagi</strong>. Check In di atas jam tersebut akan dianggap terlambat. Untuk Check Out, dapat dilakukan setelah jam kerja selesai.
           </Typography>
         </Alert>
 
         {/* FORM ABSENSI */}
-        <Card sx={{ p: 3, mb: 3, border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
+        <Card sx={{ p: 3, mb: 3, border: '1px solid #E2E8F0', borderRadius: 2, bgcolor: '#FFFFFF', boxShadow: 'none' }}>
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6">
-              Form Absensi - {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#0F172A' }}>
+              Form Absensi — {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </Typography>
-            <Typography variant="body2" color="text.secondary">Pastikan lokasi Anda akurat sebelum melakukan Check In atau Check Out</Typography>
+            <Typography variant="body2" sx={{ color: '#64748B', mt: 0.25 }}>
+              Pastikan lokasi Anda akurat sebelum melakukan Check In atau Check Out
+            </Typography>
           </Box>
-          <Grid container spacing={4}>
+
+          <Grid container spacing={3.5}>
             {/* Kolom Maps */}
             <Grid item xs={12} md={7}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Iconify icon="solar:map-point-wave-bold" width={22} sx={{ color: BRAND_NAVY }} />
+                  <Typography variant="subtitle2" fontWeight="bold" sx={{ color: '#0F172A' }}>
+                    Peta Lokasi Presensi
+                  </Typography>
+                  {locAccuracy !== null && (
+                    <Chip
+                      label={`Akurasi: ±${locAccuracy}m`}
+                      size="small"
+                      color={locAccuracy <= 50 ? 'success' : 'warning'}
+                      variant="soft"
+                      sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }}
+                    />
+                  )}
+                </Box>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={detectLocation}
+                    disabled={locLoading}
+                    startIcon={locLoading ? <CircularProgress size={14} color="inherit" /> : <Iconify icon="solar:restart-bold" width={16} />}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '0.8rem',
+                      py: 0.4,
+                      px: 1.5,
+                      color: BRAND_NAVY,
+                      borderColor: '#CBD5E1',
+                      borderRadius: 1.5,
+                      fontWeight: 600,
+                      '&:hover': { borderColor: BRAND_NAVY, bgcolor: '#F0F9FF' },
+                    }}
+                  >
+                    {locLoading ? 'Mendeteksi...' : 'Deteksi Ulang GPS'}
+                  </Button>
+                </Stack>
+              </Box>
+
               <Box sx={{
-                height: 300,
+                height: 280,
                 width: '100%',
                 borderRadius: 2,
                 overflow: 'hidden',
-                border: '1px solid #e2e8f0',
-                bgcolor: '#f8fafc',
+                border: '1px solid #E2E8F0',
+                bgcolor: '#F8FAFC',
                 position: 'relative'
               }}>
                 {location ? (
                   <iframe
-                    src={`https://maps.google.com/maps?q=${location.lat},${location.lng}&z=16&output=embed`}
+                    key={`${location.lat}-${location.lng}`}
+                    src={`https://maps.google.com/maps?q=${location.lat},${location.lng}&hl=id&z=17&output=embed`}
                     width="100%"
                     height="100%"
-                    style={{ border: 0, pointerEvents: 'none' }}
+                    style={{ border: 0 }}
                     allowFullScreen={false}
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    title="Lokasi Magang Anda"
+                    title="Lokasi Perangkat Anda"
                   />
                 ) : (
-                  <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                  <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', p: 3, textAlign: 'center' }}>
                     <Iconify icon="solar:map-point-bold-duotone" width={48} sx={{ color: 'text.disabled', mb: 2 }} />
-                    <Typography color="text.secondary">Mencari lokasi Anda...</Typography>
-                    {locError && <Typography color="error" variant="caption">{locError}</Typography>}
+                    <Typography color="text.secondary" fontWeight={500}>Mendeteksi lokasi perangkat presensi Anda...</Typography>
+                    {locError && (
+                      <Typography color="error" variant="caption" sx={{ mt: 1, display: 'block' }}>
+                        {locError}
+                      </Typography>
+                    )}
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={detectLocation}
+                      sx={{
+                        mt: 2,
+                        bgcolor: BRAND_NAVY,
+                        '&:hover': { bgcolor: BRAND_NAVY_HOVER },
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        borderRadius: 1.5,
+                        boxShadow: 'none',
+                      }}
+                      startIcon={<Iconify icon="solar:map-point-bold" />}
+                    >
+                      Aktifkan & Deteksi GPS Perangkat
+                    </Button>
                   </Box>
                 )}
               </Box>
@@ -360,39 +590,41 @@ function PesertaPresensiPageContent() {
             <Grid item xs={12} md={5}>
               <Stack spacing={3} sx={{ height: '100%', justifyContent: 'center' }}>
                 <Box>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Status Hari Ini</Typography>
-                  {todayStatus === 'Belum Check In' ? (
-                    <Typography variant="body2" fontWeight="bold">-</Typography>
-                  ) : (
-                    <Chip
-                      label={todayStatus}
-                      size="small"
-                      color={
-                        todayStatus?.toLowerCase().includes('hadir') ? 'success' :
-                          (todayStatus?.toLowerCase() === 'izin' || todayStatus?.toLowerCase() === 'sakit') ? 'warning' :
-                            todayStatus?.toLowerCase() === 'alpha' ? 'error' : 'default'
-                      }
-                      variant="outlined"
-                    />
-                  )}
+                  <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 700, fontSize: '0.75rem', letterSpacing: 0.5 }}>
+                    STATUS HARI INI
+                  </Typography>
+                  {renderPresensiStatusChip(todayStatus)}
                 </Box>
 
                 <Box>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Lokasi Terdeteksi</Typography>
-                  <Typography variant="body2" fontWeight="medium" sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Iconify icon="solar:map-point-bold-duotone" sx={{ color: location ? 'success.main' : 'error.main', mr: 1 }} />
-                    {location ? `Lat: ${location.lat.toFixed(4)}, Lng: ${location.lng.toFixed(4)}` : 'Menunggu akses lokasi...'}
+                  <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 700, fontSize: '0.75rem', letterSpacing: 0.5 }}>
+                    TITIK KOORDINAT PRESENSI
+                  </Typography>
+                  <Typography variant="body2" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', color: '#0F172A' }}>
+                    <Iconify icon="solar:map-point-bold-duotone" sx={{ color: location ? '#0F172A' : '#EF4444', mr: 1, flexShrink: 0 }} />
+                    {location ? `Lat: ${location.lat.toFixed(5)}, Lng: ${location.lng.toFixed(5)}` : 'Menunggu akses lokasi perangkat...'}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 0.5 }}>
+                    Lokasi ditentukan otomatis dari sensor perangkat untuk mencegah kecurangan.
                   </Typography>
                 </Box>
 
-                <Stack direction="row" spacing={2} sx={{ pt: 2 }}>
+                <Stack direction="row" spacing={2} sx={{ pt: 1 }}>
                   <Button
                     variant="contained"
-                    color="primary"
                     size="large"
                     onClick={handleCheckIn}
                     disabled={!location || checkInTime !== null}
-                    sx={{ flex: 1, bgcolor: '#004F9F', '&:hover': { bgcolor: '#003366' }, '&:disabled': { bgcolor: 'action.disabledBackground' } }}
+                    sx={{
+                      flex: 1,
+                      bgcolor: BRAND_NAVY,
+                      '&:hover': { bgcolor: BRAND_NAVY_HOVER },
+                      '&:disabled': { bgcolor: 'action.disabledBackground' },
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      borderRadius: 1.5,
+                      boxShadow: 'none',
+                    }}
                     startIcon={<Iconify icon="solar:login-2-bold-duotone" />}
                   >
                     Check In
@@ -403,16 +635,37 @@ function PesertaPresensiPageContent() {
                     size="large"
                     onClick={handleCheckOut}
                     disabled={!checkInTime || checkOutTime !== null}
-                    sx={{ flex: 1 }}
+                    sx={{
+                      flex: 1,
+                      borderColor: '#CBD5E1',
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      borderRadius: 1.5,
+                      '&:hover': { borderColor: '#94A3B8', bgcolor: '#F8FAFC' },
+                    }}
                     startIcon={<Iconify icon="solar:logout-2-bold-duotone" />}
                   >
                     Check Out
                   </Button>
                 </Stack>
 
-                <Box sx={{ textAlign: 'center', pt: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Tidak bisa hadir? <Button variant="text" onClick={handleOpenIzin} sx={{ color: 'text.primary', textTransform: 'none', fontWeight: 'bold' }}>Ajukan Izin / Sakit</Button>
+                <Box sx={{ textAlign: 'center', pt: 0.5 }}>
+                  <Typography variant="body2" sx={{ color: '#64748B' }}>
+                    Tidak bisa hadir?{' '}
+                    <Button
+                      variant="text"
+                      onClick={handleOpenIzin}
+                      sx={{
+                        color: BRAND_NAVY,
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        p: 0,
+                        minWidth: 'auto',
+                        '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' }
+                      }}
+                    >
+                      Ajukan Izin / Sakit
+                    </Button>
                   </Typography>
                 </Box>
               </Stack>
@@ -421,47 +674,69 @@ function PesertaPresensiPageContent() {
         </Card>
 
         {/* SEARCH + FILTER */}
-        <Card sx={{ p: 3, mb: 3, border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              type="date"
-              size="small"
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 160 }}
-            />
-            <FormControl size="small" sx={{ minWidth: 160 }}>
-              <InputLabel>Status Presensi</InputLabel>
-              <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} label="Status Presensi">
-                <MenuItem value="all">Semua</MenuItem>
-                <MenuItem value="hadir">Hadir</MenuItem>
-                <MenuItem value="izin">Izin</MenuItem>
-                <MenuItem value="alpha">Alpha</MenuItem>
-              </Select>
-            </FormControl>
+        <Card sx={{ p: 2.5, mb: 3, border: '1px solid #E2E8F0', borderRadius: 2, bgcolor: '#FFFFFF', boxShadow: 'none' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+              <TextField
+                type="date"
+                size="small"
+                label="Filter Tanggal"
+                value={filterDate}
+                onChange={(e) => {
+                  setFilterDate(e.target.value);
+                  setPage(0);
+                }}
+                InputLabelProps={{ shrink: true }}
+                sx={{ minWidth: 170 }}
+              />
+              <FormControl size="small" sx={{ minWidth: 170 }}>
+                <InputLabel>Status Presensi</InputLabel>
+                <Select
+                  value={filterStatus}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value);
+                    setPage(0);
+                  }}
+                  label="Status Presensi"
+                >
+                  <MenuItem value="all">Semua Status</MenuItem>
+                  <MenuItem value="hadir">Hadir / Terlambat</MenuItem>
+                  <MenuItem value="izin">Izin / Sakit</MenuItem>
+                  <MenuItem value="alpha">Alpha</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
 
             <Button
               variant="outlined"
-              color="error"
+              color="inherit"
               onClick={handleResetFilter}
+              startIcon={<Iconify icon="solar:restart-bold" />}
+              sx={{
+                textTransform: 'none',
+                borderColor: '#CBD5E1',
+                borderRadius: 1.5,
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                '&:hover': { borderColor: '#94A3B8', bgcolor: '#F8FAFC' },
+              }}
             >
-              Reset
+              Reset Filter
             </Button>
           </Stack>
         </Card>
 
         {/* TABLE */}
-        <Card sx={{ border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
+        <Card sx={{ border: '1px solid #E2E8F0', borderRadius: 2, bgcolor: '#FFFFFF', boxShadow: 'none' }}>
           <TableContainer>
             <Table>
-              <TableHead sx={{ bgcolor: '#f4f6f8' }}>
+              <TableHead sx={{ bgcolor: '#F8FAFC' }}>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Tanggal</TableCell>
-                  <TableCell align="center">Masuk</TableCell>
-                  <TableCell align="center">Keluar</TableCell>
-                  <TableCell align="center" width="15%">Status</TableCell>
-                  <TableCell align="center" width="10%">Aksi</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Tanggal</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Masuk</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Keluar</TableCell>
+                  <TableCell align="center" width="15%" sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Status</TableCell>
+                  <TableCell align="center" width="10%" sx={{ fontWeight: 800, color: '#475569', fontSize: '0.8rem' }}>Aksi</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -473,58 +748,70 @@ function PesertaPresensiPageContent() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredPresensi.map((row) => (
-                    <TableRow key={row.id} hover>
-                      <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 'medium' }}>{row.tanggal}</TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2" fontWeight={row.masuk !== '-' ? "bold" : "normal"}>{row.masuk}</Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2" fontWeight={row.keluar !== '-' ? "bold" : "normal"}>{row.keluar}</Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        {row.presensiStatus === '-' ? (
-                          <Typography variant="body2" color="text.secondary">-</Typography>
-                        ) : (
-                          <Chip
-                            label={row.presensiStatus}
+                  filteredPresensi
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((row) => (
+                      <TableRow key={row.id} hover>
+                        <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 'bold', color: '#0F172A' }}>{row.tanggal}</TableCell>
+                        <TableCell align="center">
+                          <Typography variant="body2" fontWeight={row.masuk !== '-' ? 'bold' : 'normal'} sx={{ color: row.masuk !== '-' ? '#0F172A' : '#64748B' }}>
+                            {row.masuk}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography variant="body2" fontWeight={row.keluar !== '-' ? 'bold' : 'normal'} sx={{ color: row.keluar !== '-' ? '#0F172A' : '#64748B' }}>
+                            {row.keluar}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          {renderPresensiStatusChip(row.presensiStatus)}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Button
                             size="small"
-                            color={
-                              row.presensiStatus?.toLowerCase().includes('hadir') ? 'success' :
-                                (row.presensiStatus?.toLowerCase() === 'izin' || row.presensiStatus?.toLowerCase() === 'sakit') ? 'warning' :
-                                  row.presensiStatus?.toLowerCase() === 'alpha' ? 'error' : 'default'
-                            }
                             variant="outlined"
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell align="center">
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="primary"
-                          onClick={() => handleOpenDetail(row)}
-                          sx={{ minWidth: 90, bgcolor: 'white', borderWidth: 1.5, '&:hover': { borderWidth: 1.5 } }}
-                        >
-                          Lihat
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                            onClick={() => handleOpenDetail(row)}
+                            sx={{
+                              minWidth: 80,
+                              bgcolor: 'white',
+                              color: BRAND_NAVY,
+                              borderColor: '#CBD5E1',
+                              borderRadius: 1.5,
+                              fontWeight: 600,
+                              textTransform: 'none',
+                              '&:hover': { borderColor: BRAND_NAVY, bgcolor: '#F0F9FF' },
+                            }}
+                          >
+                            Lihat
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
                 )}
               </TableBody>
             </Table>
           </TableContainer>
+
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={filteredPresensi.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
         </Card>
 
         {/* MODAL IZIN / SAKIT */}
-        <Dialog open={openIzin} onClose={handleCloseIzin} fullWidth maxWidth="sm">
-          <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
-            <Iconify icon="solar:document-add-bold-duotone" width={28} sx={{ color: 'primary.main', mr: 1.5 }} />
-            Form Pengajuan Izin
+        <Dialog open={openIzin} onClose={handleCloseIzin} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 2.5 } }}>
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', pb: 2 }}>
+            <Iconify icon="solar:document-add-bold-duotone" width={26} sx={{ color: BRAND_NAVY, mr: 1.5 }} />
+            <Typography variant="h6" fontWeight="bold">Form Pengajuan Izin / Sakit</Typography>
           </DialogTitle>
-          <DialogContent dividers>
-            <Stack spacing={3} sx={{ mt: 1 }}>
+          <Divider />
+          <DialogContent sx={{ pt: 3 }}>
+            <Stack spacing={3}>
               <Stack direction="row" spacing={2}>
                 <TextField
                   label="Tanggal Mulai"
@@ -556,7 +843,9 @@ function PesertaPresensiPageContent() {
               />
 
               <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>Bukti Pendukung (Opsional)</Typography>
+                <Typography variant="subtitle2" sx={{ mb: 1, color: '#475569', fontWeight: 700 }}>
+                  Bukti Pendukung (Opsional)
+                </Typography>
                 <Button
                   variant="outlined"
                   component="label"
@@ -568,13 +857,14 @@ function PesertaPresensiPageContent() {
                     display: 'flex',
                     flexDirection: 'column',
                     color: 'text.secondary',
-                    bgcolor: '#f8fafc',
-                    '&:hover': { bgcolor: '#f1f5f9' }
+                    bgcolor: '#F8FAFC',
+                    borderRadius: 2,
+                    '&:hover': { bgcolor: '#F1F5F9' }
                   }}
                 >
-                  <Iconify icon="solar:upload-minimalistic-bold-duotone" width={28} sx={{ mb: 1 }} />
+                  <Iconify icon="solar:upload-minimalistic-bold-duotone" width={28} sx={{ mb: 1, color: BRAND_NAVY }} />
                   {fileIzin ? fileIzin.name : 'Klik untuk Unggah Gambar/PDF'}
-                  <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>Maksimal ukuran file 5MB</Typography>
+                  <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: '#64748B' }}>Maksimal ukuran file 5MB</Typography>
                   <input type="file" hidden accept="image/*,.pdf" onChange={(e) => {
                     if (e.target.files && e.target.files.length > 0) {
                       const file = e.target.files[0];
@@ -590,18 +880,30 @@ function PesertaPresensiPageContent() {
               </Box>
             </Stack>
           </DialogContent>
-          <DialogActions sx={{ p: 2, px: 3 }}>
-            <Button onClick={handleCloseIzin} color="inherit">Batal</Button>
-            <Button onClick={handleSubmitIzin} variant="contained" color="primary" sx={{ bgcolor: '#004F9F', '&:hover': { bgcolor: '#003366' } }}>
+          <Divider />
+          <DialogActions sx={{ p: 2.5, px: 3 }}>
+            <Button onClick={handleCloseIzin} color="inherit" sx={{ fontWeight: 600 }}>Batal</Button>
+            <Button
+              onClick={handleSubmitIzin}
+              variant="contained"
+              sx={{
+                bgcolor: BRAND_NAVY,
+                '&:hover': { bgcolor: BRAND_NAVY_HOVER },
+                borderRadius: 1.5,
+                fontWeight: 700,
+                boxShadow: 'none',
+                px: 3,
+              }}
+            >
               Kirim Pengajuan
             </Button>
           </DialogActions>
         </Dialog>
 
         {/* MODAL DETAIL */}
-        <Dialog open={openDetail} onClose={handleCloseDetail} fullWidth maxWidth="sm">
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f8fafc' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', color: '#004F9F' }}>
+        <Dialog open={openDetail} onClose={handleCloseDetail} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 2.5 } }}>
+          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#F8FAFC', py: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', color: BRAND_NAVY }}>
               <Iconify icon="solar:info-circle-bold-duotone" width={24} sx={{ mr: 1.5 }} />
               <Typography variant="h6" fontWeight="bold">Detail Presensi</Typography>
             </Box>
@@ -611,11 +913,11 @@ function PesertaPresensiPageContent() {
 
           <DialogContent sx={{ pt: 3, pb: 4 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <TableContainer sx={{ border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden' }}>
+              <TableContainer sx={{ border: '1px solid #E2E8F0', borderRadius: 2, overflow: 'hidden' }}>
                 <Table size="small">
-                  <TableHead sx={{ bgcolor: '#f4f6f8' }}>
+                  <TableHead sx={{ bgcolor: '#F8FAFC' }}>
                     <TableRow>
-                      <TableCell sx={{ py: 1.5, fontWeight: 'bold', color: 'text.secondary', width: '40%' }}>Keterangan</TableCell>
+                      <TableCell sx={{ py: 1.5, fontWeight: 'bold', color: 'text.secondary', width: '32%' }}>Keterangan</TableCell>
                       <TableCell sx={{ py: 1.5, fontWeight: 'bold', color: 'text.secondary' }}>Informasi</TableCell>
                     </TableRow>
                   </TableHead>
@@ -623,17 +925,7 @@ function PesertaPresensiPageContent() {
                     <TableRow hover>
                       <TableCell sx={{ py: 1.5 }}>Status Kehadiran</TableCell>
                       <TableCell>
-                        <Chip
-                          label={selectedDetail?.presensiStatus || '-'}
-                          size="small"
-                          color={
-                            selectedDetail?.presensiStatus?.toLowerCase().includes('hadir') ? 'success' :
-                              (selectedDetail?.presensiStatus?.toLowerCase() === 'izin' || selectedDetail?.presensiStatus?.toLowerCase() === 'sakit') ? 'warning' :
-                                selectedDetail?.presensiStatus?.toLowerCase() === 'alpha' ? 'error' : 'default'
-                          }
-                          variant="soft"
-                          sx={{ fontWeight: 'bold' }}
-                        />
+                        {renderPresensiStatusChip(selectedDetail?.presensiStatus)}
                       </TableCell>
                     </TableRow>
 
@@ -659,6 +951,86 @@ function PesertaPresensiPageContent() {
                           <TableCell sx={{ py: 1.5 }}>Jam Keluar</TableCell>
                           <TableCell><Typography fontWeight="bold" color="text.primary">{selectedDetail?.keluar || '-'}</Typography></TableCell>
                         </TableRow>
+                        {selectedDetail?.lat && selectedDetail?.lng && (
+                          <TableRow hover>
+                            <TableCell sx={{ py: 1.5, verticalAlign: 'top', fontWeight: 500 }}>Lokasi Check-In</TableCell>
+                            <TableCell sx={{ py: 1.5 }}>
+                              <Box
+                                sx={{
+                                  p: 1.5,
+                                  borderRadius: 1.5,
+                                  bgcolor: '#F8FAFC',
+                                  border: '1px solid #E2E8F0',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: 1.25,
+                                }}
+                              >
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Box
+                                    sx={{
+                                      width: 28,
+                                      height: 28,
+                                      borderRadius: 0.75,
+                                      bgcolor: 'rgba(239, 68, 68, 0.1)',
+                                      color: 'error.main',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <Iconify icon="solar:map-point-bold-duotone" width={18} />
+                                  </Box>
+                                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                      Koordinat GPS
+                                    </Typography>
+                                    <Typography
+                                      variant="body2"
+                                      sx={{
+                                        color: '#1E293B',
+                                        fontFamily: 'monospace',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 600,
+                                        wordBreak: 'break-all',
+                                      }}
+                                    >
+                                      {selectedDetail.lat}, {selectedDetail.lng}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  component="a"
+                                  href={`https://maps.google.com/maps?q=${selectedDetail.lat},${selectedDetail.lng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  startIcon={<Iconify icon="solar:map-bold-duotone" width={16} />}
+                                  endIcon={<Iconify icon="eva:external-link-fill" width={14} />}
+                                  sx={{
+                                    bgcolor: BRAND_NAVY,
+                                    '&:hover': { bgcolor: BRAND_NAVY_HOVER },
+                                    color: '#fff',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 700,
+                                    textTransform: 'none',
+                                    py: 0.6,
+                                    px: 1.5,
+                                    borderRadius: 1,
+                                    alignSelf: 'flex-start',
+                                    whiteSpace: 'nowrap',
+                                    boxShadow: 'none',
+                                  }}
+                                >
+                                  Buka di Google Maps
+                                </Button>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </>
                     )}
                   </TableBody>
@@ -666,7 +1038,7 @@ function PesertaPresensiPageContent() {
               </TableContainer>
 
               {/* Keterangan */}
-              <Box sx={{ p: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+              <Box sx={{ p: 2.5, bgcolor: '#F8FAFC', borderRadius: 2, border: '1px solid #E2E8F0' }}>
                 <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" mb={1}>
                   Keterangan / Alasan
                 </Typography>
@@ -677,7 +1049,7 @@ function PesertaPresensiPageContent() {
 
               {/* Bukti Pendukung */}
               {selectedDetail?.fileBukti && (
-                <Box sx={{ p: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                <Box sx={{ p: 2.5, bgcolor: '#F8FAFC', borderRadius: 2, border: '1px solid #E2E8F0' }}>
                   <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" mb={2}>
                     Bukti Pendukung
                   </Typography>
@@ -694,6 +1066,7 @@ function PesertaPresensiPageContent() {
                           size="small"
                           href={`${HOST_API}${selectedDetail.fileBukti.replace(/^\//, '')}`}
                           target="_blank"
+                          sx={{ textTransform: 'none', borderRadius: 1 }}
                         >
                           Lihat
                         </Button>
@@ -704,9 +1077,8 @@ function PesertaPresensiPageContent() {
                           <img
                             src={`${HOST_API}${selectedDetail.fileBukti.replace(/^\//, '')}`}
                             alt="Bukti Izin"
-                            style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #e2e8f0' }}
+                            style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #E2E8F0' }}
                             onError={(e) => {
-                              // Fallback if not image
                               (e.target as any).style.display = 'none';
                             }}
                           />
@@ -721,22 +1093,35 @@ function PesertaPresensiPageContent() {
             </Box>
           </DialogContent>
 
-          <DialogActions sx={{ p: 3, pt: 0, justifyContent: 'flex-end', bgcolor: '#f8fafc' }}>
-            <Button onClick={handleCloseDetail} variant="contained" sx={{ px: 4, bgcolor: '#004F9F', '&:hover': { bgcolor: '#003366' }, boxShadow: 'none' }}>
+          <DialogActions sx={{ p: 2.5, justifyContent: 'flex-end', bgcolor: '#F8FAFC' }}>
+            <Button
+              onClick={handleCloseDetail}
+              variant="contained"
+              sx={{
+                px: 4,
+                bgcolor: BRAND_NAVY,
+                '&:hover': { bgcolor: BRAND_NAVY_HOVER },
+                boxShadow: 'none',
+                borderRadius: 1.5,
+                fontWeight: 700,
+              }}
+            >
               Tutup
             </Button>
           </DialogActions>
         </Dialog>
       </Container>
+
       {/* Modal Terlambat */}
-      <Dialog open={openTerlambat} onClose={() => setOpenTerlambat(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', bgcolor: '#f8fafc', p: 3, pb: 2 }}>
-          <Typography variant="h6" fontWeight="bold">Keterlambatan Check-In</Typography>
+      <Dialog open={openTerlambat} onClose={() => setOpenTerlambat(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2.5 } }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', bgcolor: '#F8FAFC', p: 2.5, pb: 2 }}>
+          <Iconify icon="solar:clock-circle-bold-duotone" width={26} sx={{ color: BRAND_NAVY, mr: 1.5 }} />
+          <Typography variant="h6" fontWeight="bold" sx={{ color: '#0F172A' }}>Keterlambatan Check-In</Typography>
         </DialogTitle>
         <Divider />
-        <DialogContent sx={{ p: 4 }}>
-          <Box sx={{ bgcolor: 'rgba(255, 171, 0, 0.05)', border: '1px solid rgba(255, 171, 0, 0.2)', borderRadius: 2, p: 2, mb: 3, display: 'flex', alignItems: 'flex-start' }}>
-            <Iconify icon="solar:info-circle-bold-duotone" width={24} sx={{ color: 'warning.main', mr: 1.5, mt: 0.5 }} />
+        <DialogContent sx={{ p: 3.5 }}>
+          <Box sx={{ bgcolor: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 2, p: 2, mb: 3, display: 'flex', alignItems: 'flex-start' }}>
+            <Iconify icon="solar:info-circle-bold-duotone" width={24} sx={{ color: '#F59E0B', mr: 1.5, mt: 0.5 }} />
             <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
               Anda melakukan Check In di atas <strong>jam 08.00</strong>. Sistem mencatat ini sebagai keterlambatan. Silakan masukkan alasan keterlambatan Anda beserta bukti (jika ada).
             </Typography>
@@ -752,7 +1137,7 @@ function PesertaPresensiPageContent() {
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Bukti Pendukung (Opsional)</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: '#475569', fontWeight: 700 }}>Bukti Pendukung (Opsional)</Typography>
               <Button
                 variant="outlined"
                 component="label"
@@ -764,11 +1149,12 @@ function PesertaPresensiPageContent() {
                   display: 'flex',
                   flexDirection: 'column',
                   color: 'text.secondary',
-                  bgcolor: '#f8fafc',
-                  '&:hover': { bgcolor: '#f1f5f9' }
+                  bgcolor: '#F8FAFC',
+                  borderRadius: 2,
+                  '&:hover': { bgcolor: '#F1F5F9' }
                 }}
               >
-                <Iconify icon="solar:upload-minimalistic-bold-duotone" width={28} sx={{ mb: 1 }} />
+                <Iconify icon="solar:upload-minimalistic-bold-duotone" width={28} sx={{ mb: 1, color: BRAND_NAVY }} />
                 {fileTerlambat ? fileTerlambat.name : 'Klik untuk Unggah Gambar / PDF'}
                 <input
                   type="file"
@@ -794,9 +1180,20 @@ function PesertaPresensiPageContent() {
           </Stack>
         </DialogContent>
         <Divider />
-        <DialogActions sx={{ p: 3, bgcolor: '#f8fafc', gap: 1 }}>
-          <Button onClick={() => setOpenTerlambat(false)} color="inherit" sx={{ fontWeight: 'bold' }}>Batal</Button>
-          <Button onClick={submitTerlambat} variant="contained" color="primary" sx={{ px: 4, bgcolor: '#004F9F', '&:hover': { bgcolor: '#003366' }, boxShadow: 'none' }}>
+        <DialogActions sx={{ p: 2.5, bgcolor: '#F8FAFC', gap: 1 }}>
+          <Button onClick={() => setOpenTerlambat(false)} color="inherit" sx={{ fontWeight: 600 }}>Batal</Button>
+          <Button
+            onClick={submitTerlambat}
+            variant="contained"
+            sx={{
+              px: 4,
+              bgcolor: BRAND_NAVY,
+              '&:hover': { bgcolor: BRAND_NAVY_HOVER },
+              boxShadow: 'none',
+              borderRadius: 1.5,
+              fontWeight: 700,
+            }}
+          >
             Check In
           </Button>
         </DialogActions>

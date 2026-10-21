@@ -8,7 +8,7 @@ export default function ForgotPasswordPage() {
   return (
     <>
       <Helmet>
-        <title>Forgot Password</title>
+        <title>Lupa Kata Sandi - Portal Magang PT Pertamina Lubricants</title>
       </Helmet>
 
       <ForgotPasswordView />

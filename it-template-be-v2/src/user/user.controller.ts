@@ -32,8 +32,9 @@ export class UserController {
   @ApiBearerAuth()
   @ApiBody({ type: SearchUserDto, required: false })
   async findByTeamId(@Body() search?: SearchUserDto) {
-    const { skip, take, orderBy, cursor } = search;
+    const { skip, take, orderBy, cursor, where } = search || {};
     return this.userService.findAll({
+      where,
       orderBy,
       take,
       skip,

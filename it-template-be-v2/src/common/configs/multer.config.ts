@@ -10,7 +10,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const storage = diskStorage({
   destination: (req, file, cb) => {
     // Specify the directory where files will be stored
-    const uploadDir = './uploads';
+    const uploadDir = './uploads/documents';
     // Create the directory if it doesn't exist
     fs.mkdirSync(uploadDir, { recursive: true });
 
