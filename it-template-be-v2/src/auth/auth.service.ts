@@ -52,12 +52,33 @@ export class AuthService {
             Team: true,
           },
         },
-        internProfile: true,
+        internProfile: {
+          include: {
+            mentor: {
+              include: {
+                user: { select: { name: true, email: true, employeeProfile: true } },
+              },
+            },
+          },
+        },
+        employeeProfile: true,
       },
     });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+
+    if (user.status === 'pending') {
+      throw new UnauthorizedException(
+        'Akun pendaftaran Anda masih berstatus menunggu persetujuan (pending) dari Administrator.'
+      );
+    }
+
+    if (user.status === 'rejected') {
+      throw new UnauthorizedException(
+        'Pendaftaran akun Anda tidak disetujui oleh Administrator. Silakan hubungi tim Administrator.'
+      );
     }
 
     if (user.role === 'PESERTA') {
@@ -66,13 +87,11 @@ export class AuthService {
       let isDurationExpired = false;
       if (intern?.endDate) {
         const end = new Date(intern.endDate);
-        if (end.getHours() === 0 && end.getMinutes() === 0) {
-          end.setHours(23, 59, 59, 999);
-        }
+        end.setHours(23, 59, 59, 999);
         isDurationExpired = now > end;
       }
 
-      if (isDurationExpired || user.status === 'banned') {
+      if (isDurationExpired) {
         if (user.status !== 'banned') {
           await this.prisma.user.update({
             where: { id: user.id },
@@ -86,6 +105,19 @@ export class AuthService {
         }
         throw new UnauthorizedException(
           'Akun Anda telah expired karena masa magang telah berakhir. Akses ke portal magang telah dinonaktifkan secara otomatis. Apabila Anda membutuhkan informasi lebih lanjut mengenai berkas, sertifikat, atau proses perpanjangan, silakan hubungi tim Human Capital melalui email: hr.lubricants@pertamina.com.'
+        );
+      } else if (user.status === 'banned') {
+        // Durasi magang telah diperpanjang oleh Admin: pulihkan status ke active secara otomatis
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { status: 'active' },
+        });
+        user.status = 'active';
+      }
+
+      if (!intern?.mentorProfileId) {
+        throw new UnauthorizedException(
+          'Akun Anda telah disetujui, namun saat ini belum memiliki mentor pembimbing. Anda baru dapat masuk ke portal magang setelah Admin menetapkan mentor pembimbing.'
         );
       }
     }
@@ -101,7 +133,10 @@ export class AuthService {
       email: user.email,
       name: user.name,
       role: user.role,
+      status: user.status,
       teamId: user.Position?.teamId,
+      internProfile: (user as any).internProfile,
+      employeeProfile: (user as any).employeeProfile,
     };
     return modUser;
   }
@@ -262,6 +297,16 @@ export class AuthService {
               Team: true,
             },
           },
+          internProfile: {
+            include: {
+              mentor: {
+                include: {
+                  user: { select: { name: true, email: true, employeeProfile: true } },
+                },
+              },
+            },
+          },
+          employeeProfile: true,
         },
       });
 
@@ -275,12 +320,15 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        status: user.status,
         teamId: user.Position?.teamId,
         photoUrl: user.photoUrl,
         positionId: user.positionId,
         Position: user.Position,
         idamanId: user.idamanId,
         webAuthnId: user.webAuthnId,
+        internProfile: (user as any).internProfile,
+        employeeProfile: (user as any).employeeProfile,
       };
 
       // Step 3: Generate a JWT containing the user's ID and return it
@@ -303,7 +351,16 @@ export class AuthService {
               Team: true,
             },
           },
-          internProfile: true,
+          internProfile: {
+            include: {
+              mentor: {
+                include: {
+                  user: { select: { name: true, email: true, employeeProfile: true } },
+                },
+              },
+            },
+          },
+          employeeProfile: true,
         },
       });
 
@@ -314,23 +371,29 @@ export class AuthService {
 
       // If pending status
       if (user.status === 'pending') {
-        throw new NotFoundException(`Please ask your manager approval!`);
+        throw new UnauthorizedException(
+          'Akun pendaftaran Anda masih berstatus menunggu persetujuan (pending) dari Administrator.'
+        );
       }
 
-      // Regulasi durasi magang role peserta
+      if (user.status === 'rejected') {
+        throw new UnauthorizedException(
+          'Pendaftaran akun Anda tidak disetujui oleh Administrator. Silakan hubungi tim Administrator.'
+        );
+      }
+
+      // Regulasi durasi magang & status mentor role peserta
       if (user.role === 'PESERTA') {
         const intern = user.internProfile;
         const now = new Date();
         let isDurationExpired = false;
         if (intern?.endDate) {
           const end = new Date(intern.endDate);
-          if (end.getHours() === 0 && end.getMinutes() === 0) {
-            end.setHours(23, 59, 59, 999);
-          }
+          end.setHours(23, 59, 59, 999);
           isDurationExpired = now > end;
         }
 
-        if (isDurationExpired || user.status === 'banned') {
+        if (isDurationExpired) {
           // Jika status di DB belum banned, otomatis jadikan tidak aktif (banned) dan kirim email pemberitahuan
           if (user.status !== 'banned') {
             await this.prisma.user.update({
@@ -346,6 +409,20 @@ export class AuthService {
 
           throw new UnauthorizedException(
             'Akun Anda telah expired karena masa magang telah berakhir. Akses ke portal magang telah dinonaktifkan secara otomatis. Apabila Anda membutuhkan informasi lebih lanjut mengenai berkas, sertifikat, atau proses perpanjangan, silakan hubungi tim Human Capital melalui email: hr.lubricants@pertamina.com.'
+          );
+        } else if (user.status === 'banned') {
+          // Durasi telah diperpanjang oleh Admin: pulihkan status ke active secara otomatis
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: { status: 'active' },
+          });
+          user.status = 'active';
+        }
+
+        // Peserta baru dapat login setelah memiliki mentor pembimbing
+        if (!intern?.mentorProfileId) {
+          throw new UnauthorizedException(
+            'Akun Anda telah disetujui, namun saat ini belum memiliki mentor pembimbing. Anda baru dapat masuk ke portal magang setelah Admin menetapkan mentor pembimbing.'
           );
         }
       }
@@ -384,6 +461,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        status: user.status,
         teamId: user.Position?.teamId,
         photoUrl: user.photoUrl,
         positionId: user.positionId,
@@ -391,6 +469,8 @@ export class AuthService {
         idamanId: user.idamanId,
         webAuthnId: user.webAuthnId,
         isVerified,
+        internProfile: (user as any).internProfile,
+        employeeProfile: (user as any).employeeProfile,
       };
 
       // Step 3: Generate a JWT containing the user's ID and return it
@@ -413,7 +493,16 @@ export class AuthService {
               Team: true,
             },
           },
-          internProfile: true,
+          internProfile: {
+            include: {
+              mentor: {
+                include: {
+                  user: { select: { name: true, email: true, employeeProfile: true } },
+                },
+              },
+            },
+          },
+          employeeProfile: true,
         },
       });
 
@@ -422,19 +511,29 @@ export class AuthService {
         throw new NotFoundException(`No user found for id: ${webAuthnId}`);
       }
 
+      if (user.status === 'pending') {
+        throw new UnauthorizedException(
+          'Akun pendaftaran Anda masih berstatus menunggu persetujuan (pending) dari Administrator.'
+        );
+      }
+
+      if (user.status === 'rejected') {
+        throw new UnauthorizedException(
+          'Pendaftaran akun Anda tidak disetujui oleh Administrator. Silakan hubungi tim Administrator.'
+        );
+      }
+
       if (user.role === 'PESERTA') {
         const intern = user.internProfile;
         const now = new Date();
         let isDurationExpired = false;
         if (intern?.endDate) {
           const end = new Date(intern.endDate);
-          if (end.getHours() === 0 && end.getMinutes() === 0) {
-            end.setHours(23, 59, 59, 999);
-          }
+          end.setHours(23, 59, 59, 999);
           isDurationExpired = now > end;
         }
 
-        if (isDurationExpired || user.status === 'banned') {
+        if (isDurationExpired) {
           if (user.status !== 'banned') {
             await this.prisma.user.update({
               where: { id: user.id },
@@ -448,6 +547,19 @@ export class AuthService {
           }
           throw new UnauthorizedException(
             'Akun Anda telah expired karena masa magang telah berakhir. Akses ke portal magang telah dinonaktifkan secara otomatis. Apabila Anda membutuhkan informasi lebih lanjut mengenai berkas, sertifikat, atau proses perpanjangan, silakan hubungi tim Human Capital melalui email: hr.lubricants@pertamina.com.'
+          );
+        } else if (user.status === 'banned') {
+          // Durasi telah diperpanjang oleh Admin: pulihkan status ke active secara otomatis
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: { status: 'active' },
+          });
+          user.status = 'active';
+        }
+
+        if (!intern?.mentorProfileId) {
+          throw new UnauthorizedException(
+            'Akun Anda telah disetujui, namun saat ini belum memiliki mentor pembimbing. Anda baru dapat masuk ke portal magang setelah Admin menetapkan mentor pembimbing.'
           );
         }
       }
@@ -478,12 +590,15 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        status: user.status,
         teamId: user.Position.teamId,
         photoUrl: user.photoUrl,
         positionId: user.positionId,
         Position: user.Position,
         idamanId: user.idamanId,
         webAuthnId: user.webAuthnId,
+        internProfile: (user as any).internProfile,
+        employeeProfile: (user as any).employeeProfile,
       };
 
       // Step 3: Generate a JWT containing the user's ID and return it
@@ -695,6 +810,33 @@ export class AuthService {
         },
       });
 
+      if (user && user.role === 'PESERTA') {
+        const intern = user.internProfile;
+        const now = new Date();
+        let isDurationExpired = false;
+        if (intern?.endDate) {
+          const end = new Date(intern.endDate);
+          end.setHours(23, 59, 59, 999);
+          isDurationExpired = now > end;
+        }
+
+        if (isDurationExpired) {
+          if (user.status !== 'banned') {
+            await this.prisma.user.update({
+              where: { id: user.id },
+              data: { status: 'banned' },
+            });
+            user.status = 'banned' as any;
+          }
+        } else if (user.status === 'banned') {
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: { status: 'active' },
+          });
+          user.status = 'active' as any;
+        }
+      }
+
       await this.prisma.userLog.create({
         data: {
           userId: userId,
@@ -746,7 +888,16 @@ export class AuthService {
             Team: true,
           },
         },
-        internProfile: true,
+        internProfile: {
+          include: {
+            mentor: {
+              include: {
+                user: { select: { name: true, email: true, employeeProfile: true } },
+              },
+            },
+          },
+        },
+        employeeProfile: true,
       },
     });
 
@@ -757,7 +908,15 @@ export class AuthService {
 
     // If pending status
     if (user.status === 'pending') {
-      throw new NotFoundException(`Please ask your manager approval!`);
+      throw new UnauthorizedException(
+        'Akun pendaftaran Anda masih berstatus menunggu persetujuan (pending) dari Administrator.'
+      );
+    }
+
+    if (user.status === 'rejected') {
+      throw new UnauthorizedException(
+        'Pendaftaran akun Anda tidak disetujui oleh Administrator. Silakan hubungi tim Administrator.'
+      );
     }
 
     if (user.role === 'PESERTA') {
@@ -766,13 +925,11 @@ export class AuthService {
       let isDurationExpired = false;
       if (intern?.endDate) {
         const end = new Date(intern.endDate);
-        if (end.getHours() === 0 && end.getMinutes() === 0) {
-          end.setHours(23, 59, 59, 999);
-        }
+        end.setHours(23, 59, 59, 999);
         isDurationExpired = now > end;
       }
 
-      if (isDurationExpired || user.status === 'banned') {
+      if (isDurationExpired) {
         if (user.status !== 'banned') {
           await this.prisma.user.update({
             where: { id: user.id },
@@ -786,6 +943,19 @@ export class AuthService {
         }
         throw new UnauthorizedException(
           'Akun Anda telah expired karena masa magang telah berakhir. Akses ke portal magang telah dinonaktifkan secara otomatis. Apabila Anda membutuhkan informasi lebih lanjut mengenai berkas, sertifikat, atau proses perpanjangan, silakan hubungi tim Human Capital melalui email: hr.lubricants@pertamina.com.'
+        );
+      } else if (user.status === 'banned') {
+        // Durasi telah diperpanjang oleh Admin: pulihkan status ke active secara otomatis
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { status: 'active' },
+        });
+        user.status = 'active';
+      }
+
+      if (!intern?.mentorProfileId) {
+        throw new UnauthorizedException(
+          'Akun Anda telah disetujui, namun saat ini belum memiliki mentor pembimbing. Anda baru dapat masuk ke portal magang setelah Admin menetapkan mentor pembimbing.'
         );
       }
     }
@@ -815,6 +985,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       role: user.role,
+      status: user.status,
       teamId: user.Position.teamId,
       photoUrl: user.photoUrl,
       positionId: user.positionId,
@@ -822,6 +993,8 @@ export class AuthService {
       idamanId: user.idamanId,
       webAuthnId: user.webAuthnId,
       isVerified,
+      internProfile: (user as any).internProfile,
+      employeeProfile: (user as any).employeeProfile,
     };
 
     await this.prisma.qrLoginToken.update({

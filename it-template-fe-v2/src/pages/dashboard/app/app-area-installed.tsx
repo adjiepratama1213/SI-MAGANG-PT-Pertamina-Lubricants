@@ -19,6 +19,7 @@ interface Props extends CardProps {
   height?: number;
   title?: string;
   subheader?: string;
+  actionButton?: React.ReactNode;
   chart: {
     categories?: string[];
     colors?: string[][];
@@ -33,7 +34,7 @@ interface Props extends CardProps {
   };
 }
 
-export default function AppAreaInstalled({ height, title, subheader, chart, ...other }: Props) {
+export default function AppAreaInstalled({ height, title, subheader, actionButton, chart, ...other }: Props) {
   const theme = useTheme();
 
   const {
@@ -125,6 +126,7 @@ export default function AppAreaInstalled({ height, title, subheader, chart, ...o
           subheader={dynamicSubheader}
           action={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {actionButton}
               <IconButton
                 size="small"
                 onClick={handlePrevYear}

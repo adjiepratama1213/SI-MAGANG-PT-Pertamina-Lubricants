@@ -31,6 +31,7 @@ const StyledChart = styled(Chart)(({ theme }) => ({
 interface Props extends CardProps {
   title?: string;
   subheader?: string;
+  action?: React.ReactNode;
   chart: {
     colors?: string[];
     series: {
@@ -41,7 +42,7 @@ interface Props extends CardProps {
   };
 }
 
-export default function AppCurrentDownload({ title, subheader, chart, ...other }: Props) {
+export default function AppCurrentDownload({ title, subheader, action, chart, ...other }: Props) {
   const theme = useTheme();
 
   const { colors, series, options } = chart;
@@ -102,7 +103,7 @@ export default function AppCurrentDownload({ title, subheader, chart, ...other }
 
   return (
     <Card {...other}>
-      <CardHeader title={title} subheader={subheader} sx={{ mb: 2 }} />
+      <CardHeader title={title} subheader={subheader} action={action} sx={{ mb: 2 }} />
 
       <StyledChart
         dir="ltr"

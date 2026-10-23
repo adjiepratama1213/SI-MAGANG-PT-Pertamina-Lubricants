@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unused-prop-types */
 // @mui
 import Stack from '@mui/material/Stack';
 // components
@@ -6,6 +7,8 @@ import { Logo } from 'src/components/logo';
 // ----------------------------------------------------------------------
 
 type Props = {
+  title?: string;
+  subTitle?: string;
   children: React.ReactNode;
 };
 

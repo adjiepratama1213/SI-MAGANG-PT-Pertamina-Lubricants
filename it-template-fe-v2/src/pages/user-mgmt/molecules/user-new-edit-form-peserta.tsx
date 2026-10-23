@@ -11,7 +11,6 @@ import Switch from '@mui/material/Switch';
 import Grid from '@mui/material/Unstable_Grid2';
 import Typography from '@mui/material/Typography';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import Chip from '@mui/material/Chip';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 // utils
 import { fData } from 'src/utils/format-number';
@@ -476,6 +475,47 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                 />
               </Box>
 
+              {currentUser && values.status === 'pending' && (
+                <Box
+                  sx={{
+                    p: 2,
+                    mb: 2.5,
+                    borderRadius: 1.5,
+                    bgcolor: 'warning.lighter',
+                    border: '1px solid',
+                    borderColor: 'warning.light',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1.25,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Iconify icon="solar:clock-circle-bold" sx={{ color: 'warning.dark' }} />
+                    <Typography variant="subtitle2" sx={{ color: 'warning.darker' }}>
+                      Status Akun: Menunggu Persetujuan (Pending)
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ color: 'warning.dark', fontSize: '13px' }}>
+                    Peserta baru mendaftar dan membutuhkan persetujuan Administrator.
+                  </Typography>
+                  {!isViewOnly && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="success"
+                      startIcon={<Iconify icon="solar:check-circle-bold" />}
+                      onClick={() => {
+                        setValue('status', 'active', { shouldValidate: true, shouldDirty: true });
+                        toast.info('Status diubah ke Aktif. Klik "Simpan Perubahan" untuk menyimpan.');
+                      }}
+                      sx={{ alignSelf: 'flex-start', fontWeight: 700 }}
+                    >
+                      Terima & ACC Peserta (Jadikan Aktif)
+                    </Button>
+                  )}
+                </Box>
+              )}
+
               {currentUser && (
                 <FormControlLabel
                   labelPlacement="start"
@@ -486,7 +526,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                       render={({ field }) => (
                         <Switch
                           {...field}
-                          checked={field.value !== 'active'}
+                          checked={field.value === 'banned'}
                           disabled={isViewOnly}
                           onChange={(event) =>
                             field.onChange(event.target.checked ? 'banned' : 'active')
@@ -501,7 +541,7 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
                         Banned
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                        Apply disable account
+                        Nonaktifkan akun pengguna
                       </Typography>
                     </>
                   }

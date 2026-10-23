@@ -651,13 +651,6 @@ export class NotificationService {
 
   async getAllFeedbacks() {
     return this.prisma.internFeedback.findMany({
-      where: {
-        intern: {
-          user: {
-            status: 'active',
-          },
-        },
-      },
       orderBy: { createdAt: 'desc' },
       include: {
         intern: {

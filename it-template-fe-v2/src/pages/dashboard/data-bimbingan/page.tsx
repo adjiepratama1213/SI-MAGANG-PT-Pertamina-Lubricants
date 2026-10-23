@@ -112,6 +112,10 @@ export default function DataBimbinganPage() {
       const matchProgram = filterProgram === 'all' || String(p.program || '').toLowerCase().includes(filterProgram.toLowerCase());
       const matchStatus = filterStatus === 'all' || String(p.status || '').toLowerCase() === filterStatus.toLowerCase();
       return matchSearch && matchProgram && matchStatus;
+    }).sort((a, b) => {
+      const aActive = a.status === 'Aktif' ? 1 : 0;
+      const bActive = b.status === 'Aktif' ? 1 : 0;
+      return bActive - aActive; // Aktif di depan, Tidak Aktif di belakang
     }), [myInterns, searchQuery, filterProgram, filterStatus]);
 
   const handleOpenDialog = (peserta: any) => {

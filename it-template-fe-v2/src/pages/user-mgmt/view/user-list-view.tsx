@@ -94,7 +94,7 @@ export default function UserListView({ defaultRole }: Props) {
   const [syncLoading, setSyncLoading] = useState(false);
 
   const debouncedQuery = useDebounce('');
-  const { userSearchData } = useSearchUsers(debouncedQuery);
+  const { userSearchData, refetchSearch } = useSearchUsers(debouncedQuery);
 
   const [filters, setFilters] = useState(defaultFilters);
 
@@ -193,28 +193,30 @@ export default function UserListView({ defaultRole }: Props) {
     async (id: string) => {
       try {
         await axiosInstance.patch(endpoints.user.edit(id), { status: 'active' });
-        queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
+        await queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
+        if (refetchSearch) await refetchSearch();
         toast.success('Peserta berhasil diterima!');
       } catch (error) {
         console.error(error);
         toast.error('Gagal menerima peserta');
       }
     },
-    [queryClient]
+    [queryClient, refetchSearch]
   );
 
   const handleRejectRow = useCallback(
     async (id: string) => {
       try {
         await axiosInstance.patch(endpoints.user.edit(id), { status: 'rejected' });
-        queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
+        await queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
+        if (refetchSearch) await refetchSearch();
         toast.success('Peserta berhasil ditolak');
       } catch (error) {
         console.error(error);
         toast.error('Gagal menolak peserta');
       }
     },
-    [queryClient]
+    [queryClient, refetchSearch]
   );
 
 

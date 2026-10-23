@@ -5,11 +5,12 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination,
   Button, MenuItem, Select, FormControl, InputLabel, TextField, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider,
-  Collapse, Menu, Autocomplete, LinearProgress,
+  Collapse, Menu, Autocomplete, LinearProgress, Tooltip,
 } from '@mui/material';
 import Iconify from 'src/components/iconify';
 import DashboardBreadcrumbs from 'src/components/dashboard-breadcrumbs';
 import { useSearchUsers } from 'src/pages/user-mgmt/query';
+import { useQueryClient } from '@tanstack/react-query';
 import axiosInstance from 'src/utils/axios';
 import { endpoints } from 'src/utils/endpoints';
 import { UploadAvatar, Upload } from 'src/components/upload';
@@ -206,16 +207,16 @@ function FungsiRow({ row, onEditFungsi, onEditSubFungsi, onDeleteOrg }: { row: a
   );
 }
 
-class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error: any}> {
+class ErrorBoundary extends Component<{ children: any }, { hasError: boolean, error: any }> {
   constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
 
   static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
 
-  render() { 
-    if (this.state.hasError) { 
-       return <div style={{padding: 20}}><h2>DEBUG ERROR:</h2><pre>{this.state.error?.stack || this.state.error?.toString()}</pre></div>; 
+  render() {
+    if (this.state.hasError) {
+      return <div style={{ padding: 20 }}><h2>DEBUG ERROR:</h2><pre>{this.state.error?.stack || this.state.error?.toString()}</pre></div>;
     }
-    return this.props.children; 
+    return this.props.children;
   }
 }
 
@@ -237,7 +238,7 @@ export default function Page() {
   const [openQuotaDialog, setOpenQuotaDialog] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
-  const [orgToDelete, setOrgToDelete] = useState<{id: string, name: string} | null>(null);
+  const [orgToDelete, setOrgToDelete] = useState<{ id: string, name: string } | null>(null);
 
   const [openDeletePesertaConfirm, setOpenDeletePesertaConfirm] = useState(false);
   const [pesertaToDelete, setPesertaToDelete] = useState<any>(null);
@@ -257,6 +258,7 @@ export default function Page() {
   const [selectedMentorToAssign, setSelectedMentorToAssign] = useState<any>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+  const queryClient = useQueryClient();
   const { userSearchData, searchLoading, refetchSearch } = useSearchUsers('');
 
   const pesertaList = useMemo(() => {
@@ -266,52 +268,50 @@ export default function Page() {
     return userSearchData
       .filter((u: any) => u?.role === 'PESERTA' && u?.status !== 'pending')
       .map((u: any) => {
-         const intern = u.internProfile || {};
-         const mentor = intern.mentor?.user?.name || '-';
-         const dir = intern.mentor?.direktorat || '-';
-         const fungsi = intern.mentor?.fungsi || '-';
-         const subFungsi = intern.mentor?.subFungsi || '-';
+        const intern = u.internProfile || {};
+        const mentor = intern.mentor?.user?.name || '-';
+        const dir = intern.mentor?.direktorat || '-';
+        const fungsi = intern.mentor?.fungsi || '-';
+        const subFungsi = intern.mentor?.subFungsi || '-';
 
-         const vp = vps.find((v: any) => v.employeeProfile?.fungsi === fungsi);
-         const vpName = vp ? vp.name : '-';
+        const vp = vps.find((v: any) => v.employeeProfile?.fungsi === fungsi);
+        const vpName = vp ? vp.name : '-';
 
-         const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
-         const periode = intern.startDate || intern.endDate ? `${formatDate(intern.startDate)} - ${formatDate(intern.endDate)}` : '-';
-         
-         let status_aktif = intern.mentorProfileId ? 'Aktif' : 'Tidak Aktif';
-         if (u.status === 'banned' || u.status === 'rejected') status_aktif = 'Tidak Aktif';
-         if (intern.endDate) {
-           const end = new Date(intern.endDate);
-           if (end.getHours() === 0 && end.getMinutes() === 0) {
-             end.setHours(23, 59, 59, 999);
-           }
-           if (new Date() > end) status_aktif = 'Tidak Aktif';
-         }
-         
-         return {
-           id: u.id,
-           name: u.name || 'Unknown',
-           nim: intern.internId || '-',
-           kampus: intern.university || '-',
-           jurusan: intern.major || '-',
-           program: intern.program || '-',
-           status_aktif,
-           direktorat: dir,
-           fungsi,
-           subFungsi,
-           mentor,
-           vpName,
-           periode,
-           kelamin: intern.gender === 'PRIA' ? 'Laki-laki' : intern.gender === 'WANITA' ? 'Perempuan' : '-',
-           kontak: u.phone || '-',
-           tglLahir: formatDate(intern.dateOfBirth),
-           thnLulus: '-', 
-           statusMagang: intern.program || '-',
-           bank: intern.bankName || '-',
-           noRek: intern.bankAccount || '-',
-           dokumen: intern.documentUrls || [],
-           raw: u
-         };
+        const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+        const periode = intern.startDate || intern.endDate ? `${formatDate(intern.startDate)} - ${formatDate(intern.endDate)}` : '-';
+
+        let status_aktif = intern.mentorProfileId ? 'Aktif' : 'Tidak Aktif';
+        if (u.status === 'banned' || u.status === 'rejected') status_aktif = 'Tidak Aktif';
+        if (intern.endDate) {
+          const end = new Date(intern.endDate);
+          end.setHours(23, 59, 59, 999);
+          if (new Date() > end) status_aktif = 'Tidak Aktif';
+        }
+
+        return {
+          id: u.id,
+          name: u.name || 'Unknown',
+          nim: intern.internId || '-',
+          kampus: intern.university || '-',
+          jurusan: intern.major || '-',
+          program: intern.program || '-',
+          status_aktif,
+          direktorat: dir,
+          fungsi,
+          subFungsi,
+          mentor,
+          vpName,
+          periode,
+          kelamin: intern.gender === 'PRIA' ? 'Laki-laki' : intern.gender === 'WANITA' ? 'Perempuan' : '-',
+          kontak: u.phone || '-',
+          tglLahir: formatDate(intern.dateOfBirth),
+          thnLulus: '-',
+          statusMagang: intern.program || '-',
+          bank: intern.bankName || '-',
+          noRek: intern.bankAccount || '-',
+          dokumen: intern.documentUrls || [],
+          raw: u
+        };
       });
   }, [userSearchData]);
 
@@ -320,21 +320,21 @@ export default function Page() {
     try {
       const res = await axiosInstance.get(endpoints.employeeProfile.organizationsHierarchy);
       const data = Array.isArray(res.data) ? res.data : [];
-      
+
       // Swap positions so Leher Dirut is first, followed by Finance & Business Support
       data.sort((a, b) => {
         const nameA = (a.name || '').toLowerCase();
         const nameB = (b.name || '').toLowerCase();
-        
+
         if (nameA.includes('leher dirut') && !nameB.includes('leher dirut')) return -1;
         if (nameB.includes('leher dirut') && !nameA.includes('leher dirut')) return 1;
-        
+
         if (nameA.includes('finance & business support') && !nameB.includes('finance & business support')) return -1;
         if (nameB.includes('finance & business support') && !nameA.includes('finance & business support')) return 1;
-        
+
         return 0;
       });
-      
+
       setOrganizations(data);
     } catch (err) {
       console.error(err);
@@ -354,15 +354,19 @@ export default function Page() {
   const [searchQueryPeserta, setSearchQueryPeserta] = useState('');
 
   const filteredPesertaList = useMemo(() => pesertaList.filter(p => {
-      const matchProgram = filterProgram === 'all' || p.program === filterProgram;
-      const matchStatus = filterStatus === 'all' || p.status_aktif.toLowerCase().replace(' ', '_') === filterStatus;
-      const matchDir = filterDir === 'all' || p.direktorat === filterDir;
-      const matchFungsi = filterFungsi === 'all' || p.fungsi === filterFungsi;
-      const matchSubFungsi = filterSubFungsi === 'all' || p.subFungsi === filterSubFungsi;
-      const matchMentor = filterMentor === 'all' || p.mentor === filterMentor;
-      const matchSearch = p.name.toLowerCase().includes(searchQueryPeserta.toLowerCase()) || p.nim.toLowerCase().includes(searchQueryPeserta.toLowerCase());
-      return matchProgram && matchStatus && matchDir && matchFungsi && matchSubFungsi && matchMentor && matchSearch;
-    }), [pesertaList, filterProgram, filterStatus, filterDir, filterFungsi, filterSubFungsi, filterMentor, searchQueryPeserta]);
+    const matchProgram = filterProgram === 'all' || p.program === filterProgram;
+    const matchStatus = filterStatus === 'all' || p.status_aktif.toLowerCase().replace(' ', '_') === filterStatus;
+    const matchDir = filterDir === 'all' || p.direktorat === filterDir;
+    const matchFungsi = filterFungsi === 'all' || p.fungsi === filterFungsi;
+    const matchSubFungsi = filterSubFungsi === 'all' || p.subFungsi === filterSubFungsi;
+    const matchMentor = filterMentor === 'all' || p.mentor === filterMentor;
+    const matchSearch = p.name.toLowerCase().includes(searchQueryPeserta.toLowerCase()) || p.nim.toLowerCase().includes(searchQueryPeserta.toLowerCase());
+    return matchProgram && matchStatus && matchDir && matchFungsi && matchSubFungsi && matchMentor && matchSearch;
+  }).sort((a, b) => {
+    const aActive = a.status_aktif === 'Aktif' ? 1 : 0;
+    const bActive = b.status_aktif === 'Aktif' ? 1 : 0;
+    return bActive - aActive; // Aktif di depan, Tidak Aktif di belakang
+  }), [pesertaList, filterProgram, filterStatus, filterDir, filterFungsi, filterSubFungsi, filterMentor, searchQueryPeserta]);
 
   const uniqueDirs = Array.from(new Set((organizations || []).map(o => o.name)));
   const uniqueFungsi = Array.from(new Set((organizations || []).flatMap(o => (o.fungsi || []).map((f: any) => f.name))));
@@ -372,52 +376,53 @@ export default function Page() {
 
   const kuotaData = useMemo(() => {
     if (!organizations || organizations.length === 0) return [];
-    
+
     const mapped = JSON.parse(JSON.stringify(organizations));
-    const interns = Array.isArray(userSearchData) ? userSearchData.filter((u: any) => u.role === 'PESERTA' && u.status === 'active') : [];
-    
+    // Hanya peserta yang status_aktif === 'Aktif' yang dihitung mengisi kuota.
+    // Jika peserta sudah tidak aktif atau selesai masa magang, kuota otomatis tereset/berkurang.
+    const activePeserta = pesertaList.filter((p: any) => p.status_aktif === 'Aktif');
+
     mapped.forEach((dir: any, dIndex: number) => {
-       let dirTerisi = 0;
-       let dirKuota = 0;
-       dir.dbId = dir.id;
-       dir.id = `d${dIndex}`;
+      let dirTerisi = 0;
+      let dirKuota = 0;
+      dir.dbId = dir.id;
+      dir.id = `d${dIndex}`;
 
-       (dir.fungsi || []).forEach((f: any, fIndex: number) => {
-          let fTerisi = 0;
-          let fKuota = 0;
-          f.dbId = f.id;
-          f.id = `f${dIndex}-${fIndex}`;
+      (dir.fungsi || []).forEach((f: any, fIndex: number) => {
+        let fTerisi = 0;
+        let fKuota = 0;
+        f.dbId = f.id;
+        f.id = `f${dIndex}-${fIndex}`;
 
-          (f.subFungsi || []).forEach((sf: any, sfIndex: number) => {
-             sf.dbId = sf.id;
-             sf.id = `sf${dIndex}-${fIndex}-${sfIndex}`;
-             sf.kuota = sf.kuota || 0;
-             
-             let sfTerisi = 0;
-             interns.forEach((internUser: any) => {
-                const mentor = internUser.internProfile?.mentor;
-                if (mentor && mentor.direktorat === dir.name && mentor.fungsi === f.name && mentor.subFungsi === sf.name) {
-                   sfTerisi++;
-                }
-             });
-             
-             sf.terisi = sfTerisi;
-             fTerisi += sfTerisi;
-             fKuota += sf.kuota;
+        (f.subFungsi || []).forEach((sf: any, sfIndex: number) => {
+          sf.dbId = sf.id;
+          sf.id = `sf${dIndex}-${fIndex}-${sfIndex}`;
+          sf.kuota = sf.kuota || 0;
+
+          let sfTerisi = 0;
+          activePeserta.forEach((p: any) => {
+            if (p.direktorat === dir.name && p.fungsi === f.name && p.subFungsi === sf.name) {
+              sfTerisi++;
+            }
           });
 
-          f.terisi = fTerisi;
-          f.totalKuota = fKuota;
-          dirTerisi += fTerisi;
-          dirKuota += fKuota;
-       });
-       
-       dir.terisi = dirTerisi;
-       dir.totalKuota = dirKuota;
+          sf.terisi = sfTerisi;
+          fTerisi += sfTerisi;
+          fKuota += sf.kuota;
+        });
+
+        f.terisi = fTerisi;
+        f.totalKuota = fKuota;
+        dirTerisi += fTerisi;
+        dirKuota += fKuota;
+      });
+
+      dir.terisi = dirTerisi;
+      dir.totalKuota = dirKuota;
     });
 
     return mapped;
-  }, [organizations, userSearchData]);
+  }, [organizations, pesertaList]);
 
 
   const handleEditDir = (dir: any) => {
@@ -575,7 +580,7 @@ export default function Page() {
       startDate: editFormData.startDate,
       endDate: editFormData.endDate,
     };
-    
+
     const hasEmpty = Object.values(requiredFields).some(val => !val || (typeof val === 'string' && val.trim() === ''));
     if (hasEmpty) {
       toast.error('Harap isi semua kolom yang wajib diisi (*).');
@@ -604,6 +609,7 @@ export default function Page() {
         name: editFormData.name,
         phone: editFormData.phone,
         photoUrl: finalPhotoUrl,
+        status: (editFormData.endDate && new Date(editFormData.endDate) >= new Date()) ? 'active' : undefined,
       });
 
       // Upload documentUrls if they are Files
@@ -631,7 +637,9 @@ export default function Page() {
         major: editFormData.major,
         program: editFormData.program,
         gender: editFormData.gender,
-        mentorProfileId: selectedMentorToAssign ? (selectedMentorToAssign.employeeProfile?.id || null) : null,
+        mentorProfileId: selectedMentorToAssign
+          ? (selectedMentorToAssign.employeeProfile?.id || selectedMentorToAssign.id || null)
+          : (u.internProfile?.mentorProfileId || null),
         bankName: editFormData.bankName,
         bankAccount: editFormData.bankAccount,
         documentUrls: uploadedUrls,
@@ -647,6 +655,9 @@ export default function Page() {
         await axiosInstance.post('/intern-profile', internData);
       }
 
+      await queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
+      await queryClient.invalidateQueries({ queryKey: ['getUserById'] });
+      await queryClient.invalidateQueries({ queryKey: ['searchUsers'] });
       if (refetchSearch) await refetchSearch();
       setOpenEditDialog(false);
       setSelectedMentorToAssign(null);
@@ -695,7 +706,7 @@ export default function Page() {
               onClick={() => exportPesertaPdf(filteredPesertaList)}
               sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9' }, fontWeight: 'bold' }}
             >
-              <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Data
+              <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Data Peserta
             </Button>
           </Stack>
         </Box>
@@ -705,53 +716,53 @@ export default function Page() {
           <>
             <Grid container spacing={3} sx={{ mb: 4 }}>
               {kuotaData.map((dir: any, index: number) => {
-                 const colors = [
-                    { border: '#004F9F', bg: 'rgba(0, 79, 159, 0.1)', color: '#004F9F', icon: 'solar:shield-check-bold-duotone', shadow: 'rgba(0,79,159,0.15)' },
-                    { border: '#EE2E24', bg: 'rgba(238, 46, 36, 0.1)', color: '#EE2E24', icon: 'solar:settings-bold-duotone', shadow: 'rgba(238,46,36,0.15)' },
-                    { border: '#16A34A', bg: 'rgba(22, 163, 74, 0.1)', color: '#16A34A', icon: 'solar:cart-large-bold-duotone', shadow: 'rgba(22,163,74,0.15)' },
-                    { border: '#F59E0B', bg: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', icon: 'solar:calculator-bold-duotone', shadow: 'rgba(245,158,11,0.15)' },
-                 ];
-                 const theme = colors[index % colors.length];
-                 const isExpanded = expandedCard === dir.id;
-                 return (
-                   <Grid item xs={12} sm={6} md={3} key={dir.id}>
-                     <Card 
-                       onClick={() => setExpandedCard(isExpanded ? null : dir.id)}
-                       sx={{
-                         p: 3,
-                         position: 'relative',
-                         overflow: 'hidden',
-                         bgcolor: '#FFFFFF',
-                         borderRadius: 2,
-                         border: '1px solid',
-                         borderColor: isExpanded ? theme.border : '#e2e8f0',
-                         cursor: 'pointer',
-                         boxShadow: isExpanded ? `0px 4px 20px ${theme.shadow}` : '0 2px 8px rgba(0,0,0,0.02)',
-                         borderBottom: `3.5px solid ${theme.border}`,
-                         transition: 'all 0.2s',
-                         '&:hover': {
-                           boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
-                           transform: 'translateY(-2px)',
-                         },
-                       }}>
-                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                         <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: theme.bg, color: theme.color, display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
-                           <Iconify icon={theme.icon} width={24} />
-                         </Box>
-                         <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2, display: '-webkit-box', overflow: 'hidden', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{dir.name.replace('Direktorat ', '')}</Typography>
-                       </Box>
-                       <Typography variant="caption" sx={{ position: 'absolute', top: 16, right: 16, color: isExpanded ? theme.color : 'text.disabled', display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
-                         <span style={{ cursor: 'pointer' }} onClick={() => setExpandedCard(isExpanded ? null : dir.id)}>
-                           Kelola Kuota <Iconify icon={isExpanded ? 'eva:chevron-up-fill' : 'eva:chevron-down-fill'} sx={{ ml: 0.5, width: 16 }} />
-                         </span>
-                       </Typography>
-                       <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
-                         <Typography variant="h3" sx={{ color: theme.color, fontWeight: 'bold' }}>{dir.terisi}</Typography>
-                         <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>/ {dir.totalKuota} Peserta</Typography>
-                       </Box>
-                     </Card>
-                   </Grid>
-                 )
+                const colors = [
+                  { border: '#004F9F', bg: 'rgba(0, 79, 159, 0.1)', color: '#004F9F', icon: 'solar:shield-check-bold-duotone', shadow: 'rgba(0,79,159,0.15)' },
+                  { border: '#EE2E24', bg: 'rgba(238, 46, 36, 0.1)', color: '#EE2E24', icon: 'solar:settings-bold-duotone', shadow: 'rgba(238,46,36,0.15)' },
+                  { border: '#16A34A', bg: 'rgba(22, 163, 74, 0.1)', color: '#16A34A', icon: 'solar:cart-large-bold-duotone', shadow: 'rgba(22,163,74,0.15)' },
+                  { border: '#F59E0B', bg: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', icon: 'solar:calculator-bold-duotone', shadow: 'rgba(245,158,11,0.15)' },
+                ];
+                const theme = colors[index % colors.length];
+                const isExpanded = expandedCard === dir.id;
+                return (
+                  <Grid item xs={12} sm={6} md={3} key={dir.id}>
+                    <Card
+                      onClick={() => setExpandedCard(isExpanded ? null : dir.id)}
+                      sx={{
+                        p: 3,
+                        position: 'relative',
+                        overflow: 'hidden',
+                        bgcolor: '#FFFFFF',
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: isExpanded ? theme.border : '#e2e8f0',
+                        cursor: 'pointer',
+                        boxShadow: isExpanded ? `0px 4px 20px ${theme.shadow}` : '0 2px 8px rgba(0,0,0,0.02)',
+                        borderBottom: `3.5px solid ${theme.border}`,
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                          transform: 'translateY(-2px)',
+                        },
+                      }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: theme.bg, color: theme.color, display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 2 }}>
+                          <Iconify icon={theme.icon} width={24} />
+                        </Box>
+                        <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.2, display: '-webkit-box', overflow: 'hidden', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{dir.name.replace('Direktorat ', '')}</Typography>
+                      </Box>
+                      <Typography variant="caption" sx={{ position: 'absolute', top: 16, right: 16, color: isExpanded ? theme.color : 'text.disabled', display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
+                        <span style={{ cursor: 'pointer' }} onClick={() => setExpandedCard(isExpanded ? null : dir.id)}>
+                          Kelola Kuota <Iconify icon={isExpanded ? 'eva:chevron-up-fill' : 'eva:chevron-down-fill'} sx={{ ml: 0.5, width: 16 }} />
+                        </span>
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
+                        <Typography variant="h3" sx={{ color: theme.color, fontWeight: 'bold' }}>{dir.terisi}</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>/ {dir.totalKuota} Peserta</Typography>
+                      </Box>
+                    </Card>
+                  </Grid>
+                )
               })}
             </Grid>
 
@@ -823,131 +834,141 @@ export default function Page() {
           </Button>
         </Box>
 
-          {activeTab === 'data_peserta' && (
-            <>
-              {/* FILTERS FOR DATA PESERTA */}
-              <Card sx={{ p: 3, mb: 3, border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={12} md={3}>
-                    <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Program</InputLabel><Select label="Program" value={filterProgram} onChange={(e) => setFilterProgram(e.target.value)}><MenuItem value="all">Semua Program</MenuItem>
-                      {uniquePrograms.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
-                    </Select></FormControl>
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Status</InputLabel><Select label="Status" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><MenuItem value="all">Semua Status</MenuItem><MenuItem value="aktif">Aktif</MenuItem><MenuItem value="tidak_aktif">Tidak Aktif</MenuItem></Select></FormControl>
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Direktorat</InputLabel><Select label="Direktorat" value={filterDir} onChange={(e) => { setFilterDir(e.target.value); setFilterFungsi('all'); setFilterSubFungsi('all'); setFilterMentor('all'); }}><MenuItem value="all">Semua Direktorat</MenuItem>
-                      {uniqueDirs.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
-                    </Select></FormControl>
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Fungsi</InputLabel><Select label="Fungsi" value={filterFungsi} onChange={(e) => { setFilterFungsi(e.target.value); setFilterSubFungsi('all'); setFilterMentor('all'); }}><MenuItem value="all">Semua Fungsi</MenuItem>
-                      {uniqueFungsi.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
-                    </Select></FormControl>
-                  </Grid>
-
-                  {/* Row 2 */}
-                  <Grid item xs={12} md={3}>
-                    <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Sub Fungsi</InputLabel><Select label="Sub Fungsi" value={filterSubFungsi} onChange={(e) => { setFilterSubFungsi(e.target.value); setFilterMentor('all'); }}><MenuItem value="all">Semua Sub Fungsi</MenuItem>
-                      {uniqueSubFungsi.map(sf => <MenuItem key={sf} value={sf}>{sf}</MenuItem>)}
-                    </Select></FormControl>
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Mentor</InputLabel><Select label="Mentor" value={filterMentor} onChange={(e) => setFilterMentor(e.target.value)}><MenuItem value="all">Semua Mentor</MenuItem>
-                      {uniqueMentors.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                    </Select></FormControl>
-                  </Grid>
-                  <Grid item xs={12} md={6} sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      placeholder="Cari nama peserta atau ID..."
-                      sx={{ bgcolor: 'white' }}
-                      value={searchQueryPeserta}
-                      onChange={(e) => setSearchQueryPeserta(e.target.value)}
-                      InputProps={{
-                        startAdornment: <Iconify icon="eva:search-fill" sx={{ mr: 1, color: 'text.disabled' }} />,
-                      }}
-                    />
-                    <Button
-                      variant="outlined"
-                      color="inherit"
-                      onClick={() => { setFilterProgram('all'); setFilterStatus('all'); setFilterDir('all'); setFilterFungsi('all'); setFilterSubFungsi('all'); setFilterMentor('all'); setSearchQueryPeserta(''); setPage(0); }}
-                      startIcon={<Iconify icon="solar:restart-bold" />}
-                      sx={{
-                        height: 40,
-                        px: 2,
-                        flexShrink: 0,
-                        textTransform: 'none',
-                        borderColor: '#CBD5E1',
-                        borderRadius: 1.5,
-                        fontWeight: 600,
-                        whiteSpace: 'nowrap',
-                        '&:hover': { borderColor: '#94A3B8', bgcolor: '#F8FAFC' },
-                      }}
-                    >
-                      Reset Filter
-                    </Button>
-                  </Grid>
+        {activeTab === 'data_peserta' && (
+          <>
+            {/* FILTERS FOR DATA PESERTA */}
+            <Card sx={{ p: 3, mb: 3, border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Program</InputLabel><Select label="Program" value={filterProgram} onChange={(e) => setFilterProgram(e.target.value)}><MenuItem value="all">Semua Program</MenuItem>
+                    {uniquePrograms.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                  </Select></FormControl>
                 </Grid>
-              </Card>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Status Peserta</InputLabel><Select label="Status" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><MenuItem value="all">Semua Status</MenuItem><MenuItem value="aktif">Aktif</MenuItem><MenuItem value="tidak_aktif">Tidak Aktif</MenuItem></Select></FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Direktorat</InputLabel><Select label="Direktorat" value={filterDir} onChange={(e) => { setFilterDir(e.target.value); setFilterFungsi('all'); setFilterSubFungsi('all'); setFilterMentor('all'); }}><MenuItem value="all">Semua Direktorat</MenuItem>
+                    {uniqueDirs.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                  </Select></FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Fungsi</InputLabel><Select label="Fungsi" value={filterFungsi} onChange={(e) => { setFilterFungsi(e.target.value); setFilterSubFungsi('all'); setFilterMentor('all'); }}><MenuItem value="all">Semua Fungsi</MenuItem>
+                    {uniqueFungsi.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+                  </Select></FormControl>
+                </Grid>
 
-              {/* TABLE FOR DATA PESERTA */}
-              <Card sx={{ border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead sx={{ bgcolor: '#f4f6f8' }}>
+                {/* Row 2 */}
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Sub Fungsi</InputLabel><Select label="Sub Fungsi" value={filterSubFungsi} onChange={(e) => { setFilterSubFungsi(e.target.value); setFilterMentor('all'); }}><MenuItem value="all">Semua Sub Fungsi</MenuItem>
+                    {uniqueSubFungsi.map(sf => <MenuItem key={sf} value={sf}>{sf}</MenuItem>)}
+                  </Select></FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}><InputLabel>Mentor</InputLabel><Select label="Mentor" value={filterMentor} onChange={(e) => setFilterMentor(e.target.value)}><MenuItem value="all">Semua Mentor</MenuItem>
+                    {uniqueMentors.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                  </Select></FormControl>
+                </Grid>
+                <Grid item xs={12} md={6} sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Cari nama peserta atau ID..."
+                    sx={{ bgcolor: 'white' }}
+                    value={searchQueryPeserta}
+                    onChange={(e) => setSearchQueryPeserta(e.target.value)}
+                    InputProps={{
+                      startAdornment: <Iconify icon="eva:search-fill" sx={{ mr: 1, color: 'text.disabled' }} />,
+                    }}
+                  />
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    onClick={() => { setFilterProgram('all'); setFilterStatus('all'); setFilterDir('all'); setFilterFungsi('all'); setFilterSubFungsi('all'); setFilterMentor('all'); setSearchQueryPeserta(''); setPage(0); }}
+                    startIcon={<Iconify icon="solar:restart-bold" />}
+                    sx={{
+                      height: 40,
+                      px: 2,
+                      flexShrink: 0,
+                      textTransform: 'none',
+                      borderColor: '#CBD5E1',
+                      borderRadius: 1.5,
+                      fontWeight: 600,
+                      whiteSpace: 'nowrap',
+                      '&:hover': { borderColor: '#94A3B8', bgcolor: '#F8FAFC' },
+                    }}
+                  >
+                    Reset Filter
+                  </Button>
+                </Grid>
+              </Grid>
+            </Card>
+
+            {/* TABLE FOR DATA PESERTA */}
+            <Card sx={{ border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: '#f4f6f8' }}>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Peserta</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Program & Instansi</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Penempatan</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Mentor</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Periode</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }} align="center">Aksi</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {searchLoading ? (
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Peserta</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Program & Instansi</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Penempatan</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Mentor</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Periode</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }} align="center">Aksi</TableCell>
+                        <TableCell colSpan={7} sx={{ p: 0 }}>
+                          <LinearProgress />
+                        </TableCell>
                       </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {searchLoading ? (
-                        <TableRow>
-                          <TableCell colSpan={7} sx={{ p: 0 }}>
-                            <LinearProgress />
-                          </TableCell>
-                        </TableRow>
-                      ) : filteredPesertaList.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                            <Box sx={{ py: 2 }}>
-                              <Typography variant="subtitle1" fontWeight="bold">Belum ada data peserta</Typography>
-                              <Typography variant="body2" color="text.secondary">Tidak ada data yang sesuai dengan filter yang dipilih.</Typography>
+                    ) : filteredPesertaList.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                          <Box sx={{ py: 2 }}>
+                            <Typography variant="subtitle1" fontWeight="bold">Belum ada data peserta</Typography>
+                            <Typography variant="body2" color="text.secondary">Tidak ada data yang sesuai dengan filter yang dipilih.</Typography>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredPesertaList.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => (
+                        <TableRow key={row.id} hover sx={{ '& td': { py: 1.5 } }}>
+                          <TableCell>
+                            <Box>
+                              <Typography variant="body2" fontWeight="bold">{row.name}</Typography>
+                              <Typography variant="caption" color="text.secondary">{row.nim}</Typography>
                             </Box>
                           </TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredPesertaList.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => (
-                          <TableRow key={row.id} hover sx={{ '& td': { py: 1.5 } }}>
-                            <TableCell>
-                              <Box>
-                                <Typography variant="body2" fontWeight="bold">{row.name}</Typography>
-                                <Typography variant="caption" color="text.secondary">{row.nim}</Typography>
-                              </Box>
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2" fontWeight="medium">{row.program}</Typography>
-                              <Typography variant="caption" color="text.secondary">{row.kampus}</Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2" fontWeight="medium">{row.direktorat}</Typography>
-                              <Typography variant="caption" color="text.secondary">{row.fungsi} • {row.subFungsi}</Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2">{row.mentor}</Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>{row.periode}</Typography>
-                            </TableCell>
-                            <TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="medium">{row.program}</Typography>
+                            <Typography variant="caption" color="text.secondary">{row.kampus}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="medium">{row.direktorat}</Typography>
+                            <Typography variant="caption" color="text.secondary">{row.fungsi} • {row.subFungsi}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">{row.mentor}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>{row.periode}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Tooltip
+                              title={
+                                row.status_aktif === 'Aktif'
+                                  ? 'Peserta Aktif (Telah Memiliki Mentor Pembimbing)'
+                                  : !row.raw?.internProfile?.mentorProfileId
+                                    ? 'Belum Aktif: Belum memiliki mentor pembimbing'
+                                    : 'Tidak Aktif: Masa magang telah berakhir'
+                              }
+                              arrow
+                            >
                               <Chip
                                 label={row.status_aktif || 'Tidak Aktif'}
                                 size="small"
@@ -964,37 +985,39 @@ export default function Page() {
                                   borderRadius: 1,
                                   height: 28,
                                   letterSpacing: '0.3px',
+                                  cursor: 'pointer',
                                   '& .MuiChip-label': { px: 1, fontWeight: 700 },
                                   '&:hover': { bgcolor: '#FFFFFF' },
                                 }}
                               />
-                            </TableCell>
-                            <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
-                              <IconButton size="small" color="primary" sx={{ mr: 1, p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0', bgcolor: 'white' }} onClick={() => handleOpenDialog(row)} title="Detail / Edit">
-                                <Iconify icon="solar:eye-bold-duotone" width={18} />
-                              </IconButton>
-                              <IconButton size="small" color="error" title="Hapus" sx={{ p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0', bgcolor: 'white' }} onClick={() => handleDeletePeserta(row)}>
-                                <Iconify icon="solar:trash-bin-trash-bold-duotone" width={18} />
-                              </IconButton>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                <TablePagination
-                  rowsPerPageOptions={[5, 10, 25]}
-                  component="div"
-                  count={filteredPesertaList.length}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                />
-              </Card>
-            </>
-          )}
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                            <IconButton size="small" color="primary" sx={{ mr: 1, p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0', bgcolor: 'white' }} onClick={() => handleOpenDialog(row)} title="Detail / Edit">
+                              <Iconify icon="solar:eye-bold-duotone" width={18} />
+                            </IconButton>
+                            <IconButton size="small" color="error" title="Hapus" sx={{ p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0', bgcolor: 'white' }} onClick={() => handleDeletePeserta(row)}>
+                              <Iconify icon="solar:trash-bin-trash-bold-duotone" width={18} />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <TablePagination
+                rowsPerPageOptions={[5, 10, 25]}
+                component="div"
+                count={filteredPesertaList.length}
+                rowsPerPage={rowsPerPage}
+                page={page}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+              />
+            </Card>
+          </>
+        )}
 
 
       </Container>
@@ -1015,7 +1038,7 @@ export default function Page() {
               </IconButton>
             </DialogTitle>
             <DialogContent sx={{ p: 3, pt: 5, bgcolor: '#f8fafc' }}>
-              
+
               {/* Data Diri */}
               <Box sx={{ mb: 2.5, mt: 1 }}>
                 <Typography variant="subtitle1" fontWeight="bold" color="primary.main" sx={{ mb: 1.5 }}>
@@ -1066,7 +1089,7 @@ export default function Page() {
                       <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>{selectedUser.subFungsi}</Typography>
 
                       <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Status</Typography>
-                      <Box sx={{ mt: 0.5 }}>
+                      <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Chip
                           label={selectedUser.status_aktif || 'Tidak Aktif'}
                           size="small"
@@ -1087,6 +1110,13 @@ export default function Page() {
                             '&:hover': { bgcolor: '#FFFFFF' },
                           }}
                         />
+                        {selectedUser.status_aktif !== 'Aktif' && (
+                          <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic', fontWeight: 500 }}>
+                            {!selectedUser.raw?.internProfile?.mentorProfileId
+                              ? '(Belum memiliki mentor pembimbing)'
+                              : '(Masa magang berakhir)'}
+                          </Typography>
+                        )}
                       </Box>
                     </Grid>
                     <Grid item xs={6}>
@@ -1144,13 +1174,13 @@ export default function Page() {
                             let fileName = doc;
                             if (typeof doc === 'string') {
                               fileName = doc.split('/').pop() || '';
-                              try { fileName = decodeURIComponent(fileName); } catch (e) {}
+                              try { fileName = decodeURIComponent(fileName); } catch (e) { }
                               fileName = fileName.replace(/^\d+_/, '');
                               if (fileName.length > 30) {
                                 const parts = fileName.split('.');
-                                const ext = parts.length > 1 ? `.${  parts.pop()}` : '';
+                                const ext = parts.length > 1 ? `.${parts.pop()}` : '';
                                 const base = parts.join('.');
-                                fileName = `${base.substring(0, 25)  }...${  ext}`;
+                                fileName = `${base.substring(0, 25)}...${ext}`;
                               }
                             }
                             return (
@@ -1179,7 +1209,7 @@ export default function Page() {
                   const u = selectedUser.raw;
                   const intern = u.internProfile || {};
                   const toYYYYMMDD = (iso: string) => iso ? new Date(iso).toISOString().split('T')[0] : '';
-                  
+
                   setEditFormData({
                     name: u.name || '',
                     phone: u.phone || '',
@@ -1196,9 +1226,16 @@ export default function Page() {
                     documentUrls: intern.documentUrls || [],
                     photoUrl: u.photoUrl || null,
                   });
-                  
+
                   const currentMentor = Array.isArray(userSearchData) ? userSearchData.find((m: any) => m.employeeProfile?.id === intern.mentorProfileId) : null;
-                  setSelectedMentorToAssign(currentMentor || null);
+                  const fallbackMentor = intern.mentor ? {
+                    id: intern.mentor.user?.id || intern.mentor.id,
+                    name: intern.mentor.user?.name || intern.mentor.name || 'Mentor',
+                    role: 'EMPLOYEESTAFF',
+                    status: 'active',
+                    employeeProfile: intern.mentor,
+                  } : null;
+                  setSelectedMentorToAssign(currentMentor || fallbackMentor || null);
                   setOpenEditDialog(true);
                 }
               }}>
@@ -1229,7 +1266,7 @@ export default function Page() {
               <Typography variant="subtitle2" color="primary" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
                 <Iconify icon="solar:user-id-bold-duotone" sx={{ mr: 1 }} /> Informasi Pribadi, Kontak & Akademik
               </Typography>
-              
+
               <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <UploadAvatar
                   file={editFormData.photoUrl}
@@ -1323,17 +1360,18 @@ export default function Page() {
                   <Autocomplete
                     options={Array.isArray(userSearchData) ? userSearchData.filter((u: any) => u?.role === 'EMPLOYEESTAFF' && u?.status === 'active') : []}
                     getOptionLabel={(option) => `${option?.name || 'Unknown'}`}
+                    isOptionEqualToValue={(option, value) => (option?.employeeProfile?.id || option?.id) === (value?.employeeProfile?.id || value?.id)}
                     value={selectedMentorToAssign}
                     onChange={(event, newValue) => setSelectedMentorToAssign(newValue)}
                     renderInput={(params) => <TextField {...params} size="small" label="Cari Mentor..." placeholder="Ketik nama mentor" />}
                     renderOption={(props, option) => (
-                        <li {...props} key={option.id}>
-                          <Box>
-                            <Typography variant="body2" fontWeight="bold">{option.name}</Typography>
-                            <Typography variant="caption" color="text.secondary">{option.employeeProfile?.jabatan || '-'} • {option.employeeProfile?.fungsi || '-'}</Typography>
-                          </Box>
-                        </li>
-                      )}
+                      <li {...props} key={option.id}>
+                        <Box>
+                          <Typography variant="body2" fontWeight="bold">{option.name}</Typography>
+                          <Typography variant="caption" color="text.secondary">{option.employeeProfile?.jabatan || '-'} • {option.employeeProfile?.fungsi || '-'}</Typography>
+                        </Box>
+                      </li>
+                    )}
                   />
                   {selectedMentorToAssign && selectedMentorToAssign.employeeProfile && (
                     <Box sx={{ mt: 2, p: 2, bgcolor: '#f8fafc', borderRadius: 1.5, border: '1px dashed #cbd5e1' }}>
@@ -1413,10 +1451,10 @@ export default function Page() {
             </Box>
             <Box>
               <Typography variant="h6" fontWeight="bold">
-                {dialogMode === 'fungsi' ? 'Tambah Fungsi' : 
-                 dialogMode === 'subfungsi' ? 'Tambah Sub-Fungsi' : 
-                 dialogMode === 'edit_dir' ? 'Edit Direktorat' : 
-                 dialogMode === 'edit_fungsi' ? 'Edit Fungsi' : 'Edit Sub-Fungsi'}
+                {dialogMode === 'fungsi' ? 'Tambah Fungsi' :
+                  dialogMode === 'subfungsi' ? 'Tambah Sub-Fungsi' :
+                    dialogMode === 'edit_dir' ? 'Edit Direktorat' :
+                      dialogMode === 'edit_fungsi' ? 'Edit Fungsi' : 'Edit Sub-Fungsi'}
               </Typography>
               <Typography variant="body2" sx={{ opacity: 0.9 }}>
                 Manajemen Struktur Organisasi
@@ -1432,11 +1470,11 @@ export default function Page() {
             <Box sx={{ p: 3, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0', boxShadow: '0px 2px 4px rgba(0,0,0,0.02)' }}>
               <Stack spacing={3}>
                 {dialogMode !== 'edit_dir' && (
-                  <TextField 
-                    fullWidth size="small" 
-                    label="Nama Direktorat" 
-                    value={kuotaData.find((d: any) => d.id === expandedCard)?.name || 'Pilih Direktorat'} 
-                    InputProps={{ readOnly: true, sx: { bgcolor: '#f8fafc', color: 'text.secondary' } }} 
+                  <TextField
+                    fullWidth size="small"
+                    label="Nama Direktorat"
+                    value={kuotaData.find((d: any) => d.id === expandedCard)?.name || 'Pilih Direktorat'}
+                    InputProps={{ readOnly: true, sx: { bgcolor: '#f8fafc', color: 'text.secondary' } }}
                   />
                 )}
 
@@ -1473,9 +1511,9 @@ export default function Page() {
                     <FormControl fullWidth size="small">
                       <InputLabel>Pilih Sub-Fungsi</InputLabel>
                       <Select label="Pilih Sub-Fungsi" value={selectedSubFungsiId} onChange={(e) => {
-                         setSelectedSubFungsiId(e.target.value);
-                         const sf = selectedFungsi?.subFungsi?.find((s: any) => s.id === e.target.value);
-                         if (sf) setKuotaCount(sf.kuota);
+                        setSelectedSubFungsiId(e.target.value);
+                        const sf = selectedFungsi?.subFungsi?.find((s: any) => s.id === e.target.value);
+                        if (sf) setKuotaCount(sf.kuota);
                       }}>
                         {selectedFungsi?.subFungsi?.map((sf: any) => (
                           <MenuItem key={sf.id} value={sf.id}>{sf.name}</MenuItem>
@@ -1491,7 +1529,7 @@ export default function Page() {
                     <TextField fullWidth size="small" label="Nama Sub-Fungsi" value={selectedSubFungsi?.name || ''} InputProps={{ readOnly: true, sx: { bgcolor: '#f8fafc', color: 'text.secondary' } }} />
                   </Stack>
                 )}
-                
+
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #e2e8f0', borderRadius: 1, p: 1.5, mt: 1 }}>
                   <Typography variant="body2" sx={{ ml: 1, fontWeight: 'medium' }}>Kapasitas Peserta</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>

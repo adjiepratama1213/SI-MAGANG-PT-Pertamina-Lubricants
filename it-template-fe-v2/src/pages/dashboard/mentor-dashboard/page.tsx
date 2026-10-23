@@ -170,6 +170,8 @@ export default function MentorDashboardPage() {
     );
   }, [myInterns, menteeSearch]);
 
+  const displayedMentees = useMemo(() => filteredMentees.slice(0, 4), [filteredMentees]);
+
   const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
 
   // 3 Summary Cards (Card Menunggu Aktivasi telah dihapus sesuai permintaan)
@@ -498,10 +500,11 @@ export default function MentorDashboardPage() {
                     }}
                   >
                     <Grid container spacing={2}>
-                      {filteredMentees.map((intern: any) => {
+                      {displayedMentees.map((intern: any) => {
                         const profile = intern.internProfile || {};
                         const isPKL = profile.program?.toLowerCase().includes('pkl');
                         const isKemnaker = profile.program?.toLowerCase().includes('kemnaker');
+                        const isInternActive = intern.status === 'active' || intern.status === 'ACTIVE';
 
                         return (
                           <Grid item xs={12} sm={6} key={intern.id}>
@@ -541,14 +544,14 @@ export default function MentorDashboardPage() {
                                     </Typography>
                                   </Box>
                                   <Chip
-                                    label={intern.status === 'active' ? 'Aktif' : 'Pending'}
+                                    label={isInternActive ? 'Aktif' : 'Tidak Aktif'}
                                     size="small"
                                     sx={{
                                       fontWeight: 700,
                                       fontSize: '0.72rem',
                                       height: 22,
-                                      bgcolor: intern.status === 'active' ? '#DCFCE7' : '#FEF3C7',
-                                      color: intern.status === 'active' ? '#16A34A' : '#D97706',
+                                      bgcolor: isInternActive ? '#DCFCE7' : '#FEE2E2',
+                                      color: isInternActive ? '#16A34A' : '#DC2626',
                                     }}
                                   />
                                 </Box>
@@ -610,6 +613,40 @@ export default function MentorDashboardPage() {
                         );
                       })}
                     </Grid>
+
+                    {filteredMentees.length > 4 && (
+                      <Box
+                        sx={{
+                          mt: 2,
+                          pt: 1.5,
+                          borderTop: '1px solid #F1F5F9',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: 1,
+                        }}
+                      >
+                        <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>
+                          Menampilkan 4 dari {filteredMentees.length} peserta bimbingan
+                        </Typography>
+                        <Button
+                          component={RouterLink}
+                          href={paths.dashboard.dataBimbingan}
+                          size="small"
+                          endIcon={<Iconify icon="solar:arrow-right-linear" width={14} />}
+                          sx={{
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            color: '#004F9F',
+                            textTransform: 'none',
+                            '&:hover': { bgcolor: '#EDF5FE' },
+                          }}
+                        >
+                          Lihat Semua Peserta ({filteredMentees.length})
+                        </Button>
+                      </Box>
+                    )}
                   </Box>
                 )}
               </Card>

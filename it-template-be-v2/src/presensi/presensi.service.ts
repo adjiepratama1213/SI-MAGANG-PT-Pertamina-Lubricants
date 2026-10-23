@@ -11,11 +11,48 @@ export class PresensiService {
     private notificationService: NotificationService,
   ) {}
 
+  private async validateInternPresensiEligibility(intern: any) {
+    if (!intern) {
+      throw new NotFoundException('Data profil peserta tidak ditemukan');
+    }
+
+    if (intern.endDate) {
+      const end = new Date(intern.endDate);
+      end.setHours(23, 59, 59, 999);
+      const now = new Date();
+      if (now > end) {
+        throw new BadRequestException(
+          'Presensi tidak dapat dilakukan karena masa magang Anda telah berakhir.'
+        );
+      } else if (intern.user && intern.user.status === 'banned') {
+        // Durasi telah diperpanjang oleh Admin: pulihkan status ke active secara otomatis
+        await this.prisma.user.update({
+          where: { id: intern.user.id },
+          data: { status: 'active' },
+        });
+        intern.user.status = 'active';
+      }
+    }
+
+    if (!intern.user || intern.user.status !== 'active') {
+      throw new BadRequestException(
+        'Presensi tidak dapat dilakukan karena status akun peserta sedang tidak aktif.'
+      );
+    }
+
+    if (!intern.mentorProfileId) {
+      throw new BadRequestException(
+        'Presensi tidak dapat dilakukan karena Anda belum memiliki mentor pembimbing.'
+      );
+    }
+  }
+
   async checkIn(userId: string, dto: CheckInOutDto, file?: Express.Multer.File) {
     const intern = await this.prisma.internProfile.findUnique({
       where: { userId },
+      include: { user: true },
     });
-    if (!intern) throw new NotFoundException('Intern profile not found');
+    await this.validateInternPresensiEligibility(intern);
 
     const now = new Date();
     const dayOfWeek = now.getDay();
@@ -78,8 +115,9 @@ export class PresensiService {
   async checkOut(userId: string, dto: CheckInOutDto) {
     const intern = await this.prisma.internProfile.findUnique({
       where: { userId },
+      include: { user: true },
     });
-    if (!intern) throw new NotFoundException('Intern profile not found');
+    await this.validateInternPresensiEligibility(intern);
 
     const now = new Date();
     const dayOfWeek = now.getDay();
@@ -111,12 +149,15 @@ export class PresensiService {
       throw new BadRequestException('Already checked out today');
     }
 
-    // Checkout preserves the attendance status (HADIR / HADIR_TERLAMBAT)
-    const diffHours = (now.getTime() - presensi.masuk.getTime()) / (1000 * 60 * 60);
-    const finalStatus = presensi.presensiStatus;
+    // Regulasi: ketika check out di bawah jam 4 sore (sebelum 16:00), presensi terhitung ALPHA
+    let finalStatus: PresensiStatus = presensi.presensiStatus;
     let keterangan = presensi.keterangan;
-    if (now.getHours() < 16 || diffHours < 8) {
-      keterangan = keterangan ? `${keterangan} (Pulang lebih awal)` : 'Pulang lebih awal';
+
+    if (now.getHours() < 16) {
+      finalStatus = PresensiStatus.ALPHA;
+      keterangan = keterangan
+        ? `${keterangan} (Pulang lebih awal sebelum jam 16:00, terhitung Alpha)`
+        : 'Pulang lebih awal sebelum jam 16:00 (Alpha)';
     }
 
     return this.prisma.presensi.update({
@@ -141,7 +182,7 @@ export class PresensiService {
         },
       },
     });
-    if (!intern) throw new NotFoundException('Intern profile not found');
+    await this.validateInternPresensiEligibility(intern);
 
     const start = new Date(dto.tanggalMulai);
     const end = new Date(dto.tanggalSelesai);
@@ -298,11 +339,10 @@ export class PresensiService {
 
     const interns = await this.prisma.internProfile.findMany({
       where: {
-        user: { status: 'active' },
         mentorProfileId: { not: null },
       },
       include: {
-        user: { select: { name: true } },
+        user: { select: { name: true, status: true } },
         mentor: { 
           include: { user: { select: { name: true } } }
         },
@@ -332,10 +372,11 @@ export class PresensiService {
         .map(p => {
           const pDate = new Date(p.tanggalInput);
           const isToday = pDate.getTime() >= todayStart.getTime() && pDate.getTime() <= todayEnd.getTime();
+          const isPastWorkHours = now.getHours() >= 17;
 
           let status = p.presensiStatus as string;
           if (isToday && !p.masuk && (p.presensiStatus === 'ALPHA' || !p.presensiStatus)) {
-            status = 'BELUM CHECK IN';
+            status = isPastWorkHours ? 'ALPHA' : 'BELUM CHECK IN';
           }
 
           if (status === 'HADIR' || status === 'HADIR_TERLAMBAT') {
@@ -343,8 +384,8 @@ export class PresensiService {
           } else if (status === 'IZIN' || status === 'SAKIT') {
             totalIzin++;
           } else if (status === 'ALPHA') {
-            // Jangan hitung ALPHA jika hari ini masih berjalan dan peserta belum masuk
-            if (!isToday || p.masuk) {
+            // Hitung ALPHA jika bukan hari ini, atau jika hari ini tapi jam kerja telah berakhir (>= 17:00)
+            if (!isToday || isPastWorkHours || p.masuk) {
               totalAlpha++;
             }
           }
@@ -365,6 +406,10 @@ export class PresensiService {
           };
         });
 
+      const isUserActive = String(intern.user?.status).toLowerCase() === 'active';
+      const isExpired = intern.endDate ? new Date(intern.endDate) < now : false;
+      const isActive = isUserActive && !isExpired;
+
       return {
         id: intern.id,
         name: intern.user?.name || '-',
@@ -376,6 +421,10 @@ export class PresensiService {
         subFungsi: intern.mentor?.subFungsi || '-',
         mentor: intern.mentor?.user?.name || '-',
         bulan: isAll ? 'Semua Periode' : monthStr,
+        userStatus: intern.user?.status || 'active',
+        startDate: intern.startDate,
+        endDate: intern.endDate,
+        isActive,
         totalHadir,
         totalIzin,
         totalAlpha,
@@ -418,26 +467,25 @@ export class PresensiService {
     });
 
     for (const intern of interns) {
-      // Hapus entri dummy ALPHA hari ini jika peserta belum masuk (agar tidak dianggap alfa sebelum jam kerja selesai)
-      await this.prisma.presensi.deleteMany({
-        where: {
-          internProfileId: intern.id,
-          tanggalInput: { gte: todayStart, lte: todayEnd },
-          masuk: null,
-          presensiStatus: PresensiStatus.ALPHA,
-        },
-      });
+      // Hapus entri dummy ALPHA hari ini HANYA jika jam kerja masih berjalan (sebelum jam 17:00) dan peserta belum masuk
+      if (now.getHours() < 17) {
+        await this.prisma.presensi.deleteMany({
+          where: {
+            internProfileId: intern.id,
+            tanggalInput: { gte: todayStart, lte: todayEnd },
+            masuk: null,
+            presensiStatus: PresensiStatus.ALPHA,
+          },
+        });
+      }
 
       // Tanggal mulai magang
       const internStart = intern.startDate ? new Date(intern.startDate) : new Date(intern.createdAt);
       internStart.setHours(0, 0, 0, 0);
 
-      // Tanggal selesai magang: jika peserta masih aktif/berjalan, pastikan batas sinkronisasi minimal sampai hari ini (todayEnd)
-      // agar tanggal presensi terus ter-update secara berkala dan tidak terhenti di bulan sebelumnya.
-      let internEnd = intern.endDate ? new Date(intern.endDate) : new Date(2099, 11, 31);
-      if (internEnd < todayEnd) {
-        internEnd = new Date(todayEnd);
-      }
+      // Tanggal selesai magang: presensi tidak boleh disinkronkan melebihi intern.endDate
+      // Data riwayat presensi yang telah ada sebelumnya tetap tersimpan dan tidak dihapus.
+      const internEnd = intern.endDate ? new Date(intern.endDate) : new Date(2099, 11, 31);
       internEnd.setHours(23, 59, 59, 999);
 
       // Batas awal sinkronisasi
@@ -446,10 +494,12 @@ export class PresensiService {
         : new Date(internStart);
       startDate.setHours(0, 0, 0, 0);
 
-      // Batas akhir: tidak boleh melewati todayEnd atau targetEnd (jika ada batasan bulan laporan)
-      const endDate = targetEnd
-        ? new Date(Math.min(todayEnd.getTime(), targetEnd.getTime()))
-        : new Date(todayEnd);
+      // Batas akhir: tidak boleh melewati todayEnd, internEnd, atau targetEnd
+      let maxEndTime = Math.min(todayEnd.getTime(), internEnd.getTime());
+      if (targetEnd) {
+        maxEndTime = Math.min(maxEndTime, targetEnd.getTime());
+      }
+      const endDate = new Date(maxEndTime);
       endDate.setHours(23, 59, 59, 999);
 
       if (startDate > endDate) {
@@ -485,7 +535,7 @@ export class PresensiService {
         });
       }
 
-      // Buat entri ALPHA otomatis untuk hari kerja (Senin - Jumat) lampau yang belum diabsen
+      // Buat entri ALPHA otomatis untuk hari kerja (Senin - Jumat) lampau atau hari ini yang jam kerjanya telah selesai (>= 17:00) yang belum diabsen
       const newAlphaEntries = [];
       const cur = new Date(startDate);
 
@@ -493,13 +543,14 @@ export class PresensiService {
         const dayOfWeek = cur.getDay(); // 0: Minggu, 6: Sabtu
         if (dayOfWeek !== 0 && dayOfWeek !== 6) {
           const isToday = cur.getTime() >= todayStart.getTime() && cur.getTime() <= todayEnd.getTime();
+          const isPastWorkHoursToday = isToday && now.getHours() >= 17;
           const dateKey = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
 
-          // HANYA buat record ALPHA jika hari sudah lewat (bukan hari ini yang masih berjalan)
-          if (!existingDatesMap.has(dateKey) && !isToday) {
+          // Buat record ALPHA jika hari sudah lewat, ATAU jika hari ini (isToday) tapi jam kerja sudah selesai (>= 17:00)
+          if (!existingDatesMap.has(dateKey) && (!isToday || isPastWorkHoursToday)) {
             newAlphaEntries.push({
               internProfileId: intern.id,
-              tanggalInput: new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), 8, 0, 0),
+              tanggalInput: new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), 17, 0, 0),
               presensiStatus: PresensiStatus.ALPHA,
               keterangan: 'Tanpa Keterangan',
             });

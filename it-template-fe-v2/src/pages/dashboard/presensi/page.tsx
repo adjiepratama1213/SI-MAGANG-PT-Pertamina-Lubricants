@@ -126,6 +126,7 @@ export default function Page() {
   // New states for real data
   const [adminPresensiData, setAdminPresensiData] = useState<any[]>([]);
   const [filterBulan, setFilterBulan] = useState('all'); // 'all' for akumulasi total, or 'YYYY-MM'
+  const [filterStatusPeserta, setFilterStatusPeserta] = useState<'all' | 'active' | 'inactive'>('all');
   const [isLoading, setIsLoading] = useState(false);
   
   // Filters
@@ -244,6 +245,15 @@ export default function Page() {
   const mentors = Array.from(new Set([...uniqueMentors, ...(activePresensiData || []).map((item) => item?.mentor).filter(Boolean)]));
 
   const filteredData = (activePresensiData || []).filter((row) => {
+    const isRowActive = row?.isActive !== undefined
+      ? row.isActive
+      : (row?.userStatus === 'active' || !row?.userStatus) && (!row?.endDate || new Date(row.endDate) >= new Date());
+
+    const matchStatusPeserta =
+      filterStatusPeserta === 'all' ||
+      (filterStatusPeserta === 'active' && isRowActive) ||
+      (filterStatusPeserta === 'inactive' && !isRowActive);
+
     const matchProgram = filterProgram === 'all' || row?.program === filterProgram;
     const matchDirektorat = filterDirektorat === 'all' || row?.direktorat === filterDirektorat;
     const matchFungsi = filterFungsi === 'all' || row?.fungsi === filterFungsi;
@@ -254,11 +264,20 @@ export default function Page() {
       (row?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (row?.nim || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (row?.kampus || '').toLowerCase().includes(searchQuery.toLowerCase());
-    return matchProgram && matchDirektorat && matchFungsi && matchSubFungsi && matchMentor && matchSearch;
+    return matchStatusPeserta && matchProgram && matchDirektorat && matchFungsi && matchSubFungsi && matchMentor && matchSearch;
+  }).sort((a, b) => {
+    const aActive = a?.isActive !== undefined
+      ? (a.isActive ? 1 : 0)
+      : ((a?.userStatus === 'active' || !a?.userStatus) && (!a?.endDate || new Date(a.endDate) >= new Date()) ? 1 : 0);
+    const bActive = b?.isActive !== undefined
+      ? (b.isActive ? 1 : 0)
+      : ((b?.userStatus === 'active' || !b?.userStatus) && (!b?.endDate || new Date(b.endDate) >= new Date()) ? 1 : 0);
+    return bActive - aActive; // Aktif di depan (1), Tidak Aktif di belakang (0)
   });
 
   const handleResetFilters = () => {
     setFilterBulan('all');
+    setFilterStatusPeserta('all');
     setFilterProgram('all');
     setFilterDirektorat('all');
     setFilterFungsi('all');
@@ -363,7 +382,7 @@ export default function Page() {
         {/* SEARCH & FILTER */}
         <Card sx={{ p: 3, mb: 3, border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel>Periode Presensi</InputLabel>
                 <Select
@@ -378,7 +397,24 @@ export default function Page() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Status Peserta</InputLabel>
+                <Select
+                  label="Status Peserta"
+                  value={filterStatusPeserta}
+                  onChange={(e) => {
+                    setFilterStatusPeserta(e.target.value as any);
+                    setPage(0);
+                  }}
+                >
+                  <MenuItem value="all">Semua Status</MenuItem>
+                  <MenuItem value="active">Peserta Aktif</MenuItem>
+                  <MenuItem value="inactive">Peserta Tidak Aktif (Selesai)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel>Program</InputLabel>
                 <Select label="Program" value={filterProgram} onChange={(e) => setFilterProgram(e.target.value)}>
@@ -387,7 +423,16 @@ export default function Page() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Mentor</InputLabel>
+                <Select label="Mentor" value={filterMentor} onChange={(e) => setFilterMentor(e.target.value)}>
+                  <MenuItem value="all">Semua Mentor</MenuItem>
+                  {mentors.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={4} md={4}>
               <FormControl fullWidth size="small">
                 <InputLabel>Direktorat</InputLabel>
                 <Select label="Direktorat" value={filterDirektorat} onChange={(e) => setFilterDirektorat(e.target.value)}>
@@ -396,7 +441,7 @@ export default function Page() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} sm={4} md={4}>
               <FormControl fullWidth size="small">
                 <InputLabel>Fungsi</InputLabel>
                 <Select label="Fungsi" value={filterFungsi} onChange={(e) => setFilterFungsi(e.target.value)}>
@@ -405,21 +450,12 @@ export default function Page() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} sm={4} md={4}>
               <FormControl fullWidth size="small">
                 <InputLabel>Sub Fungsi</InputLabel>
                 <Select label="Sub Fungsi" value={filterSubFungsi} onChange={(e) => setFilterSubFungsi(e.target.value)}>
                   <MenuItem value="all">Semua Sub Fungsi</MenuItem>
                   {subFungsis.map(sf => <MenuItem key={sf} value={sf}>{sf}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Mentor</InputLabel>
-                <Select label="Mentor" value={filterMentor} onChange={(e) => setFilterMentor(e.target.value)}>
-                  <MenuItem value="all">Semua Mentor</MenuItem>
-                  {mentors.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -475,32 +511,38 @@ export default function Page() {
                   <TableCell sx={{ fontWeight: 'bold' }} align="center">Hadir</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }} align="center">Izin</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }} align="center">Alpha</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Status</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }} align="center">Aksi</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                    <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
                       <LinearProgress />
                     </TableCell>
                   </TableRow>
                 ) : filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                    <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                       <Iconify icon="solar:clipboard-remove-bold-duotone" width={48} sx={{ color: 'text.disabled', mb: 1 }} />
                       <Typography variant="body1" color="text.secondary">Tidak ada data presensi ditemukan</Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => (
-                    <TableRow key={row.id} hover sx={{ '& td': { py: 1.5 } }}>
-                      <TableCell>
-                        <Box>
-                          <Typography variant="body2" fontWeight="bold">{row.name}</Typography>
-                          <Typography variant="caption" color="text.secondary">{row.nim}</Typography>
-                        </Box>
-                      </TableCell>
+                  filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => {
+                    const isRowActive = row?.isActive !== undefined
+                      ? row.isActive
+                      : (row?.userStatus === 'active' || !row?.userStatus) && (!row?.endDate || new Date(row.endDate) >= new Date());
+
+                    return (
+                      <TableRow key={row.id} hover sx={{ '& td': { py: 1.5 } }}>
+                        <TableCell>
+                          <Box>
+                            <Typography variant="body2" fontWeight="bold">{row.name}</Typography>
+                            <Typography variant="caption" color="text.secondary">{row.nim}</Typography>
+                          </Box>
+                        </TableCell>
                       <TableCell>
                         <Typography variant="body2" fontWeight="medium">{row.program}</Typography>
                         <Typography variant="caption" color="text.secondary">{row.kampus}</Typography>
@@ -578,6 +620,28 @@ export default function Page() {
                           }}
                         />
                       </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={isRowActive ? 'Aktif' : 'Tidak Aktif'}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            minWidth: 80,
+                            bgcolor: '#FFFFFF',
+                            borderColor: isRowActive ? '#16A34A' : '#EC2028',
+                            color: isRowActive ? '#16A34A' : '#EC2028',
+                            borderWidth: 1.5,
+                            borderStyle: 'solid',
+                            fontWeight: 700,
+                            fontSize: '0.75rem',
+                            borderRadius: 1,
+                            height: 28,
+                            letterSpacing: '0.3px',
+                            '& .MuiChip-label': { px: 1, fontWeight: 700 },
+                            '&:hover': { bgcolor: '#FFFFFF' },
+                          }}
+                        />
+                      </TableCell>
                       <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
                         <IconButton size="small" color="primary" sx={{ mr: 1, p: 0.75, borderRadius: 1, border: '1px solid #e2e8f0', bgcolor: 'white' }} onClick={() => handleOpenDialog(row)} title="Detail / Edit">
                           <Iconify icon="solar:eye-bold-duotone" width={18} />
@@ -587,7 +651,8 @@ export default function Page() {
                         </IconButton>
                       </TableCell>
                     </TableRow>
-                  ))
+                  );
+                })
                 )}
               </TableBody>
             </Table>
@@ -606,55 +671,98 @@ export default function Page() {
 
       {/* DETAIL DIALOG */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-        {selectedPresensi && (
-          <>
-            <DialogTitle sx={{ m: 0, p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white' }}>
-              <Box>
-                <Typography variant="h6" fontWeight="bold">Detail Presensi</Typography>
-                <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                  {selectedPresensi.name} • {selectedPresensi.nim}
-                </Typography>
-              </Box>
-              <IconButton onClick={handleCloseDialog} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}>
-                <Iconify icon="eva:close-fill" />
-              </IconButton>
-            </DialogTitle>
+        {selectedPresensi && (() => {
+          const isSelectedActive = selectedPresensi?.isActive !== undefined
+            ? selectedPresensi.isActive
+            : ((selectedPresensi?.userStatus === 'active' || !selectedPresensi?.userStatus) && (!selectedPresensi?.endDate || new Date(selectedPresensi.endDate) >= new Date()));
 
-            <DialogContent sx={{ p: 4, pt: '40px !important', bgcolor: '#f8fafc' }}>
-
-              {/* Informasi Peserta */}
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="subtitle1" fontWeight="bold" color="primary.main" sx={{ mb: 2 }}>
-                  Data Peserta
-                </Typography>
-                <Box sx={{ p: 2.5, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0', boxShadow: '0px 2px 4px rgba(0,0,0,0.02)' }}>
-                  <Grid container spacing={3}>
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Nama Lengkap</Typography>
-                      <Typography variant="body2" fontWeight="bold" sx={{ mb: 1.5 }}>{selectedPresensi.name}</Typography>
-
-                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Asal Instansi</Typography>
-                      <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedPresensi.kampus}</Typography>
-
-                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Direktorat</Typography>
-                      <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedPresensi.direktorat}</Typography>
-
-                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Fungsi</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedPresensi.fungsi}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">ID Peserta</Typography>
-                      <Typography variant="body2" fontWeight="bold" sx={{ mb: 1.5 }}>{selectedPresensi.nim}</Typography>
-
-                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Program</Typography>
-                      <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedPresensi.program}</Typography>
-
-                      <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Sub Fungsi</Typography>
-                      <Typography variant="body2" fontWeight="medium">{selectedPresensi.subFungsi}</Typography>
-                    </Grid>
-                  </Grid>
+          return (
+            <>
+              <DialogTitle sx={{ m: 0, p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #004F9F 0%, #003366 100%)', color: 'white' }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+                    <Typography variant="h6" fontWeight="bold">Detail Presensi</Typography>
+                    <Chip
+                      label={isSelectedActive ? 'Aktif' : 'Tidak Aktif'}
+                      size="small"
+                      sx={{
+                        height: 22,
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        bgcolor: isSelectedActive ? '#DCFCE7' : '#FEE2E2',
+                        color: isSelectedActive ? '#16A34A' : '#DC2626',
+                        borderRadius: 1,
+                      }}
+                    />
+                  </Box>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    {selectedPresensi.name} • {selectedPresensi.nim}
+                  </Typography>
                 </Box>
-              </Box>
+                <IconButton onClick={handleCloseDialog} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}>
+                  <Iconify icon="eva:close-fill" />
+                </IconButton>
+              </DialogTitle>
+
+              <DialogContent sx={{ p: 4, pt: '40px !important', bgcolor: '#f8fafc' }}>
+
+                {/* Informasi Peserta */}
+                <Box sx={{ mb: 4 }}>
+                  <Typography variant="subtitle1" fontWeight="bold" color="primary.main" sx={{ mb: 2 }}>
+                    Data Peserta
+                  </Typography>
+                  <Box sx={{ p: 2.5, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0', boxShadow: '0px 2px 4px rgba(0,0,0,0.02)' }}>
+                    <Grid container spacing={3}>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Nama Lengkap</Typography>
+                        <Typography variant="body2" fontWeight="bold" sx={{ mb: 1.5 }}>{selectedPresensi.name}</Typography>
+
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Asal Instansi</Typography>
+                        <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedPresensi.kampus}</Typography>
+
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Direktorat</Typography>
+                        <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedPresensi.direktorat}</Typography>
+
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Fungsi</Typography>
+                        <Typography variant="body2" fontWeight="medium">{selectedPresensi.fungsi}</Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">ID Peserta</Typography>
+                        <Typography variant="body2" fontWeight="bold" sx={{ mb: 1.5 }}>{selectedPresensi.nim}</Typography>
+
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Program</Typography>
+                        <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedPresensi.program}</Typography>
+
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Sub Fungsi</Typography>
+                        <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>{selectedPresensi.subFungsi}</Typography>
+
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Status Peserta</Typography>
+                        <Box sx={{ mt: 0.5 }}>
+                          <Chip
+                            label={isSelectedActive ? 'Aktif' : 'Tidak Aktif'}
+                            size="small"
+                            variant="outlined"
+                            sx={{
+                              minWidth: 80,
+                              bgcolor: '#FFFFFF',
+                              borderColor: isSelectedActive ? '#16A34A' : '#EC2028',
+                              color: isSelectedActive ? '#16A34A' : '#EC2028',
+                              borderWidth: 1.5,
+                              borderStyle: 'solid',
+                              fontWeight: 700,
+                              fontSize: '0.75rem',
+                              borderRadius: 1,
+                              height: 28,
+                              letterSpacing: '0.3px',
+                              '& .MuiChip-label': { px: 1, fontWeight: 700 },
+                              '&:hover': { bgcolor: '#FFFFFF' },
+                            }}
+                          />
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </Box>
 
               <Divider sx={{ mb: 4, borderStyle: 'dashed' }} />
 
@@ -764,7 +872,8 @@ export default function Page() {
               </Button>
             </DialogActions>
           </>
-        )}
+        );
+      })()}
       </Dialog>
     </>
   );

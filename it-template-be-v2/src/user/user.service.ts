@@ -74,6 +74,32 @@ export class UserService {
             }
           }
         }
+
+        // Periksa otomatis peserta yang diperpanjang durasinya (endDate >= todayStart tapi status masih banned)
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const extendedInterns = await this.prisma.internProfile.findMany({
+          where: {
+            endDate: { gte: todayStart },
+            user: { role: 'PESERTA', status: 'banned' },
+          },
+          include: { user: true },
+        });
+
+        for (const intern of extendedInterns) {
+          if (intern.user && intern.endDate) {
+            const end = new Date(intern.endDate);
+            if (end.getHours() === 0 && end.getMinutes() === 0) {
+              end.setHours(23, 59, 59, 999);
+            }
+            if (now <= end) {
+              await this.prisma.user.update({
+                where: { id: intern.user.id },
+                data: { status: 'active' },
+              });
+              console.log(`[Regulasi Magang] Peserta ${intern.user.name} (${intern.user.email}) diaktifkan kembali karena durasi diperpanjang.`);
+            }
+          }
+        }
       } catch (checkErr) {
         console.warn('Check expired interns in UserService.findAll warning:', checkErr);
       }
@@ -240,10 +266,33 @@ export class UserService {
 
       // Logika pengiriman email persetujuan/penolakan untuk PESERTA
       if (oldUser && oldUser.role === 'PESERTA' && oldUser.status === 'pending') {
-        if (updateUserDto.status === 'active') {
-          await this.mailService.sendAcceptanceEmail(updatedUser.email);
-        } else if (updateUserDto.status === 'rejected') {
-          await this.mailService.sendRejectionEmail(updatedUser.email);
+        try {
+          if (updateUserDto.status === 'active') {
+            await this.mailService.sendAcceptanceEmail(updatedUser.email);
+          } else if (updateUserDto.status === 'rejected') {
+            await this.mailService.sendRejectionEmail(updatedUser.email);
+          }
+        } catch (mailError) {
+          console.error('Failed to send status update email to peserta:', mailError);
+        }
+      }
+
+      // Pastikan data internProfile tersedia untuk role PESERTA
+      if ((oldUser?.role === 'PESERTA' || updatedUser.role === 'PESERTA') && updateUserDto.status === 'active') {
+        try {
+          const existingProfile = await this.prisma.internProfile.findUnique({
+            where: { userId: id },
+          });
+          if (!existingProfile) {
+            await this.prisma.internProfile.create({
+              data: {
+                userId: id,
+                mentorProfileId: null,
+              },
+            });
+          }
+        } catch (profileError) {
+          console.error('Failed to ensure internProfile for peserta:', profileError);
         }
       }
 

@@ -134,10 +134,11 @@ export default function JwtLoginView() {
       } else {
         router.push(paths.mfa.validation);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       reset();
-      setErrorMsg(typeof error === 'string' ? error : error.message);
+      const backendMessage = error?.response?.data?.message || (typeof error === 'string' ? error : error?.message || 'Login failed');
+      setErrorMsg(Array.isArray(backendMessage) ? backendMessage.join(', ') : backendMessage);
     }
   });
 
@@ -262,7 +263,9 @@ export default function JwtLoginView() {
                   Kontak Human Capital:
                 </Typography>
                 <Link
-                  href="mailto:hr.lubricants@pertamina.com"
+                  href="https://mail.google.com/mail/?view=cm&fs=1&to=hr.lubricants@pertamina.com&su=Pertanyaan%20Masa%20Magang%20-%20PT%20Pertamina%20Lubricants"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   sx={{
                     color: '#003882',
                     fontWeight: 800,

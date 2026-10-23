@@ -116,11 +116,11 @@ export class InternProfileService implements OnModuleInit {
 
       const effectiveWhere: any = {
         ...where,
-        user: {
-          status: 'active',
-          ...(where?.user || {}),
-        },
       };
+
+      if (where?.user) {
+        effectiveWhere.user = where.user;
+      }
 
       const results = await this.prisma.internProfile.findMany({
         take,
@@ -171,7 +171,7 @@ export class InternProfileService implements OnModuleInit {
           const d = new Date(p.tanggalInput).getDay();
           if (d === 0 || d === 6) return false;
           const isToday = new Date(p.tanggalInput).getTime() >= todayStart.getTime() && new Date(p.tanggalInput).getTime() <= todayEnd.getTime();
-          if (isToday && !p.masuk && p.presensiStatus === 'ALPHA') return false;
+          if (isToday && !p.masuk && p.presensiStatus === 'ALPHA' && now.getHours() < 17) return false;
           return true;
         });
         return {
@@ -329,11 +329,21 @@ export class InternProfileService implements OnModuleInit {
 
     const mentorIds = mentorsInSubFungsi.map(m => m.id);
 
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
     const internsCount = await this.prisma.internProfile.count({
       where: {
         mentorProfileId: { in: mentorIds },
-        ...(currentInternId ? { id: { not: currentInternId } } : {})
-      }
+        ...(currentInternId ? { id: { not: currentInternId } } : {}),
+        user: {
+          status: 'active',
+        },
+        OR: [
+          { endDate: null },
+          { endDate: { gte: todayStart } },
+        ],
+      },
     });
 
     if (internsCount >= targetOrg.kuota) {
@@ -345,7 +355,16 @@ export class InternProfileService implements OnModuleInit {
     try {
       await this.validateMentorQuota(createDto.mentorProfileId || null);
 
-      return await this.prisma.internProfile.create({
+      if (createDto.userId) {
+        const existing = await this.prisma.internProfile.findUnique({
+          where: { userId: createDto.userId },
+        });
+        if (existing) {
+          return await this.update(existing.id, createDto as any);
+        }
+      }
+
+      const created = await this.prisma.internProfile.create({
         data: {
           userId: createDto.userId,
           internId: createDto.internId,
@@ -362,6 +381,21 @@ export class InternProfileService implements OnModuleInit {
           bankAccount: createDto.bankAccount,
         },
       });
+
+      if (createDto.userId && createDto.endDate) {
+        const parsedEnd = new Date(createDto.endDate);
+        if (parsedEnd.getHours() === 0 && parsedEnd.getMinutes() === 0) {
+          parsedEnd.setHours(23, 59, 59, 999);
+        }
+        if (new Date() <= parsedEnd) {
+          await this.prisma.user.update({
+            where: { id: createDto.userId },
+            data: { status: 'active' },
+          });
+        }
+      }
+
+      return created;
     } catch (error) {
       console.error(error);
       throw error;
@@ -391,14 +425,14 @@ export class InternProfileService implements OnModuleInit {
         },
       });
 
-      // Sinkronisasi status user jika ada perubahan endDate
-      if (endDate && existingIntern?.user) {
-        const parsedEnd = new Date(endDate);
-        if (parsedEnd.getHours() === 0 && parsedEnd.getMinutes() === 0) {
-          parsedEnd.setHours(23, 59, 59, 999);
+      // Sinkronisasi status user jika durasi magang diperpanjang atau telah berakhir
+      const targetEnd = endDate ? new Date(endDate) : existingIntern?.endDate ? new Date(existingIntern.endDate) : null;
+      if (targetEnd && existingIntern?.user) {
+        if (targetEnd.getHours() === 0 && targetEnd.getMinutes() === 0) {
+          targetEnd.setHours(23, 59, 59, 999);
         }
         const now = new Date();
-        if (now > parsedEnd && existingIntern.user.status !== 'banned') {
+        if (now > targetEnd && existingIntern.user.status !== 'banned') {
           await this.prisma.user.update({
             where: { id: existingIntern.user.id },
             data: { status: 'banned' },
@@ -408,7 +442,7 @@ export class InternProfileService implements OnModuleInit {
           } catch (e) {
             console.error('Failed to send expired email in intern update:', e);
           }
-        } else if (now <= parsedEnd && existingIntern.user.status === 'banned') {
+        } else if (now <= targetEnd && existingIntern.user.status !== 'active') {
           await this.prisma.user.update({
             where: { id: existingIntern.user.id },
             data: { status: 'active' },

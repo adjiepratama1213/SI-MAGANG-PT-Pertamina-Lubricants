@@ -389,6 +389,7 @@ export default function PesertaDashboardPage() {
         // Presensi Check-In (Masuk)
         if (p.masuk) {
           const dMasuk = new Date(p.masuk);
+          const isAlpha = p.presensiStatus === 'ALPHA';
           const isTerlambat = p.presensiStatus === 'HADIR_TERLAMBAT';
           const jamMasuk = !Number.isNaN(dMasuk.getTime()) ? dMasuk.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-';
           const dRef = !Number.isNaN(dMasuk.getTime()) ? dMasuk : new Date(baseDate);
@@ -399,12 +400,16 @@ export default function PesertaDashboardPage() {
               type: 'PRESENSI',
               date: dRef,
               dateFormatted: formatActivityDate(dRef),
-              title: isTerlambat ? 'Check In Masuk (Terlambat)' : 'Check In Masuk Berhasil',
+              title: isAlpha
+                ? 'Check In Masuk (Tercatat)'
+                : isTerlambat
+                ? 'Check In Masuk (Terlambat)'
+                : 'Check In Masuk Berhasil',
               description: `Pukul ${jamMasuk} WIB — Kehadiran diverifikasi di lokasi penugasan`,
               badge: 'Presensi',
               badgeColor: { bg: 'rgba(0, 79, 159, 0.08)', text: COLOR_BANNER_NAVY },
-              statusLabel: isTerlambat ? 'Terlambat' : 'Hadir',
-              statusColor: isTerlambat ? 'warning' : 'success',
+              statusLabel: isAlpha ? 'Tercatat' : isTerlambat ? 'Terlambat' : 'Hadir',
+              statusColor: isAlpha ? 'default' : isTerlambat ? 'warning' : 'success',
               icon: 'solar:login-2-bold-duotone',
               iconBg: isTerlambat ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.12)',
               iconColor: isTerlambat ? '#D97706' : '#059669',
@@ -417,6 +422,7 @@ export default function PesertaDashboardPage() {
         // Presensi Check-Out (Pulang)
         if (p.keluar) {
           const dKeluar = new Date(p.keluar);
+          const isEarlyAlpha = p.presensiStatus === 'ALPHA';
           const jamKeluar = !Number.isNaN(dKeluar.getTime()) ? dKeluar.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-';
           if (!Number.isNaN(dKeluar.getTime())) {
             items.push({
@@ -424,15 +430,19 @@ export default function PesertaDashboardPage() {
               type: 'PRESENSI',
               date: dKeluar,
               dateFormatted: formatActivityDate(dKeluar),
-              title: 'Check Out Pulang Berhasil',
-              description: `Pukul ${jamKeluar} WIB — Jam kerja harian selesai`,
+              title: isEarlyAlpha ? 'Check Out Lebih Awal (Alpha)' : 'Check Out Pulang Berhasil',
+              description: isEarlyAlpha
+                ? `Pukul ${jamKeluar} WIB — Pulang sebelum pukul 16:00 (Terhitung Alpha)`
+                : `Pukul ${jamKeluar} WIB — Jam kerja harian selesai`,
               badge: 'Presensi',
-              badgeColor: { bg: 'rgba(0, 79, 159, 0.08)', text: COLOR_BANNER_NAVY },
-              statusLabel: 'Selesai',
-              statusColor: 'info',
-              icon: 'solar:logout-2-bold-duotone',
-              iconBg: 'rgba(0, 79, 159, 0.1)',
-              iconColor: COLOR_BANNER_NAVY,
+              badgeColor: isEarlyAlpha
+                ? { bg: 'rgba(239, 68, 68, 0.08)', text: '#EF4444' }
+                : { bg: 'rgba(0, 79, 159, 0.08)', text: COLOR_BANNER_NAVY },
+              statusLabel: isEarlyAlpha ? 'Alpha' : 'Selesai',
+              statusColor: isEarlyAlpha ? 'error' : 'info',
+              icon: isEarlyAlpha ? 'solar:close-circle-bold-duotone' : 'solar:logout-2-bold-duotone',
+              iconBg: isEarlyAlpha ? 'rgba(239, 68, 68, 0.1)' : 'rgba(0, 79, 159, 0.1)',
+              iconColor: isEarlyAlpha ? '#EF4444' : COLOR_BANNER_NAVY,
               link: paths.dashboard.pesertaPresensi,
               linkText: 'Presensi',
             });
@@ -576,7 +586,7 @@ export default function PesertaDashboardPage() {
         {/* 3 TOP SUMMARY CARDS (Warna Sesuai Permintaan) */}
         <Grid container spacing={2.5} sx={{ mb: 3 }}>
           {/* Card 1: Total Kehadiran (Warna Biru Banner) */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={4} md={4}>
             <Card
               sx={{
                 p: 3,
@@ -628,7 +638,7 @@ export default function PesertaDashboardPage() {
           </Grid>
 
           {/* Card 2: Nilai Evaluasi Akhir (Warna Hijau Nilai) */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={4} md={4}>
             <Card
               sx={{
                 p: 3,
@@ -680,7 +690,7 @@ export default function PesertaDashboardPage() {
           </Grid>
 
           {/* Card 3: Program Magang (Warna Merah Rekap Kehadiran) */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={4} md={4}>
             <Card
               sx={{
                 p: 3,

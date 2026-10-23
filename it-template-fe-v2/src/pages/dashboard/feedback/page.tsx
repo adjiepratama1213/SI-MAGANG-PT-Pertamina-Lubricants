@@ -33,12 +33,26 @@ export default function AdminFeedbackPage() {
   // Filter state
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('ALL');
+  const [filterStatusPeserta, setFilterStatusPeserta] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [searchKeyword, setSearchKeyword] = useState('');
 
   // Admin response in dialog
   const [statusVal, setStatusVal] = useState('Baru');
   const [adminResponse, setAdminResponse] = useState('');
   const [savingResponse, setSavingResponse] = useState(false);
+
+  // Helper cek keaktifan peserta
+  const isFeedbackInternActive = (intern: any) => {
+    if (!intern) return true;
+    const userStatus = (intern.user?.status || '').toLowerCase();
+    if (userStatus && userStatus !== 'active') return false;
+    if (intern.endDate) {
+      const end = new Date(intern.endDate);
+      end.setHours(23, 59, 59, 999);
+      if (new Date() > end) return false;
+    }
+    return true;
+  };
 
   // Toast
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
@@ -104,19 +118,23 @@ export default function AdminFeedbackPage() {
     }
   };
 
-  // Filter feedbacks dari user aktif saja
-  const activeFeedbacks = feedbacks.filter((f) => !f.intern?.user || !f.intern.user.status || f.intern.user.status === 'active');
+  // Seluruh feedbacks (tidak menghilangkan feedback dari peserta yang masa magangnya telah usai / tidak aktif)
+  const allFeedbacks = feedbacks;
 
   // KPI Calculations
-  const totalFeedback = activeFeedbacks.length;
+  const totalFeedback = allFeedbacks.length;
   const avgRating = totalFeedback > 0
-    ? (activeFeedbacks.reduce((sum, item) => sum + (item.rating || 5), 0) / totalFeedback).toFixed(1)
+    ? (allFeedbacks.reduce((sum, item) => sum + (item.rating || 5), 0) / totalFeedback).toFixed(1)
     : '0.0';
-  const unreadCount = activeFeedbacks.filter((f) => f.status === 'Baru').length;
-  const resolvedCount = activeFeedbacks.filter((f) => f.status === 'Ditindaklanjuti').length;
+  const unreadCount = allFeedbacks.filter((f) => f.status === 'Baru').length;
+  const resolvedCount = allFeedbacks.filter((f) => f.status === 'Ditindaklanjuti').length;
 
   // Filtered List
-  const filteredFeedbacks = activeFeedbacks.filter((item) => {
+  const filteredFeedbacks = allFeedbacks.filter((item) => {
+    const isRowActive = isFeedbackInternActive(item.intern);
+    if (filterStatusPeserta === 'ACTIVE' && !isRowActive) return false;
+    if (filterStatusPeserta === 'INACTIVE' && isRowActive) return false;
+
     const matchesCategory = filterCategory === 'ALL' || item.category === filterCategory;
     const matchesStatus = filterStatus === 'ALL' || item.status === filterStatus;
     const internName = item.isAnonymous ? 'Anonim' : item.intern?.user?.name || '';
@@ -289,7 +307,22 @@ export default function AdminFeedbackPage() {
         {/* SEARCH & FILTER */}
         <Card sx={{ p: 3, mb: 3, border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={3}>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
+                <InputLabel>Status Peserta</InputLabel>
+                <Select
+                  label="Status Peserta"
+                  value={filterStatusPeserta}
+                  onChange={(e) => setFilterStatusPeserta(e.target.value as any)}
+                >
+                  <MenuItem value="ALL">Semua Status Peserta</MenuItem>
+                  <MenuItem value="ACTIVE">Peserta Aktif</MenuItem>
+                  <MenuItem value="INACTIVE">Peserta Tidak Aktif (Selesai)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={2.5}>
               <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
                 <InputLabel>Kategori Feedback</InputLabel>
                 <Select
@@ -307,7 +340,7 @@ export default function AdminFeedbackPage() {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={3}>
+            <Grid item xs={12} sm={6} md={2.5}>
               <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
                 <InputLabel>Status Feedback</InputLabel>
                 <Select
@@ -323,7 +356,7 @@ export default function AdminFeedbackPage() {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={6} sx={{ display: 'flex', gap: 1 }}>
+            <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex', gap: 1 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -343,6 +376,7 @@ export default function AdminFeedbackPage() {
                 variant="outlined"
                 color="inherit"
                 onClick={() => {
+                  setFilterStatusPeserta('ALL');
                   setFilterCategory('ALL');
                   setFilterStatus('ALL');
                   setSearchKeyword('');
@@ -391,22 +425,37 @@ export default function AdminFeedbackPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredFeedbacks.map((row) => (
-                    <TableRow key={row.id} hover>
-                      <TableCell sx={{ fontWeight: 600 }}>
-                        {row.isAnonymous ? (
-                          <Chip label="Anonim (Dirahasiakan)" size="small" variant="outlined" />
-                        ) : (
-                          <Box>
-                            <Typography variant="body2" fontWeight="bold">
-                              {row.intern?.user?.name || 'Peserta'}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {row.intern?.university || '-'}
-                            </Typography>
-                          </Box>
-                        )}
-                      </TableCell>
+                  {filteredFeedbacks.map((row) => {
+                    const isRowActive = isFeedbackInternActive(row.intern);
+                    return (
+                      <TableRow key={row.id} hover>
+                        <TableCell sx={{ fontWeight: 600 }}>
+                          {row.isAnonymous ? (
+                            <Chip label="Anonim (Dirahasiakan)" size="small" variant="outlined" />
+                          ) : (
+                            <Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="body2" fontWeight="bold">
+                                  {row.intern?.user?.name || 'Peserta'}
+                                </Typography>
+                                <Chip
+                                  label={isRowActive ? 'Aktif' : 'Tidak Aktif'}
+                                  size="small"
+                                  sx={{
+                                    height: 20,
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    bgcolor: isRowActive ? '#DCFCE7' : '#FEE2E2',
+                                    color: isRowActive ? '#16A34A' : '#DC2626',
+                                  }}
+                                />
+                              </Box>
+                              <Typography variant="caption" color="text.secondary">
+                                {row.intern?.university || '-'}
+                              </Typography>
+                            </Box>
+                          )}
+                        </TableCell>
                       <TableCell>
                         <Chip label={row.category} size="small" color="primary" variant="soft" />
                       </TableCell>
@@ -443,7 +492,8 @@ export default function AdminFeedbackPage() {
                         </IconButton>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );
+                })}
                 </TableBody>
               </Table>
             )}
@@ -480,11 +530,28 @@ export default function AdminFeedbackPage() {
                     <Typography variant="caption" color="text.secondary" fontWeight="bold">
                       PENGIRIM
                     </Typography>
-                    <Typography variant="body2" fontWeight="bold">
-                      {selectedFeedback.isAnonymous
-                        ? 'Anonim (Identitas Dirahasiakan)'
-                        : selectedFeedback.intern?.user?.name || 'Peserta Magang'}
-                    </Typography>
+                    {selectedFeedback.isAnonymous ? (
+                      <Typography variant="body2" fontWeight="bold">
+                        Anonim (Identitas Dirahasiakan)
+                      </Typography>
+                    ) : (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" fontWeight="bold">
+                          {selectedFeedback.intern?.user?.name || 'Peserta Magang'}
+                        </Typography>
+                        <Chip
+                          label={isFeedbackInternActive(selectedFeedback.intern) ? 'Aktif' : 'Tidak Aktif'}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            bgcolor: isFeedbackInternActive(selectedFeedback.intern) ? '#DCFCE7' : '#FEE2E2',
+                            color: isFeedbackInternActive(selectedFeedback.intern) ? '#16A34A' : '#DC2626',
+                          }}
+                        />
+                      </Box>
+                    )}
                     {!selectedFeedback.isAnonymous && (
                       <Typography variant="caption" color="text.secondary">
                         {selectedFeedback.intern?.university || ''} ({selectedFeedback.intern?.major || ''})
@@ -579,8 +646,13 @@ export default function AdminFeedbackPage() {
           )}
         </DialogContent>
 
-        <DialogActions sx={{ p: 3, pt: 1, justifyContent: 'space-between' }}>
-          <Button onClick={handleCloseDetail} color="inherit">
+        <DialogActions sx={{ p: 3, pt: 1, justifyContent: 'flex-end', gap: 1.5 }}>
+          <Button
+            onClick={handleCloseDetail}
+            variant="outlined"
+            color="inherit"
+            sx={{ borderColor: '#CBD5E1', borderRadius: 1.5, textTransform: 'none' }}
+          >
             Batal
           </Button>
           <Button
@@ -588,7 +660,7 @@ export default function AdminFeedbackPage() {
             color="primary"
             onClick={handleSaveResponse}
             disabled={savingResponse}
-            sx={{ px: 4, bgcolor: '#004F9F' }}
+            sx={{ px: 3, bgcolor: '#004F9F', borderRadius: 1.5, textTransform: 'none' }}
           >
             {savingResponse ? 'Menyimpan...' : 'Simpan Tindak Lanjut'}
           </Button>

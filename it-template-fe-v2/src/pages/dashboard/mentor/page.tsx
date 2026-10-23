@@ -252,6 +252,10 @@ export default function Page() {
     const matchStatus = filterStatus === 'all' || (m.status || '').toLowerCase() === (filterStatus === 'aktif' ? 'aktif' : 'tidak aktif');
 
     return matchName && matchDir && matchFungsi && matchSubFungsi && matchStatus;
+  }).sort((a, b) => {
+    const aActive = a.status === 'Aktif' ? 1 : 0;
+    const bActive = b.status === 'Aktif' ? 1 : 0;
+    return bActive - aActive; // Aktif di depan, Tidak Aktif di belakang
   });
 
   const handleResetFilters = () => {
@@ -310,7 +314,7 @@ export default function Page() {
               onClick={() => exportMentorPdf(filteredMentors)}
               sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9' }, fontWeight: 'bold' }}
             >
-              <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Data
+              <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Data Mentor
             </Button>
           </Stack>
         </Box>
@@ -347,7 +351,7 @@ export default function Page() {
             </Grid>
             <Grid item xs={12} md={3}>
               <FormControl fullWidth size="small">
-                <InputLabel>Status</InputLabel>
+                <InputLabel>Status Mentor</InputLabel>
                 <Select label="Status" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                   <MenuItem value="all">Semua Status</MenuItem>
                   <MenuItem value="aktif">Aktif</MenuItem>

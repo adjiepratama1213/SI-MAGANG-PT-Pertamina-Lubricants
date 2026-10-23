@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unused-prop-types */
 // @mui
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -16,6 +17,9 @@ import Iconify from 'src/components/iconify';
 // ----------------------------------------------------------------------
 
 type Props = {
+  title?: string;
+  subTitle?: string;
+  image?: string;
   children: React.ReactNode;
 };
 

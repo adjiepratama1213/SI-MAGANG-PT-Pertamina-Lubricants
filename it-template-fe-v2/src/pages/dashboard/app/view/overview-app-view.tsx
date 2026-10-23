@@ -9,8 +9,10 @@ import { useRouter } from 'src/hooks/use-router';
 import { 
   Typography, Card, CardHeader, Box, 
   List, ListItem, Avatar,
-  Button, Stack, Chip, LinearProgress, Divider
+  Button, Stack, Chip, LinearProgress, Divider,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow
 } from '@mui/material';
+import { toast } from 'react-toastify';
 // components
 import Iconify from 'src/components/iconify';
 import DashboardBreadcrumbs from 'src/components/dashboard-breadcrumbs';
@@ -80,6 +82,7 @@ export default function OverviewAppView() {
   const [remindersList, setRemindersList] = useState<any[]>([]);
   const [feedbacksList, setFeedbacksList] = useState<any[]>([]);
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
+  const [organizationsList, setOrganizationsList] = useState<any[]>([]);
   const [activityFilter, setActivityFilter] = useState<'ALL' | 'ADMIN' | 'PESERTA' | 'MENTOR' | 'VP'>('ALL');
 
   // Status VP Approvals tersinkronisasi dengan localStorage
@@ -94,12 +97,13 @@ export default function OverviewAppView() {
 
   const fetchDashboardData = async () => {
     try {
-      const [internRes, presensiRes, reminderRes, feedbackRes, notifRes] = await Promise.allSettled([
+      const [internRes, presensiRes, reminderRes, feedbackRes, notifRes, orgRes] = await Promise.allSettled([
         axiosInstance.get('/intern-profile'),
         axiosInstance.get('/presensi/admin/monthly?month=all'),
         axiosInstance.get(endpoints.notification.reminder),
         axiosInstance.get(endpoints.notification.feedback),
         axiosInstance.get('/notification'),
+        axiosInstance.get(endpoints.employeeProfile.organizationsHierarchy),
       ]);
 
       const interns = internRes.status === 'fulfilled' && internRes.value.data?.results ? internRes.value.data.results : [];
@@ -107,12 +111,14 @@ export default function OverviewAppView() {
       const reminders = reminderRes.status === 'fulfilled' && Array.isArray(reminderRes.value.data) ? reminderRes.value.data : [];
       const feedbacks = feedbackRes.status === 'fulfilled' && Array.isArray(feedbackRes.value.data) ? feedbackRes.value.data : [];
       const notifs = notifRes.status === 'fulfilled' && notifRes.value.data?.notifications ? notifRes.value.data.notifications : [];
+      const orgs = orgRes.status === 'fulfilled' && Array.isArray(orgRes.value.data) ? orgRes.value.data : [];
 
       setInternsList(interns);
       setPresensiData(presensi);
       setRemindersList(reminders);
       setFeedbacksList(feedbacks);
       setNotificationsList(notifs);
+      setOrganizationsList(orgs);
     } catch (err) {
       console.error('Failed to fetch dashboard stats:', err);
     }
@@ -151,7 +157,7 @@ export default function OverviewAppView() {
   }, [userSearchData]);
 
   const activeFeedbacksList = useMemo(() => {
-    return feedbacksList.filter((f: any) => !f.intern?.user || !f.intern.user.status || f.intern.user.status === 'active');
+    return feedbacksList;
   }, [feedbacksList]);
 
   // Perhitungan Data Statistik Riil
@@ -168,27 +174,57 @@ export default function OverviewAppView() {
 
   const rate = totalRecordedAll > 0 ? Math.round((totalHadirAll / totalRecordedAll) * 100) : 100;
 
-  // Pipeline Evaluasi & Sertifikat
-  const totalEvaluated = activeInternsList.filter((i: any) => !!i.evaluation).length;
-  const totalLaporan = activeInternsList.filter((i: any) => Array.isArray(i.Laporan) && i.Laporan.length > 0).length;
-  const totalCertificate = activeInternsList.filter((i: any) => !!i.evaluation?.certificateUrl).length;
+  // Pipeline Evaluasi & Kelulusan (Fokus hanya pada status yang sudah selesai)
+  const selesaiEvaluasiList = useMemo(() => {
+    return activeInternsList.filter((intern: any) => {
+      const hasEval = !!intern.evaluation;
+      const lap = getLatestLaporanAkhir(intern.Laporan);
+      return hasEval && lap?.statusFeedback === 'Telah Dievaluasi';
+    });
+  }, [activeInternsList]);
 
-  // Peserta yang status evaluasinya sudah selesai dinilai & laporan akhir dievaluasi
-  const totalSelesaiEvaluasi = activeInternsList.filter((intern: any) => {
-    const hasEval = !!intern.evaluation;
-    const lap = getLatestLaporanAkhir(intern.Laporan);
-    return hasEval && lap?.statusFeedback === 'Telah Dievaluasi';
-  }).length;
+  const getInternVpStatus = (intern: any) => {
+    if (intern?.evaluation?.certificateUrl) return 'APPROVED';
+    return vpApprovals[intern?.id] || 'NONE';
+  };
 
-  // Peserta yang sudah selesai evaluasi tapi belum diajukan approval ke VP
-  const siapAjukanVpCount = activeInternsList.filter((intern: any) => {
-    const hasEval = !!intern.evaluation;
-    const lap = getLatestLaporanAkhir(intern.Laporan);
-    const isSelesai = hasEval && lap?.statusFeedback === 'Telah Dievaluasi';
-    const hasCert = !!intern.evaluation?.certificateUrl;
-    const vpSt = vpApprovals[intern.id] || 'NONE';
-    return isSelesai && !hasCert && vpSt === 'NONE';
-  }).length;
+  // 1. Belum Diajukan Approval (Admin belum request ke VP)
+  const belumDiajukanVpList = useMemo(() => {
+    return selesaiEvaluasiList.filter((intern: any) => {
+      const hasCert = !!intern.evaluation?.certificateUrl;
+      const vpSt = vpApprovals[intern.id] || 'NONE';
+      return !hasCert && vpSt === 'NONE';
+    });
+  }, [selesaiEvaluasiList, vpApprovals]);
+
+  // 2. Sudah Pengajuan Approval (Sedang Menunggu Approval dari VP)
+  const sudahDiajukanVpList = useMemo(() => {
+    return selesaiEvaluasiList.filter((intern: any) => {
+      const hasCert = !!intern.evaluation?.certificateUrl;
+      const vpSt = vpApprovals[intern.id] || 'NONE';
+      return !hasCert && vpSt === 'PENDING';
+    });
+  }, [selesaiEvaluasiList, vpApprovals]);
+
+  // 3. Mendapat Approval dari VP (Telah Disetujui VP / Sertifikat Terbit)
+  const mendapatApprovalVpList = useMemo(() => {
+    return selesaiEvaluasiList.filter((intern: any) => {
+      const hasCert = !!intern.evaluation?.certificateUrl;
+      const vpSt = vpApprovals[intern.id] || 'NONE';
+      return hasCert || vpSt === 'APPROVED';
+    });
+  }, [selesaiEvaluasiList, vpApprovals]);
+
+  const totalSelesaiEvaluasi = selesaiEvaluasiList.length;
+  const siapAjukanVpCount = belumDiajukanVpList.length;
+  const totalDirektorat = organizationsList.length > 0 ? organizationsList.length : 5;
+
+  // Data Pendaftar / Pelamar Magang dari User Management
+  const allPendaftarList = useMemo(() => {
+    return (userSearchData || []).filter((u: any) => u.role === 'PESERTA');
+  }, [userSearchData]);
+  const totalPendaftar = allPendaftarList.length;
+  const pendingPendaftar = allPendaftarList.filter((u: any) => u.status === 'pending').length;
 
   // Program Distribution
   const pklCount = activeInternsList.filter((i: any) => (i.program || '').toUpperCase().includes('PKL')).length;
@@ -252,12 +288,12 @@ export default function OverviewAppView() {
               const year = parseInt(parts[2], 10);
               if (year === y && monthIdx >= 0 && monthIdx < 12) {
                 const st = (d.status || '').toUpperCase();
-                if (st === 'HADIR' || st === 'HADIR_TERLAMBAT' || (d.masuk && d.masuk !== '-')) {
-                  yHadir[monthIdx]++;
+                if (st === 'ALPHA') {
+                  yAlpha[monthIdx]++;
                 } else if (st === 'IZIN' || st === 'SAKIT') {
                   yIzin[monthIdx]++;
-                } else if (st === 'ALPHA') {
-                  yAlpha[monthIdx]++;
+                } else if (st === 'HADIR' || st === 'HADIR_TERLAMBAT' || (d.masuk && d.masuk !== '-')) {
+                  yHadir[monthIdx]++;
                 }
               }
             }
@@ -353,7 +389,7 @@ export default function OverviewAppView() {
           description: `Admin mengajukan berkas evaluasi kelulusan ${internName} untuk disetujui VP`,
           time: new Date(),
           timeStr: 'Baru saja',
-          icon: 'solar:letter-bold',
+          icon: 'solar:letter-unread-bold-duotone',
           iconBg: 'rgba(0, 79, 159, 0.1)',
           iconColor: '#004F9F',
           link: '/dashboard/evaluasi-peserta',
@@ -427,7 +463,7 @@ export default function OverviewAppView() {
               description: `Mentor mengevaluasi berkas laporan milik ${i.user?.name || 'peserta'}${lap.komentar ? `: "${lap.komentar.slice(0, 45)}..."` : ''}`,
               time: d,
               timeStr: formatActivityTime(d),
-              icon: 'solar:document-check-bold-duotone',
+              icon: 'solar:file-check-bold-duotone',
               iconBg: 'rgba(238, 46, 36, 0.1)',
               iconColor: '#EE2E24',
               link: '/dashboard/evaluasi-peserta',
@@ -469,7 +505,7 @@ export default function OverviewAppView() {
             description: `${i.user?.name || 'Peserta'} mengunggah berkas laporan magang`,
             time: d,
             timeStr: formatActivityTime(d),
-            icon: 'solar:document-upload-bold-duotone',
+            icon: 'solar:upload-bold-duotone',
             iconBg: 'rgba(22, 163, 74, 0.1)',
             iconColor: '#16A34A',
             link: '/dashboard/evaluasi-peserta',
@@ -482,7 +518,7 @@ export default function OverviewAppView() {
     presensiData.forEach((item: any) => {
       if (Array.isArray(item.presensiDetail)) {
         item.presensiDetail.slice(-2).forEach((d: any) => {
-          if (d.status === 'HADIR' || d.status === 'HADIR_TERLAMBAT' || (d.masuk && d.masuk !== '-')) {
+          if (d.status !== 'ALPHA' && (d.status === 'HADIR' || d.status === 'HADIR_TERLAMBAT' || (d.masuk && d.masuk !== '-'))) {
             const isTerlambat = d.status === 'HADIR_TERLAMBAT';
             let dateObj = new Date();
             if (d.tanggal && d.tanggal.includes('/')) {
@@ -619,26 +655,24 @@ export default function OverviewAppView() {
       onClick: () => router.push('/dashboard/mentor'),
     },
     {
-      title: 'EVALUASI PESERTA',
-      value: totalSelesaiEvaluasi,
-      suffix: 'Selesai',
-      icon: 'solar:clipboard-check-bold-duotone',
+      title: 'TOTAL DIREKTORAT',
+      value: totalDirektorat,
+      suffix: 'Direktorat',
+      icon: 'solar:buildings-3-bold-duotone',
       color: '#16A34A',
       bg: '#DCFCE7',
-      caption: siapAjukanVpCount > 0 
-        ? `${siapAjukanVpCount} siap diajukan approval ke VP` 
-        : (totalSelesaiEvaluasi > 0 ? 'Status evaluasi selesai dinilai' : 'Belum ada evaluasi selesai'),
-      onClick: () => router.push('/dashboard/evaluasi-peserta'),
+      caption: 'Direktorat unit kerja terdaftar',
+      onClick: () => router.push('/dashboard/peserta'),
     },
     {
-      title: 'TINGKAT KEHADIRAN',
-      value: `${rate}%`,
-      suffix: '',
-      icon: 'solar:chart-2-bold-duotone',
-      color: '#F59E0B',
-      bg: '#FEF3C7',
-      caption: 'Akumulasi performa kehadiran',
-      onClick: () => router.push('/dashboard/presensi'),
+      title: 'PENDAFTAR MAGANG',
+      value: totalPendaftar,
+      suffix: 'Pelamar',
+      icon: 'solar:user-plus-bold-duotone',
+      color: '#0284C7',
+      bg: '#E0F2FE',
+      caption: pendingPendaftar > 0 ? `${pendingPendaftar} pendaftar menunggu verifikasi` : 'Semua pendaftar telah diverifikasi',
+      onClick: () => router.push('/user-management/peserta'),
     },
   ];
 
@@ -701,7 +735,7 @@ export default function OverviewAppView() {
             </Box>
           </Grid>
 
-          {/* 4 Summary Cards (Termasuk Evaluasi Peserta pengganti Hadir Hari Ini) */}
+          {/* 4 Summary Cards */}
           {summaryCards.map((card, index) => (
             <Grid xs={12} sm={6} md={3} key={index}>
               <Card
@@ -756,84 +790,30 @@ export default function OverviewAppView() {
                   )}
                 </Box>
 
-                <Typography variant="caption" sx={{ color: card.title === 'EVALUASI PESERTA' && siapAjukanVpCount > 0 ? '#16A34A' : '#94A3B8', mt: 1, fontWeight: card.title === 'EVALUASI PESERTA' && siapAjukanVpCount > 0 ? 700 : 500 }}>
+                <Typography variant="caption" sx={{ color: '#94A3B8', mt: 1, fontWeight: 500 }}>
                   {card.caption}
                 </Typography>
               </Card>
             </Grid>
           ))}
-
-          {/* SECTION: PROGRESS EVALUASI & KELULUSAN (Status Selesai Siap Approval ke VP) */}
-          <Grid xs={12}>
-            <Card sx={{ p: 3, borderRadius: 2, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', bgcolor: '#FFFFFF' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, mb: 2.5 }}>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight={700} color="#004F9F">
-                    Progress Evaluasi & Kelulusan Peserta
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Pantau status penyelesaian laporan, penilaian mentor, approval VP, dan penerbitan sertifikat
-                  </Typography>
-                </Box>
-                <Button 
-                  size="small" 
-                  variant="outlined" 
-                  color="primary" 
-                  onClick={() => router.push('/dashboard/evaluasi-peserta')}
-                  startIcon={<Iconify icon="solar:arrow-right-up-bold" width={14} />}
-                  sx={{ textTransform: 'none', borderRadius: 1.5, fontWeight: 700, fontSize: '0.75rem' }}
-                >
-                  Buka Menu Evaluasi
-                </Button>
-              </Box>
-
-              <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid xs={6} sm={3}>
-                  <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'rgba(0, 79, 159, 0.05)', borderRadius: 1.5, border: '1px solid rgba(0, 79, 159, 0.15)' }}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', fontSize: '0.7rem' }}>LAPORAN TERKUMPUL</Typography>
-                    <Typography variant="h4" fontWeight={800} color="#004F9F">{totalLaporan}</Typography>
-                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.68rem' }}>Berkas laporan akhir</Typography>
-                  </Box>
-                </Grid>
-                <Grid xs={6} sm={3}>
-                  <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'rgba(245, 158, 11, 0.05)', borderRadius: 1.5, border: '1px solid rgba(245, 158, 11, 0.15)' }}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', fontSize: '0.7rem' }}>DINILAI MENTOR</Typography>
-                    <Typography variant="h4" fontWeight={800} color="#F59E0B">{totalEvaluated}</Typography>
-                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.68rem' }}>Nilai evaluasi terisi</Typography>
-                  </Box>
-                </Grid>
-                <Grid xs={6} sm={3}>
-                  <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'rgba(156, 39, 176, 0.05)', borderRadius: 1.5, border: '1px solid rgba(156, 39, 176, 0.15)' }}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', fontSize: '0.7rem' }}>STATUS SELESAI</Typography>
-                    <Typography variant="h4" fontWeight={800} color="#9C27B0">{totalSelesaiEvaluasi}</Typography>
-                    <Typography variant="caption" sx={{ color: siapAjukanVpCount > 0 ? '#9C27B0' : 'text.disabled', fontWeight: siapAjukanVpCount > 0 ? 700 : 500, fontSize: '0.68rem' }}>
-                      {siapAjukanVpCount > 0 ? `${siapAjukanVpCount} siap diajukan ke VP` : 'Siap / diproses VP'}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid xs={6} sm={3}>
-                  <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'rgba(22, 163, 74, 0.05)', borderRadius: 1.5, border: '1px solid rgba(22, 163, 74, 0.15)' }}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', fontSize: '0.7rem' }}>SERTIFIKAT RESMI</Typography>
-                    <Typography variant="h4" fontWeight={800} color="#16A34A">{totalCertificate}</Typography>
-                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.68rem' }}>Telah diterbitkan</Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, bgcolor: '#F8FAFC', borderRadius: 1.5, border: '1px solid #E2E8F0' }}>
-                <Iconify icon="solar:info-circle-bold-duotone" width={22} sx={{ color: '#004F9F', flexShrink: 0 }} />
-                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                  <strong>{totalSelesaiEvaluasi} dari {totalPeserta} peserta</strong> telah selesai dievaluasi. {siapAjukanVpCount > 0 && <span>Terdapat <strong>{siapAjukanVpCount} peserta</strong> yang siap diajukan approval ke VP. </span>}<strong>{totalCertificate} peserta</strong> telah menerima sertifikat kelulusan magang resmi.
-                </Typography>
-              </Box>
-            </Card>
-          </Grid>
           
           {/* Charts Area: Statistik Kehadiran dengan pilihan tahun berikutnya & tahun sebelumnya */}
           <Grid xs={12} md={8}>
               <AppAreaInstalled
                 title="Statistik Kehadiran Peserta"
                 subheader="Tren kehadiran peserta magang tahun 2026"
+                actionButton={
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => router.push('/dashboard/presensi')}
+                    startIcon={<Iconify icon="solar:calendar-date-bold-duotone" width={14} />}
+                    sx={{ textTransform: 'none', borderRadius: 1.5, fontWeight: 700, fontSize: '0.75rem', mr: 1 }}
+                  >
+                    Kelola Presensi
+                  </Button>
+                }
                 chart={{
                   categories: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'],
                   colors: [
@@ -851,6 +831,18 @@ export default function OverviewAppView() {
               <AppCurrentDownload
                 title="Program Peserta Magang"
                 subheader="Distribusi peserta berdasarkan program"
+                action={
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => router.push('/dashboard/peserta')}
+                    startIcon={<Iconify icon="solar:users-group-rounded-bold-duotone" width={14} />}
+                    sx={{ textTransform: 'none', borderRadius: 1.5, fontWeight: 700, fontSize: '0.75rem' }}
+                  >
+                    Kelola Peserta
+                  </Button>
+                }
                 chart={{
                   colors: [
                     '#004F9F',
@@ -867,194 +859,327 @@ export default function OverviewAppView() {
               />
           </Grid>
 
-          {/* WIDGET TAMBAHAN 1: SEBARAN FUNGSI & PENEMPATAN KERJA */}
-          <Grid xs={12} md={6}>
-            <Card sx={{ p: 3, height: '100%', borderRadius: 2, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', bgcolor: '#FFFFFF' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight={700} color="#004F9F">
-                    Sebaran Penempatan Fungsi Kerja
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Distribusi peserta pada divisi pembimbing PT Pertamina Lubricants
-                  </Typography>
-                </Box>
-                <Button 
-                  size="small" 
-                  variant="outlined" 
-                  color="primary" 
-                  onClick={() => router.push('/dashboard/mentor')}
-                  startIcon={<Iconify icon="solar:user-speak-rounded-bold-duotone" width={14} />}
-                  sx={{ textTransform: 'none', borderRadius: 1.5, fontWeight: 700, fontSize: '0.75rem' }}
-                >
-                  Daftar Mentor
-                </Button>
-              </Box>
+          {/* WIDGET 1: SEBARAN FUNGSI & PENEMPATAN KERJA */}
+          <Grid xs={12} md={4}>
+            <Card sx={{ height: '100%', borderRadius: 2, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', bgcolor: '#FFFFFF', display: 'flex', flexDirection: 'column' }}>
+              <CardHeader
+                title="Sebaran Penempatan Fungsi Kerja"
+                subheader="Distribusi peserta pada divisi pembimbing PTPL"
+                action={
+                  <Button 
+                    size="small" 
+                    variant="outlined" 
+                    color="primary" 
+                    onClick={() => router.push('/dashboard/mentor')}
+                    startIcon={<Iconify icon="solar:user-speak-rounded-bold-duotone" width={14} />}
+                    sx={{ textTransform: 'none', borderRadius: 1.5, fontWeight: 700, fontSize: '0.75rem' }}
+                  >
+                    Daftar Mentor
+                  </Button>
+                }
+                sx={{ p: 2.5, pb: 1.5 }}
+              />
 
-              <Stack spacing={2} sx={{ mt: 1 }}>
-                {functionDistribution.slice(0, 4).map((func, idx) => (
-                  <Box key={idx}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: idx === 0 ? '#004F9F' : idx === 1 ? '#16A34A' : idx === 2 ? '#F59E0B' : '#64748B' }} />
-                        <Typography variant="body2" fontWeight={600} color="#0F172A">
-                          {func.name}
+              <Box 
+                sx={{ 
+                  p: 2.5, 
+                  pt: 0, 
+                  flex: 1, 
+                  maxHeight: 260, 
+                  overflowY: 'auto', 
+                  pr: 1,
+                  '&::-webkit-scrollbar': { width: 4 },
+                  '&::-webkit-scrollbar-thumb': { bgcolor: '#CBD5E1', borderRadius: 2 }
+                }}
+              >
+                <Stack spacing={2}>
+                  {functionDistribution.map((func, idx) => (
+                    <Box key={idx}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: idx === 0 ? '#004F9F' : idx === 1 ? '#16A34A' : idx === 2 ? '#F59E0B' : '#64748B' }} />
+                          <Typography variant="body2" fontWeight={600} color="#0F172A">
+                            {func.name}
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" fontWeight={700} color="#64748B">
+                          {func.count} Peserta ({func.percent}%)
                         </Typography>
                       </Box>
-                      <Typography variant="caption" fontWeight={700} color="#64748B">
-                        {func.count} Peserta ({func.percent}%)
-                      </Typography>
+                      <LinearProgress 
+                        variant="determinate" 
+                        value={func.percent} 
+                        sx={{ 
+                          height: 6, 
+                          borderRadius: 3, 
+                          bgcolor: '#F1F5F9',
+                          '& .MuiLinearProgress-bar': { 
+                            bgcolor: idx === 0 ? '#004F9F' : idx === 1 ? '#16A34A' : idx === 2 ? '#F59E0B' : '#64748B', 
+                            borderRadius: 3 
+                          }
+                        }} 
+                      />
                     </Box>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={func.percent} 
-                      sx={{ 
-                        height: 6, 
-                        borderRadius: 3, 
-                        bgcolor: '#F1F5F9',
-                        '& .MuiLinearProgress-bar': { 
-                          bgcolor: idx === 0 ? '#004F9F' : idx === 1 ? '#16A34A' : idx === 2 ? '#F59E0B' : '#64748B', 
-                          borderRadius: 3 
-                        }
-                      }} 
-                    />
+                  ))}
+                  {functionDistribution.length === 0 && (
+                    <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                      Belum ada data penempatan fungsi kerja
+                    </Typography>
+                  )}
+                </Stack>
+              </Box>
+            </Card>
+          </Grid>
+
+          {/* WIDGET 2: PROGRESS EVALUASI & KELULUSAN PESERTA (Card Kotak Clean & Sebaris) */}
+          <Grid xs={12} md={4}>
+            <Card sx={{ height: '100%', borderRadius: 2, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', bgcolor: '#FFFFFF', display: 'flex', flexDirection: 'column' }}>
+              <CardHeader
+                title="Progress Evaluasi & Kelulusan Peserta"
+                subheader="Status pengajuan & approval kelulusan ke VP"
+                action={
+                  <Button 
+                    size="small" 
+                    variant="outlined" 
+                    color="primary" 
+                    onClick={() => router.push('/dashboard/evaluasi-peserta')}
+                    startIcon={<Iconify icon="solar:arrow-right-up-bold" width={14} />}
+                    sx={{ textTransform: 'none', borderRadius: 1.5, fontWeight: 700, fontSize: '0.75rem', borderColor: '#CBD5E1', color: '#004F9F' }}
+                  >
+                    Buka Evaluasi
+                  </Button>
+                }
+                sx={{ p: 2.5, pb: 1.5 }}
+              />
+
+              <Stack spacing={1.5} sx={{ p: 2.5, pt: 0, flex: 1, justifyContent: 'space-between' }}>
+                {/* Kolom 1: Belum Diajukan Approval (Kotak Biasa Clean) */}
+                <Box 
+                  onClick={() => router.push('/dashboard/evaluasi-peserta')}
+                  sx={{ 
+                    p: 2, 
+                    borderRadius: 1.5, 
+                    bgcolor: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      borderColor: '#CBD5E1',
+                      bgcolor: '#F8FAFC',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                      transform: 'translateY(-1px)'
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748B', fontSize: '0.68rem', letterSpacing: 0.5 }}>
+                      BELUM DIAJUKAN APPROVAL
+                    </Typography>
+                    <Box sx={{ width: 28, height: 28, borderRadius: 1, bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Iconify icon="solar:bell-bing-bold-duotone" width={16} />
+                    </Box>
                   </Box>
-                ))}
-                {functionDistribution.length === 0 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                    Belum ada data penempatan fungsi kerja
+                  <Typography variant="h4" fontWeight={800} sx={{ color: '#0F172A', lineHeight: 1.1, mb: 0.5 }}>
+                    {belumDiajukanVpList.length}
                   </Typography>
-                )}
+                  <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 500, fontSize: '0.75rem', display: 'block' }}>
+                    {belumDiajukanVpList.length > 0 ? `${belumDiajukanVpList.length} berkas siap diajukan ke VP` : 'Seluruh berkas telah diajukan ke VP'}
+                  </Typography>
+                </Box>
+
+                {/* Kolom 2: Sudah Pengajuan Approval (Kotak Biasa Clean) */}
+                <Box 
+                  onClick={() => router.push('/dashboard/evaluasi-peserta')}
+                  sx={{ 
+                    p: 2, 
+                    borderRadius: 1.5, 
+                    bgcolor: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      borderColor: '#CBD5E1',
+                      bgcolor: '#F8FAFC',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                      transform: 'translateY(-1px)'
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748B', fontSize: '0.68rem', letterSpacing: 0.5 }}>
+                      SUDAH PENGAJUAN APPROVAL
+                    </Typography>
+                    <Box sx={{ width: 28, height: 28, borderRadius: 1, bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Iconify icon="solar:hourglass-bold-duotone" width={16} />
+                    </Box>
+                  </Box>
+                  <Typography variant="h4" fontWeight={800} sx={{ color: '#0F172A', lineHeight: 1.1, mb: 0.5 }}>
+                    {sudahDiajukanVpList.length}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 500, fontSize: '0.75rem', display: 'block' }}>
+                    {sudahDiajukanVpList.length > 0 ? `${sudahDiajukanVpList.length} berkas menunggu approval VP` : 'Tidak ada berkas menunggu approval VP'}
+                  </Typography>
+                </Box>
+
+                {/* Kolom 3: Mendapat Approval dari VP (Kotak Biasa Clean) */}
+                <Box 
+                  onClick={() => router.push('/dashboard/evaluasi-peserta')}
+                  sx={{ 
+                    p: 2, 
+                    borderRadius: 1.5, 
+                    bgcolor: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      borderColor: '#CBD5E1',
+                      bgcolor: '#F8FAFC',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                      transform: 'translateY(-1px)'
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748B', fontSize: '0.68rem', letterSpacing: 0.5 }}>
+                      MENDAPAT APPROVAL DARI VP
+                    </Typography>
+                    <Box sx={{ width: 28, height: 28, borderRadius: 1, bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Iconify icon="solar:check-circle-bold-duotone" width={16} />
+                    </Box>
+                  </Box>
+                  <Typography variant="h4" fontWeight={800} sx={{ color: '#0F172A', lineHeight: 1.1, mb: 0.5 }}>
+                    {mendapatApprovalVpList.length}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 500, fontSize: '0.75rem', display: 'block' }}>
+                    Kelulusan disetujui VP / Bersertifikat
+                  </Typography>
+                </Box>
               </Stack>
             </Card>
           </Grid>
 
-          {/* WIDGET TAMBAHAN 2: PUSAT FEEDBACK & ASPIRASI TERBARU (Kategori jelas & warna status sesuai menu Feedback) */}
-          <Grid xs={12} md={6}>
-            <Card sx={{ p: 3, height: '100%', borderRadius: 2, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', bgcolor: '#FFFFFF' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight={700} color="#004F9F">
-                    Feedback & Aspirasi Terkini
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Masukan peserta terkait program & fasilitas magang
-                  </Typography>
-                </Box>
-                <Button 
-                  size="small" 
-                  variant="outlined" 
-                  color="primary" 
-                  onClick={() => router.push('/dashboard/feedback')}
-                  startIcon={<Iconify icon="solar:chat-round-dots-bold-duotone" width={14} />}
-                  sx={{ textTransform: 'none', borderRadius: 1.5, fontWeight: 700, fontSize: '0.75rem' }}
-                >
-                  Kelola Feedback
-                </Button>
-              </Box>
-
-              <Grid container spacing={1.5} sx={{ mb: 2 }}>
-                <Grid xs={4}>
-                  <Box sx={{ p: 1, textAlign: 'center', bgcolor: '#F8FAFC', borderRadius: 1.5, border: '1px solid #E2E8F0' }}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', fontSize: '0.65rem' }}>TOTAL MASUK</Typography>
-                    <Typography variant="subtitle1" fontWeight={800} color="#004F9F">{totalFeedbacks}</Typography>
-                  </Box>
-                </Grid>
-                <Grid xs={4}>
-                  <Box sx={{ p: 1, textAlign: 'center', bgcolor: 'rgba(100, 116, 139, 0.08)', borderRadius: 1.5, border: '1px solid rgba(100, 116, 139, 0.2)' }}>
-                    <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, display: 'block', fontSize: '0.65rem' }}>BARU</Typography>
-                    <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#64748B' }}>{newFeedbacksCount}</Typography>
-                  </Box>
-                </Grid>
-                <Grid xs={4}>
-                  <Box sx={{ p: 1, textAlign: 'center', bgcolor: 'rgba(22, 163, 74, 0.05)', borderRadius: 1.5, border: '1px solid rgba(22, 163, 74, 0.15)' }}>
-                    <Typography variant="caption" sx={{ color: '#16A34A', fontWeight: 700, display: 'block', fontSize: '0.65rem' }}>DITINDAKLANJUTI</Typography>
-                    <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#16A34A' }}>{doneFeedbacksCount}</Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-
-              <List disablePadding>
-                {feedbacksList.slice(0, 3).map((fb: any, idx: number) => (
-                  <ListItem 
-                    key={fb.id || idx} 
-                    disableGutters 
-                    sx={{ 
-                      p: 1.25, 
-                      mb: 1, 
-                      bgcolor: '#F8FAFC', 
-                      borderRadius: 1.5, 
-                      border: '1px solid #E2E8F0',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }}
+          {/* WIDGET 3: PUSAT FEEDBACK & ASPIRASI TERBARU */}
+          <Grid xs={12} md={4}>
+            <Card sx={{ height: '100%', borderRadius: 2, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', bgcolor: '#FFFFFF', display: 'flex', flexDirection: 'column' }}>
+              <CardHeader
+                title="Feedback & Aspirasi Terkini"
+                subheader="Masukan peserta terkait program & fasilitas magang"
+                action={
+                  <Button 
+                    size="small" 
+                    variant="outlined" 
+                    color="primary" 
+                    onClick={() => router.push('/dashboard/feedback')}
+                    startIcon={<Iconify icon="solar:chat-round-dots-bold-duotone" width={14} />}
+                    sx={{ textTransform: 'none', borderRadius: 1.5, fontWeight: 700, fontSize: '0.75rem' }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, pr: 1 }}>
-                      <Avatar sx={{ width: 30, height: 30, bgcolor: '#EDF5FE', color: '#004F9F', fontSize: '0.75rem', fontWeight: 700 }}>
-                        {(fb.intern?.user?.name || 'P').charAt(0).toUpperCase()}
-                      </Avatar>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                          <Typography variant="caption" fontWeight={700} color="#0F172A" noWrap>
-                            {fb.isAnonymous ? 'Peserta (Anonim)' : (fb.intern?.user?.name || 'Peserta')}
-                          </Typography>
-                          <Chip 
-                            label={fb.category || 'Umum'} 
-                            size="small" 
-                            sx={{ 
-                              height: 19, 
-                              fontSize: '0.66rem', 
-                              bgcolor: 'rgba(0, 79, 159, 0.08)', 
-                              color: '#004F9F',
-                              border: '1px solid rgba(0, 79, 159, 0.2)',
-                              fontWeight: 700,
-                              borderRadius: 1,
-                              '& .MuiChip-label': { px: 0.8, color: '#004F9F', fontWeight: 700 }
-                            }} 
-                          />
+                    Kelola Feedback
+                  </Button>
+                }
+                sx={{ p: 2.5, pb: 1.5 }}
+              />
+
+              <Box sx={{ p: 2.5, pt: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Grid container spacing={1} sx={{ mb: 2 }}>
+                  <Grid xs={4}>
+                    <Box sx={{ p: 1, textAlign: 'center', bgcolor: '#F8FAFC', borderRadius: 1.5, border: '1px solid #E2E8F0' }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', fontSize: '0.65rem' }}>TOTAL</Typography>
+                      <Typography variant="subtitle1" fontWeight={800} color="#004F9F">{totalFeedbacks}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid xs={4}>
+                    <Box sx={{ p: 1, textAlign: 'center', bgcolor: 'rgba(100, 116, 139, 0.08)', borderRadius: 1.5, border: '1px solid rgba(100, 116, 139, 0.2)' }}>
+                      <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, display: 'block', fontSize: '0.65rem' }}>BARU</Typography>
+                      <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#64748B' }}>{newFeedbacksCount}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid xs={4}>
+                    <Box sx={{ p: 1, textAlign: 'center', bgcolor: 'rgba(22, 163, 74, 0.05)', borderRadius: 1.5, border: '1px solid rgba(22, 163, 74, 0.15)' }}>
+                      <Typography variant="caption" sx={{ color: '#16A34A', fontWeight: 700, display: 'block', fontSize: '0.65rem' }}>DITINDAK</Typography>
+                      <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#16A34A' }}>{doneFeedbacksCount}</Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+
+                <Box
+                  sx={{
+                    flex: 1,
+                    maxHeight: 185,
+                    overflowY: 'auto',
+                    pr: 0.5,
+                    '&::-webkit-scrollbar': { width: 4 },
+                    '&::-webkit-scrollbar-thumb': { bgcolor: '#CBD5E1', borderRadius: 2 }
+                  }}
+                >
+                  <List disablePadding>
+                    {feedbacksList.map((fb: any, idx: number) => (
+                      <ListItem 
+                        key={fb.id || idx} 
+                        disableGutters 
+                        sx={{ 
+                          p: 1.25, 
+                          mb: 1, 
+                          bgcolor: '#F8FAFC', 
+                          borderRadius: 1.5, 
+                          border: '1px solid #E2E8F0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, pr: 1 }}>
+                          <Avatar sx={{ width: 28, height: 28, bgcolor: '#EDF5FE', color: '#004F9F', fontSize: '0.72rem', fontWeight: 700 }}>
+                            {(fb.intern?.user?.name || 'P').charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.25 }}>
+                              <Typography variant="caption" fontWeight={700} color="#0F172A" noWrap sx={{ maxWidth: 100 }}>
+                                {fb.isAnonymous ? 'Peserta (Anonim)' : (fb.intern?.user?.name || 'Peserta')}
+                              </Typography>
+                              <Chip 
+                                label={fb.category || 'Umum'} 
+                                size="small" 
+                                sx={{ 
+                                  height: 18, 
+                                  fontSize: '0.64rem', 
+                                  bgcolor: 'rgba(0, 79, 159, 0.08)', 
+                                  color: '#004F9F',
+                                  border: '1px solid rgba(0, 79, 159, 0.2)',
+                                  fontWeight: 700,
+                                  borderRadius: 1,
+                                  '& .MuiChip-label': { px: 0.6, color: '#004F9F', fontWeight: 700 }
+                                }} 
+                              />
+                            </Box>
+                            <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', fontSize: '0.7rem' }}>
+                              "{fb.message || 'Tidak ada pesan'}"
+                            </Typography>
+                          </Box>
                         </Box>
-                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', fontSize: '0.7rem' }}>
-                          "{fb.message || 'Tidak ada pesan'}"
+                        {getFeedbackStatusChip(fb.status)}
+                      </ListItem>
+                    ))}
+                    {feedbacksList.length === 0 && (
+                      <Box sx={{ p: 2, textAlign: 'center', bgcolor: '#F8FAFC', borderRadius: 1.5 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Belum ada feedback baru yang masuk.
                         </Typography>
                       </Box>
-                    </Box>
-                    {getFeedbackStatusChip(fb.status)}
-                  </ListItem>
-                ))}
-                {feedbacksList.length === 0 && (
-                  <Box sx={{ p: 2, textAlign: 'center', bgcolor: '#F8FAFC', borderRadius: 1.5 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Belum ada feedback baru yang masuk.
-                    </Typography>
-                  </Box>
-                )}
-              </List>
+                    )}
+                  </List>
+                </Box>
+              </Box>
             </Card>
           </Grid>
 
           {/* SECTION: AKTIVITAS TERBARU (Multi-role: Admin, Peserta, Mentor, VP) */}
           <Grid xs={12} md={7} lg={8}>
             <Card sx={{ height: '100%', borderRadius: 2, border: '1px solid #E2E8F0', bgcolor: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: 2.5, pb: 1.5, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1.5 }}>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight={700} color="#004F9F">
-                    Aktivitas Terbaru
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Log terpadu aktivitas Admin, Peserta, Mentor, dan VP
-                  </Typography>
-                </Box>
-                <Button 
-                  size="small" 
-                  color="primary" 
-                  variant="outlined"
-                  onClick={() => router.push('/dashboard/presensi')} 
-                  sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, fontSize: '0.75rem' }}
-                >
-                  Log Presensi
-                </Button>
-              </Box>
+              <CardHeader
+                title="Aktivitas Terbaru"
+                subheader="Log terpadu aktivitas Admin, Peserta, Mentor, dan VP"
+                sx={{ p: 2.5, pb: 1.5 }}
+              />
 
               {/* Role Filter Tabs */}
               <Box sx={{ px: 2.5, pb: 1.5, display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
@@ -1123,7 +1248,15 @@ export default function OverviewAppView() {
                           flexShrink: 0,
                         }}
                       >
-                        <Iconify icon={act.icon} width={20} />
+                        <Iconify
+                          icon={act.icon || (
+                            act.role === 'ADMIN' ? 'solar:shield-user-bold-duotone' :
+                            act.role === 'MENTOR' ? 'solar:user-speak-rounded-bold-duotone' :
+                            act.role === 'VP' ? 'solar:check-circle-bold-duotone' :
+                            'solar:user-rounded-bold-duotone'
+                          )}
+                          width={20}
+                        />
                       </Avatar>
                       <Box sx={{ minWidth: 0 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.25 }}>
@@ -1184,38 +1317,72 @@ export default function OverviewAppView() {
                   <CardHeader title="Aksi Cepat" subheader="Navigasi cepat ke seluruh menu operasional" sx={{ pb: 1 }} />
                   <Stack spacing={1} sx={{ p: 2 }}>
                     <Grid container spacing={1}>
-                      <Grid xs={6}>
-                        <Button fullWidth variant="outlined" color="primary" size="small" onClick={() => router.push('/dashboard/peserta')} startIcon={<Iconify icon="solar:users-group-rounded-bold-duotone" width={18} />} sx={{ justifyContent: 'flex-start', px: 1.5, py: 0.75, bgcolor: 'rgba(0, 79, 159, 0.05)', textTransform: 'none', fontWeight: 700 }}>
-                          Peserta
-                        </Button>
-                      </Grid>
-                      <Grid xs={6}>
-                        <Button fullWidth variant="outlined" color="secondary" size="small" onClick={() => router.push('/dashboard/mentor')} startIcon={<Iconify icon="solar:user-speak-rounded-bold-duotone" width={18} />} sx={{ justifyContent: 'flex-start', px: 1.5, py: 0.75, bgcolor: 'rgba(156, 39, 176, 0.05)', textTransform: 'none', fontWeight: 700 }}>
-                          Mentor
-                        </Button>
-                      </Grid>
-                      <Grid xs={6}>
-                        <Button fullWidth variant="outlined" color="info" size="small" onClick={() => router.push('/dashboard/presensi')} startIcon={<Iconify icon="solar:calendar-date-bold-duotone" width={18} />} sx={{ justifyContent: 'flex-start', px: 1.5, py: 0.75, bgcolor: 'rgba(0, 184, 217, 0.05)', textTransform: 'none', fontWeight: 700 }}>
-                          Presensi
-                        </Button>
-                      </Grid>
-                      <Grid xs={6}>
-                        <Button fullWidth variant="outlined" color="success" size="small" onClick={() => router.push('/dashboard/evaluasi-peserta')} startIcon={<Iconify icon="solar:clipboard-check-bold-duotone" width={18} />} sx={{ justifyContent: 'flex-start', px: 1.5, py: 0.75, bgcolor: 'rgba(0, 167, 111, 0.05)', textTransform: 'none', fontWeight: 700 }}>
-                          Evaluasi
-                        </Button>
-                      </Grid>
-                      <Grid xs={6}>
-                        <Button fullWidth variant="outlined" color="error" size="small" onClick={() => router.push('/dashboard/feedback')} startIcon={<Iconify icon="solar:chat-round-dots-bold-duotone" width={18} />} sx={{ justifyContent: 'flex-start', px: 1.5, py: 0.75, bgcolor: 'rgba(255, 86, 48, 0.05)', textTransform: 'none', fontWeight: 700 }}>
-                          Feedback
-                        </Button>
-                      </Grid>
-                      <Grid xs={6}>
-                        <Button fullWidth variant="outlined" color="warning" size="small" onClick={() => router.push('/dashboard/reminder')} startIcon={<Iconify icon="solar:bell-bing-bold-duotone" width={18} />} sx={{ justifyContent: 'flex-start', px: 1.5, py: 0.75, bgcolor: 'rgba(255, 171, 0, 0.05)', textTransform: 'none', fontWeight: 700 }}>
-                          Reminder
-                        </Button>
-                      </Grid>
+                      {[
+                        { label: 'Peserta', path: '/dashboard/peserta', icon: 'solar:users-group-rounded-bold-duotone' },
+                        { label: 'Mentor', path: '/dashboard/mentor', icon: 'solar:user-speak-rounded-bold-duotone' },
+                        { label: 'Presensi', path: '/dashboard/presensi', icon: 'solar:calendar-date-bold-duotone' },
+                        { label: 'Evaluasi', path: '/dashboard/evaluasi-peserta', icon: 'solar:clipboard-check-bold-duotone' },
+                        { label: 'Feedback', path: '/dashboard/feedback', icon: 'solar:chat-round-dots-bold-duotone' },
+                        { label: 'Reminder', path: '/dashboard/reminder', icon: 'solar:bell-bing-bold-duotone' },
+                      ].map((item) => (
+                        <Grid xs={6} key={item.label}>
+                          <Button
+                            fullWidth
+                            variant="outlined"
+                            size="small"
+                            onClick={() => router.push(item.path)}
+                            startIcon={<Iconify icon={item.icon} width={18} sx={{ color: '#004F9F' }} />}
+                            sx={{
+                              justifyContent: 'flex-start',
+                              px: 1.5,
+                              py: 0.9,
+                              bgcolor: '#F8FAFC',
+                              borderColor: '#E2E8F0',
+                              color: '#1E293B',
+                              textTransform: 'none',
+                              fontWeight: 700,
+                              fontSize: '0.8rem',
+                              borderRadius: 1.5,
+                              transition: 'all 0.2s ease',
+                              '&:hover': {
+                                bgcolor: '#FFFFFF',
+                                borderColor: '#004F9F',
+                                color: '#004F9F',
+                                boxShadow: '0 2px 6px rgba(0, 79, 159, 0.08)',
+                              },
+                            }}
+                          >
+                            {item.label}
+                          </Button>
+                        </Grid>
+                      ))}
                       <Grid xs={12}>
-                        <Button fullWidth variant="outlined" color="inherit" size="small" onClick={() => router.push('/user')} startIcon={<Iconify icon="solar:shield-user-bold-duotone" width={18} />} sx={{ justifyContent: 'flex-start', px: 1.5, py: 0.75, bgcolor: '#f8fafc', textTransform: 'none', fontWeight: 700, borderColor: '#e2e8f0' }}>
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          size="small"
+                          onClick={() => router.push('/user')}
+                          startIcon={<Iconify icon="solar:shield-user-bold-duotone" width={18} sx={{ color: '#004F9F' }} />}
+                          sx={{
+                            justifyContent: 'flex-start',
+                            px: 1.5,
+                            py: 0.9,
+                            bgcolor: '#F8FAFC',
+                            borderColor: '#E2E8F0',
+                            color: '#1E293B',
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            borderRadius: 1.5,
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                              bgcolor: '#FFFFFF',
+                              borderColor: '#004F9F',
+                              color: '#004F9F',
+                              boxShadow: '0 2px 6px rgba(0, 79, 159, 0.08)',
+                            },
+                          }}
+                        >
                           User Management
                         </Button>
                       </Grid>

@@ -54,9 +54,23 @@ export default function EvaluasiPesertaPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
+  const [filterStatusPeserta, setFilterStatusPeserta] = useState<'all' | 'active' | 'inactive'>('all');
   
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+
+  // Helper cek keaktifan peserta magang
+  const isInternActive = (intern: any) => {
+    if (!intern) return false;
+    const userStatus = (intern.user?.status || '').toLowerCase();
+    if (userStatus && userStatus !== 'active') return false;
+    if (intern.endDate) {
+      const end = new Date(intern.endDate);
+      end.setHours(23, 59, 59, 999);
+      if (new Date() > end) return false;
+    }
+    return true;
+  };
 
   // State untuk alur Approval VP (disimpan di localStorage agar tetap persisten)
   const [vpApprovals, setVpApprovals] = useState<Record<string, string>>(() => {
@@ -204,16 +218,22 @@ export default function EvaluasiPesertaPage() {
     };
   }, []);
 
-  const activeInterns = useMemo(() => {
-    return interns.filter(intern => (!intern.user || !intern.user.status || intern.user.status === 'active') && !!intern.mentorProfileId);
+  // Seluruh peserta yang memiliki mentor (termasuk yang masa durasi magangnya telah selesai)
+  const allMentoredInterns = useMemo(() => {
+    return interns.filter(intern => !!intern.mentorProfileId);
   }, [interns]);
 
   const filteredInterns = useMemo(() => {
-    return activeInterns.filter(intern => {
-      const matchQuery = intern.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         intern.internId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         intern.program?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         intern.university?.toLowerCase().includes(searchQuery.toLowerCase());
+    return allMentoredInterns.filter(intern => {
+      const isAktif = isInternActive(intern);
+      if (filterStatusPeserta === 'active' && !isAktif) return false;
+      if (filterStatusPeserta === 'inactive' && isAktif) return false;
+
+      const matchQuery = 
+        (intern.user?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+        (intern.internId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (intern.program || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (intern.university || '').toLowerCase().includes(searchQuery.toLowerCase());
       
       const hasEvaluation = !!intern.evaluation;
       const laporanAkhir = getLatestLaporanAkhir(intern.Laporan);
@@ -225,12 +245,16 @@ export default function EvaluasiPesertaPage() {
       if (filterStatus === 'Belum Selesai' || filterStatus === 'Belum Dinilai') return matchQuery && !isSelesai;
       
       return matchQuery;
+    }).sort((a, b) => {
+      const aActive = isInternActive(a) ? 1 : 0;
+      const bActive = isInternActive(b) ? 1 : 0;
+      return bActive - aActive;
     });
-  }, [activeInterns, searchQuery, filterStatus]);
+  }, [allMentoredInterns, searchQuery, filterStatus, filterStatusPeserta]);
 
   // Statistik
-  const totalPeserta = activeInterns.length;
-  const selesaiCount = activeInterns.filter(intern => {
+  const totalPeserta = allMentoredInterns.length;
+  const selesaiCount = allMentoredInterns.filter(intern => {
     const hasEval = !!intern.evaluation;
     const lap = getLatestLaporanAkhir(intern.Laporan);
     return hasEval && lap?.statusFeedback === 'Telah Dievaluasi';
@@ -262,7 +286,7 @@ export default function EvaluasiPesertaPage() {
               onClick={() => exportEvaluasiPesertaPdf(filteredInterns)}
               sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9' }, fontWeight: 'bold' }}
             >
-              <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Data
+              <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Data Evaluasi Peserta
             </Button>
           </Stack>
         </Box>
@@ -322,13 +346,25 @@ export default function EvaluasiPesertaPage() {
               }}
             />
             <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Status Peserta</InputLabel>
+              <Select
+                value={filterStatusPeserta}
+                onChange={(e) => { setFilterStatusPeserta(e.target.value as any); setPage(0); }}
+                label="Status Peserta"
+              >
+                <MenuItem value="all">Semua Status Peserta</MenuItem>
+                <MenuItem value="active">Peserta Aktif</MenuItem>
+                <MenuItem value="inactive">Peserta Tidak Aktif (Selesai)</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
               <InputLabel>Status Evaluasi</InputLabel>
               <Select
                 value={filterStatus}
                 onChange={(e) => { setFilterStatus(e.target.value); setPage(0); }}
                 label="Status Evaluasi"
               >
-                <MenuItem value="All">Semua</MenuItem>
+                <MenuItem value="All">Semua Evaluasi</MenuItem>
                 <MenuItem value="Selesai">Selesai</MenuItem>
                 <MenuItem value="Belum Selesai">Belum Selesai</MenuItem>
               </Select>
@@ -337,6 +373,7 @@ export default function EvaluasiPesertaPage() {
               variant="outlined"
               color="inherit"
               onClick={() => {
+                setFilterStatusPeserta('all');
                 setFilterStatus('All');
                 setSearchQuery('');
                 setPage(0);
@@ -410,7 +447,7 @@ export default function EvaluasiPesertaPage() {
                       if (p.presensiStatus !== 'ALPHA') return false;
                       const pDate = new Date(p.tanggalInput);
                       const pStr = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}-${String(pDate.getDate()).padStart(2, '0')}`;
-                      if (pStr === todayStr && !p.masuk) return false;
+                      if (pStr === todayStr && !p.masuk && now.getHours() < 17) return false;
                       return true;
                     }).length;
                     
@@ -422,11 +459,26 @@ export default function EvaluasiPesertaPage() {
                     const vpStatus = getVpStatus(row);
                     const hasCertificate = !!row.evaluation?.certificateUrl;
                     
+                    const isRowActive = isInternActive(row);
+
                     return (
                       <TableRow key={row.id} hover sx={{ '& td': { py: 1.5 } }}>
                         <TableCell>
                           <Box>
-                            <Typography variant="body2" fontWeight="bold">{row.user?.name || '-'}</Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="body2" fontWeight="bold">{row.user?.name || '-'}</Typography>
+                              <Chip
+                                label={isRowActive ? 'Aktif' : 'Tidak Aktif'}
+                                size="small"
+                                sx={{
+                                  height: 20,
+                                  fontSize: '0.68rem',
+                                  fontWeight: 700,
+                                  bgcolor: isRowActive ? '#DCFCE7' : '#FEE2E2',
+                                  color: isRowActive ? '#16A34A' : '#DC2626',
+                                }}
+                              />
+                            </Box>
                             <Typography variant="caption" color="text.secondary">{row.internId || '-'}</Typography>
                           </Box>
                         </TableCell>
@@ -748,16 +800,16 @@ export default function EvaluasiPesertaPage() {
                             </Box>
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #e2e8f0', py: 0.65 }}>
-                              <Typography variant="body2" color="text.secondary" fontWeight={500}>Status Akun</Typography>
+                              <Typography variant="body2" color="text.secondary" fontWeight={500}>Status Peserta</Typography>
                               <Chip 
-                                label={selectedIntern.user?.status === 'active' || !selectedIntern.user?.status ? 'Aktif' : selectedIntern.user?.status === 'pending' ? 'Pending' : selectedIntern.user?.status === 'banned' ? 'Banned' : selectedIntern.user?.status} 
+                                label={isInternActive(selectedIntern) ? 'Aktif' : 'Tidak Aktif'} 
                                 size="small" 
                                 variant="outlined"
                                 sx={{
                                   minWidth: 80,
                                   bgcolor: '#FFFFFF',
-                                  borderColor: (selectedIntern.user?.status === 'active' || !selectedIntern.user?.status) ? '#16A34A' : selectedIntern.user?.status === 'pending' ? '#F59E0B' : '#EC2028',
-                                  color: (selectedIntern.user?.status === 'active' || !selectedIntern.user?.status) ? '#16A34A' : selectedIntern.user?.status === 'pending' ? '#F59E0B' : '#EC2028',
+                                  borderColor: isInternActive(selectedIntern) ? '#16A34A' : '#EC2028',
+                                  color: isInternActive(selectedIntern) ? '#16A34A' : '#EC2028',
                                   borderWidth: 1.5,
                                   borderStyle: 'solid',
                                   fontWeight: 700,
@@ -833,7 +885,7 @@ export default function EvaluasiPesertaPage() {
                           if (p.presensiStatus !== 'ALPHA') return false;
                           const pDate = new Date(p.tanggalInput);
                           const pStr = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}-${String(pDate.getDate()).padStart(2, '0')}`;
-                          if (pStr === todayStr && !p.masuk) return false;
+                          if (pStr === todayStr && !p.masuk && now.getHours() < 17) return false;
                           return true;
                         }).length;
                         const totalRecorded = pHadir + pIzinSakit + pAlpha;

@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import Iconify from 'src/components/iconify';
 import { useAuthContext } from 'src/auth/hooks';
+import { useGetUserDetail } from 'src/pages/user-mgmt/query';
 import axiosInstance from 'src/utils/axios';
 import { toast } from 'react-toastify';
 import { HOST_API } from 'src/config-global';
@@ -118,7 +119,10 @@ class ErrorBoundary extends React.Component<any, any> {
 }
 
 function PesertaPresensiPageContent() {
-  const { user } = useAuthContext();
+  const { user: authUser } = useAuthContext();
+  const { user: liveUser } = useGetUserDetail({ id: authUser?.id || '' });
+  const user = (liveUser && liveUser.id) ? liveUser : authUser;
+
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDate, setFilterDate] = useState('');
   const [page, setPage] = useState(0);
@@ -169,6 +173,40 @@ function PesertaPresensiPageContent() {
 
   const [myPresensi, setMyPresensi] = useState<any[]>([]);
   const [isFetching, setIsFetching] = useState(false);
+
+  // Regulasi Presensi Peserta:
+  // Peserta tidak bisa presensi apabila status akun tidak aktif, belum memiliki mentor, atau masa magang telah berakhir.
+  const presensiEligibility = useMemo(() => {
+    const isUserActive = user?.status === 'active' || user?.status === 'ACTIVE' || !user?.status;
+    if (user?.status && !isUserActive) {
+      return {
+        canPresensi: false,
+        reason: 'Akun Anda sedang berstatus tidak aktif. Akses presensi kehadiran dan pengajuan izin dinonaktifkan.',
+      };
+    }
+
+    const mentorId = user?.internProfile?.mentorProfileId || user?.internProfile?.mentor?.id;
+    if (!mentorId) {
+      return {
+        canPresensi: false,
+        reason: 'Anda belum memiliki mentor pembimbing. Sesuai regulasi, presensi baru dapat dilakukan setelah Admin menetapkan mentor pembimbing Anda.',
+      };
+    }
+
+    if (user?.internProfile?.endDate) {
+      const end = new Date(user.internProfile.endDate);
+      end.setHours(23, 59, 59, 999);
+      if (new Date() > end) {
+        return {
+          canPresensi: false,
+          isExpired: true,
+          reason: 'Masa durasi magang Anda telah berakhir. Anda sudah tidak dapat melakukan absensi lagi untuk hari selanjutnya. Seluruh data riwayat presensi yang telah Anda catat sebelumnya tetap tersimpan secara lengkap di sistem.',
+        };
+      }
+    }
+
+    return { canPresensi: true, isExpired: false, reason: '' };
+  }, [user]);
 
   // Deteksi lokasi murni dari perangkat peserta (anti-kecurangan)
   const detectLocation = useCallback(() => {
@@ -321,7 +359,13 @@ function PesertaPresensiPageContent() {
     setPage(0);
   };
 
-  const handleOpenIzin = () => setOpenIzin(true);
+  const handleOpenIzin = () => {
+    if (!presensiEligibility.canPresensi) {
+      toast.warning(presensiEligibility.reason);
+      return;
+    }
+    setOpenIzin(true);
+  };
   const handleCloseIzin = () => setOpenIzin(false);
 
   const handleSubmitIzin = async () => {
@@ -349,6 +393,10 @@ function PesertaPresensiPageContent() {
   };
 
   const handleCheckIn = async () => {
+    if (!presensiEligibility.canPresensi) {
+      toast.error(presensiEligibility.reason);
+      return;
+    }
     if (!location) {
       toast.warning('Tunggu hingga lokasi Anda terdeteksi!');
       return;
@@ -372,6 +420,10 @@ function PesertaPresensiPageContent() {
   };
 
   const submitTerlambat = async () => {
+    if (!presensiEligibility.canPresensi) {
+      toast.error(presensiEligibility.reason);
+      return;
+    }
     if (!keteranganTerlambat) {
       toast.warning('Keterangan keterlambatan harus diisi!');
       return;
@@ -403,16 +455,25 @@ function PesertaPresensiPageContent() {
   };
 
   const handleCheckOut = async () => {
+    if (!presensiEligibility.canPresensi) {
+      toast.error(presensiEligibility.reason);
+      return;
+    }
     if (!checkInTime) {
       toast.warning('Anda belum Check In hari ini');
       return;
     }
     try {
+      const isEarly = new Date().getHours() < 16;
       await axiosInstance.post('/presensi/check-out', {
         lat: location?.lat?.toString(),
         lng: location?.lng?.toString(),
       });
-      toast.success('Check Out berhasil');
+      if (isEarly) {
+        toast.warning('Check Out berhasil dicatat. Karena Check Out dilakukan sebelum pukul 16:00, presensi terhitung ALPHA.');
+      } else {
+        toast.success('Check Out berhasil dicatat.');
+      }
       await fetchPresensi();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Gagal Check Out');
@@ -479,6 +540,32 @@ function PesertaPresensiPageContent() {
             Peserta magang <strong>wajib melakukan Check In sebelum pukul 08:00 pagi</strong>. Check In di atas jam tersebut akan dianggap terlambat. Untuk Check Out, dapat dilakukan setelah jam kerja selesai.
           </Typography>
         </Alert>
+
+        {/* ALERT REGULASI: JIKA TIDAK MEMENUHI SYARAT PRESENSI */}
+        {!presensiEligibility.canPresensi && (
+          <Alert
+            severity={presensiEligibility.isExpired ? 'info' : 'warning'}
+            variant="outlined"
+            sx={{
+              mb: 3,
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: presensiEligibility.isExpired ? '#BFDBFE' : '#FCD34D',
+              bgcolor: presensiEligibility.isExpired ? '#EFF6FF' : '#FFFBEB',
+              color: presensiEligibility.isExpired ? '#1E3A8A' : '#78350F',
+              '& .MuiAlert-icon': {
+                color: presensiEligibility.isExpired ? '#004F9F' : '#D97706',
+              },
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+              {presensiEligibility.isExpired ? 'Masa Magang Berakhir' : 'Akses Presensi Belum Tersedia'}
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 0.5, fontSize: '0.85rem' }}>
+              {presensiEligibility.reason}
+            </Typography>
+          </Alert>
+        )}
 
         {/* FORM ABSENSI */}
         <Card sx={{ p: 3, mb: 3, border: '1px solid #E2E8F0', borderRadius: 2, bgcolor: '#FFFFFF', boxShadow: 'none' }}>
@@ -614,7 +701,7 @@ function PesertaPresensiPageContent() {
                     variant="contained"
                     size="large"
                     onClick={handleCheckIn}
-                    disabled={!location || checkInTime !== null}
+                    disabled={!presensiEligibility.canPresensi || !location || checkInTime !== null}
                     sx={{
                       flex: 1,
                       bgcolor: BRAND_NAVY,
@@ -634,7 +721,7 @@ function PesertaPresensiPageContent() {
                     color="inherit"
                     size="large"
                     onClick={handleCheckOut}
-                    disabled={!checkInTime || checkOutTime !== null}
+                    disabled={!presensiEligibility.canPresensi || !checkInTime || checkOutTime !== null}
                     sx={{
                       flex: 1,
                       borderColor: '#CBD5E1',
@@ -655,13 +742,14 @@ function PesertaPresensiPageContent() {
                     <Button
                       variant="text"
                       onClick={handleOpenIzin}
+                      disabled={!presensiEligibility.canPresensi}
                       sx={{
-                        color: BRAND_NAVY,
+                        color: !presensiEligibility.canPresensi ? 'text.disabled' : BRAND_NAVY,
                         textTransform: 'none',
                         fontWeight: 700,
                         p: 0,
                         minWidth: 'auto',
-                        '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' }
+                        '&:hover': { bgcolor: 'transparent', textDecoration: !presensiEligibility.canPresensi ? 'none' : 'underline' }
                       }}
                     >
                       Ajukan Izin / Sakit

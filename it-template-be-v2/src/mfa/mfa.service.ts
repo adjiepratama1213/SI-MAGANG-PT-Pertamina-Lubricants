@@ -97,7 +97,7 @@ export class MfaService {
           isDurationExpired = now > end;
         }
 
-        if (isDurationExpired || record.status === 'banned') {
+        if (isDurationExpired) {
           if (record.status !== 'banned') {
             await this.prisma.user.update({
               where: { id: record.id },
@@ -112,6 +112,13 @@ export class MfaService {
           throw new UnauthorizedException(
             'Akun Anda telah expired karena masa magang telah berakhir. Akses ke portal magang telah dinonaktifkan secara otomatis. Apabila Anda membutuhkan informasi lebih lanjut mengenai berkas, sertifikat, atau proses perpanjangan, silakan hubungi tim Human Capital melalui email: hr.lubricants@pertamina.com.'
           );
+        } else if (record.status === 'banned') {
+          // Masa durasi magang telah diperpanjang oleh Admin: pulihkan status ke active
+          await this.prisma.user.update({
+            where: { id: record.id },
+            data: { status: 'active' },
+          });
+          record.status = 'active';
         }
       }
 

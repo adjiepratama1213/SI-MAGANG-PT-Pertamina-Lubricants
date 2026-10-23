@@ -882,9 +882,9 @@ export default function ReminderPage() {
           </IconButton>
         </DialogTitle>
 
-        <DialogContent sx={{ p: 3, overflowY: 'auto' }}>
+        <DialogContent sx={{ p: 3, pt: 3.5, overflowY: 'auto' }}>
           {selectedReminder && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
               {/* Judul Pengumuman */}
               <Box
                 sx={{
@@ -892,7 +892,6 @@ export default function ReminderPage() {
                   bgcolor: '#F8FAFC',
                   borderRadius: 2,
                   border: '1px solid #E2E8F0',
-                  borderLeft: '4px solid #004F9F',
                 }}
               >
                 <Typography
@@ -1221,15 +1220,19 @@ export default function ReminderPage() {
           <Button
             onClick={() => setOpenDetailDialog(false)}
             variant="outlined"
-            color="inherit"
             sx={{
               px: 3,
               borderRadius: 1.5,
               textTransform: 'none',
-              fontWeight: 600,
-              borderColor: '#CBD5E1',
+              fontWeight: 700,
+              color: '#004F9F',
+              borderColor: '#004F9F',
               bgcolor: 'white',
-              '&:hover': { bgcolor: '#F1F5F9', borderColor: '#94A3B8' },
+              '&:hover': {
+                bgcolor: 'rgba(0, 79, 159, 0.05)',
+                borderColor: '#003B77',
+                color: '#003B77',
+              },
             }}
           >
             Tutup

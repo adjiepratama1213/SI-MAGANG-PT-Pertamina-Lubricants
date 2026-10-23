@@ -31,4 +31,6 @@ export class UserEntity implements User {
   Vendor: any;
   Position: any;
   // Team: any;
+  internProfile?: any;
+  employeeProfile?: any;
 }
