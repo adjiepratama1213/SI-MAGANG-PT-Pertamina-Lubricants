@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, forwardRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
   Container, Typography, Card, Box, Grid,
@@ -7,6 +7,7 @@ import {
   LinearProgress, Stack, IconButton, Tooltip, Dialog, DialogTitle,
   DialogContent, DialogActions, Divider, Paper, InputAdornment
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import Iconify from 'src/components/iconify';
 import DashboardBreadcrumbs from 'src/components/dashboard-breadcrumbs';
 import axiosInstance from 'src/utils/axios';
@@ -14,6 +15,31 @@ import { HOST_API } from 'src/config-global';
 import { toast } from 'react-toastify';
 import { fDate } from 'src/utils/format-time';
 import { exportEvaluasiPesertaPdf } from 'src/utils/export-pdf';
+import { exportEvaluasiPesertaExcel } from 'src/utils/export-excel';
+
+const YearPickerTextField = forwardRef<HTMLInputElement, any>((props, ref) => {
+  const { isAllYear, inputProps, InputProps, ...otherProps } = props;
+  return (
+    <TextField
+      {...otherProps}
+      ref={ref}
+      value={isAllYear ? 'Semua Tahun' : props.value}
+      inputProps={{
+        ...inputProps,
+        readOnly: true,
+      }}
+      InputProps={InputProps}
+      sx={{
+        cursor: 'pointer',
+        '& .MuiInputBase-input': {
+          cursor: 'pointer',
+        },
+        ...otherProps.sx,
+      }}
+    />
+  );
+});
+
 
 const getFileUrl = (file: string) => {
   if (!file) return '';
@@ -261,6 +287,70 @@ export default function EvaluasiPesertaPage() {
   }).length;
   const belumSelesaiCount = totalPeserta - selesaiCount;
 
+  // Download Modal States (Pilihan Tahun & Format PDF / Excel)
+  const [openDownloadDialog, setOpenDownloadDialog] = useState(false);
+  const [downloadYear, setDownloadYear] = useState('all');
+  const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'excel'>('pdf');
+
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const yearsSet = new Set<string>();
+
+    allMentoredInterns.forEach((intern: any) => {
+      if (intern.startDate) {
+        const y = new Date(intern.startDate).getFullYear();
+        if (!Number.isNaN(y) && y > 2000 && y < 2100) yearsSet.add(String(y));
+      }
+      if (intern.endDate) {
+        const y = new Date(intern.endDate).getFullYear();
+        if (!Number.isNaN(y) && y > 2000 && y < 2100) yearsSet.add(String(y));
+      }
+      if (intern.createdAt) {
+        const y = new Date(intern.createdAt).getFullYear();
+        if (!Number.isNaN(y) && y > 2000 && y < 2100) yearsSet.add(String(y));
+      }
+    });
+
+    yearsSet.add(String(currentYear - 1));
+    yearsSet.add(String(currentYear));
+    yearsSet.add(String(currentYear + 1));
+
+    return Array.from(yearsSet).sort((a, b) => Number(b) - Number(a));
+  }, [allMentoredInterns]);
+
+  const getFilteredDownloadData = useCallback((selectedYear: string) => {
+    return filteredInterns.filter((intern: any) => {
+      if (selectedYear === 'all') return true;
+
+      const startY = intern.startDate ? String(new Date(intern.startDate).getFullYear()) : '';
+      const endY = intern.endDate ? String(new Date(intern.endDate).getFullYear()) : '';
+      const createdY = intern.createdAt ? String(new Date(intern.createdAt).getFullYear()) : '';
+
+      return startY === selectedYear || endY === selectedYear || createdY === selectedYear;
+    });
+  }, [filteredInterns]);
+
+  const downloadFilteredCount = useMemo(() => {
+    return getFilteredDownloadData(downloadYear).length;
+  }, [getFilteredDownloadData, downloadYear]);
+
+  const handleExecuteDownload = () => {
+    const dataToExport = getFilteredDownloadData(downloadYear);
+    if (dataToExport.length === 0) {
+      toast.warning(`Tidak ada data evaluasi peserta untuk ${downloadYear === 'all' ? 'semua tahun' : `tahun ${downloadYear}`}.`);
+      return;
+    }
+
+    if (downloadFormat === 'pdf') {
+      exportEvaluasiPesertaPdf(dataToExport, downloadYear);
+      toast.success(`Berhasil mengunduh ${dataToExport.length} data evaluasi peserta (.pdf)`);
+    } else {
+      exportEvaluasiPesertaExcel(dataToExport, downloadYear);
+      toast.success(`Berhasil mengunduh ${dataToExport.length} data evaluasi peserta (.xlsx)`);
+    }
+    setOpenDownloadDialog(false);
+  };
+
   return (
     <>
       <Helmet>
@@ -283,7 +373,7 @@ export default function EvaluasiPesertaPage() {
           <Stack direction="row" spacing={1.5}>
             <Button
               variant="contained"
-              onClick={() => exportEvaluasiPesertaPdf(filteredInterns)}
+              onClick={() => setOpenDownloadDialog(true)}
               sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9' }, fontWeight: 'bold' }}
             >
               <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Data Evaluasi Peserta
@@ -1529,6 +1619,113 @@ export default function EvaluasiPesertaPage() {
               sx={{ bgcolor: '#004F9F', '&:hover': { bgcolor: '#003366' }, px: 3 }}
             >
               {uploadingCert ? 'Mengunggah...' : targetInternCert?.evaluation?.certificateUrl ? 'Ganti Sertifikat' : 'Unggah Sertifikat'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* DIALOG UNDUH DATA EVALUASI PESERTA */}
+        <Dialog
+          open={openDownloadDialog}
+          onClose={() => setOpenDownloadDialog(false)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: 2 } }}
+        >
+          <DialogTitle sx={{ m: 0, px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              Unduh Data Evaluasi Peserta
+            </Typography>
+            <IconButton size="small" onClick={() => setOpenDownloadDialog(false)} sx={{ color: 'text.secondary' }}>
+              <Iconify icon="eva:close-fill" />
+            </IconButton>
+          </DialogTitle>
+          <Divider />
+
+          <DialogContent sx={{ px: 3, py: 2.5, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                  Periode Tahun
+                </Typography>
+                {downloadYear !== 'all' && (
+                  <Button
+                    size="small"
+                    onClick={() => setDownloadYear('all')}
+                    sx={{ p: 0, minWidth: 0, fontSize: '0.75rem', textTransform: 'none', color: 'primary.main' }}
+                  >
+                    Pilih Semua Tahun
+                  </Button>
+                )}
+              </Box>
+
+              <DatePicker
+                views={['year']}
+                value={downloadYear === 'all' ? null : new Date(Number(downloadYear), 0, 1)}
+                referenceDate={new Date()}
+                onChange={(newVal: Date | null) => {
+                  if (newVal && !Number.isNaN(newVal.getTime())) {
+                    setDownloadYear(String(newVal.getFullYear()));
+                  } else {
+                    setDownloadYear('all');
+                  }
+                }}
+                slots={{
+                  textField: YearPickerTextField,
+                }}
+                slotProps={{
+                  field: {
+                    clearable: true,
+                    onClear: () => setDownloadYear('all'),
+                  },
+                  actionBar: {
+                    actions: ['clear', 'accept'],
+                  },
+                  textField: {
+                    fullWidth: true,
+                    size: 'small',
+                    placeholder: 'Semua Tahun',
+                    isAllYear: downloadYear === 'all',
+                  } as any,
+                }}
+                localeText={{
+                  clearButtonLabel: 'Semua Tahun',
+                  okButtonLabel: 'Pilih',
+                  cancelButtonLabel: 'Batal',
+                }}
+              />
+            </Box>
+
+            <FormControl fullWidth size="small">
+              <InputLabel id="download-evaluasi-format-label">Format File</InputLabel>
+              <Select
+                labelId="download-evaluasi-format-label"
+                value={downloadFormat}
+                label="Format File"
+                onChange={(e) => setDownloadFormat(e.target.value as 'pdf' | 'excel')}
+              >
+                <MenuItem value="pdf">PDF (.pdf)</MenuItem>
+                <MenuItem value="excel">Excel (.xlsx)</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Typography variant="caption" sx={{ color: 'text.secondary', mt: -1 }}>
+              Total data: <strong>{downloadFilteredCount} peserta</strong>
+            </Typography>
+          </DialogContent>
+
+          <Divider />
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setOpenDownloadDialog(false)} variant="outlined" color="inherit">
+              Batal
+            </Button>
+            <Button
+              onClick={handleExecuteDownload}
+              variant="contained"
+              color="primary"
+              disabled={downloadFilteredCount === 0}
+              startIcon={<Iconify icon="solar:download-minimalistic-bold-duotone" width={18} />}
+            >
+              Unduh
             </Button>
           </DialogActions>
         </Dialog>

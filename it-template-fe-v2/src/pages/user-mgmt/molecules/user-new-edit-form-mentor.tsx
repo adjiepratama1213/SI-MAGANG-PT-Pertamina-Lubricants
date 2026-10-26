@@ -39,6 +39,7 @@ import axiosInstance from 'src/utils/axios';
 import { endpoints } from 'src/utils/endpoints';
 import { useQueryClient } from '@tanstack/react-query';
 import { USER_STATUS_OPTIONS } from 'src/_mock';
+import { logAdminActivity } from 'src/utils/admin-activity-logger';
 
 // ----------------------------------------------------------------------
 
@@ -216,6 +217,24 @@ export default function UserNewEditFormMentor({ currentUser, isViewOnly, onClose
       } else {
         // Create new profile
         await axiosInstance.post(`${endpoints.employeeProfile.list}`, profileData);
+      }
+
+      try {
+        logAdminActivity({
+          id: `admin-create-mentor-${userId}`,
+          title: data.id === '' ? 'Pembuatan Akun Mentor' : 'Pembaruan Akun Mentor',
+          description:
+            data.id === ''
+              ? `Admin mendaftarkan akun mentor baru: ${data.name}${jabatan ? ` (${jabatan})` : ''}`
+              : `Admin memperbarui data mentor: ${data.name}`,
+          icon: 'solar:user-check-bold-duotone',
+          iconBg: 'rgba(0, 79, 159, 0.1)',
+          iconColor: '#004F9F',
+          link: paths.userManagement.root,
+          linkText: 'Kelola User',
+        });
+      } catch (logErr) {
+        console.warn('Log activity error:', logErr);
       }
 
       toast.update(toastId, {

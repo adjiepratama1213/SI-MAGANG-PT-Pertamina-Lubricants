@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, forwardRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
   Container, Typography, Card, Box, Grid, Stack,
@@ -6,6 +6,7 @@ import {
   Button, MenuItem, Select, FormControl, InputLabel, TextField, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider, Autocomplete, LinearProgress, InputAdornment
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import Iconify from 'src/components/iconify';
 import DashboardBreadcrumbs from 'src/components/dashboard-breadcrumbs';
 import { useSearchUsers } from 'src/pages/user-mgmt/query';
@@ -13,6 +14,31 @@ import { toast } from 'react-toastify';
 import axiosInstance from 'src/utils/axios';
 import { endpoints } from 'src/utils/endpoints';
 import { exportMentorPdf } from 'src/utils/export-pdf';
+import { exportMentorExcel } from 'src/utils/export-excel';
+
+const YearPickerTextField = forwardRef<HTMLInputElement, any>((props, ref) => {
+  const { isAllYear, inputProps, InputProps, ...otherProps } = props;
+  return (
+    <TextField
+      {...otherProps}
+      ref={ref}
+      value={isAllYear ? 'Semua Tahun' : props.value}
+      inputProps={{
+        ...inputProps,
+        readOnly: true,
+      }}
+      InputProps={InputProps}
+      sx={{
+        cursor: 'pointer',
+        '& .MuiInputBase-input': {
+          cursor: 'pointer',
+        },
+        ...otherProps.sx,
+      }}
+    />
+  );
+});
+
 
 const DUMMY_PESERTA = [
   { id: 201, nama: 'Fajar Nugroho', instansi: 'Universitas Brawijaya', periode: '1 Ags 2026 - 31 Des 2026', program: 'PKL' },
@@ -122,6 +148,7 @@ export default function Page() {
         const activeMentees = (u?.employeeProfile?.internsMentored || []).filter((intern: any) => !intern.user || !intern.user.status || intern.user.status === 'active');
         return {
           id: u?.id,
+          raw: u,
           name: u?.name || 'Unknown',
           direktorat: u?.employeeProfile?.direktorat || '-',
           fungsi: u?.employeeProfile?.fungsi || '-',
@@ -258,6 +285,86 @@ export default function Page() {
     return bActive - aActive; // Aktif di depan, Tidak Aktif di belakang
   });
 
+  // Download Modal States (Pilihan Tahun & Format PDF / Excel)
+  const [openDownloadDialog, setOpenDownloadDialog] = useState(false);
+  const [downloadYear, setDownloadYear] = useState('all');
+  const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'excel'>('pdf');
+
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const yearsSet = new Set<string>();
+
+    mentors.forEach((m: any) => {
+      if (m.raw?.createdAt) {
+        const y = new Date(m.raw.createdAt).getFullYear();
+        if (!Number.isNaN(y) && y > 2000 && y < 2100) yearsSet.add(String(y));
+      }
+      (m.pesertaList || []).forEach((p: any) => {
+        if (p.periode) {
+          const matches = p.periode.match(/\b(20\d{2})\b/g);
+          if (matches) {
+            matches.forEach((yr: string) => yearsSet.add(yr));
+          }
+        }
+      });
+      const allInterns = m.raw?.employeeProfile?.internsMentored || [];
+      allInterns.forEach((intern: any) => {
+        if (intern?.startDate) {
+          const y = new Date(intern.startDate).getFullYear();
+          if (!Number.isNaN(y) && y > 2000 && y < 2100) yearsSet.add(String(y));
+        }
+        if (intern?.endDate) {
+          const y = new Date(intern.endDate).getFullYear();
+          if (!Number.isNaN(y) && y > 2000 && y < 2100) yearsSet.add(String(y));
+        }
+      });
+    });
+
+    yearsSet.add(String(currentYear - 1));
+    yearsSet.add(String(currentYear));
+    yearsSet.add(String(currentYear + 1));
+
+    return Array.from(yearsSet).sort((a, b) => Number(b) - Number(a));
+  }, [mentors]);
+
+  const getFilteredDownloadData = useCallback((selectedYear: string) => {
+    return filteredMentors.filter((m: any) => {
+      if (selectedYear === 'all') return true;
+
+      const matchPesertaPeriode = (m.pesertaList || []).some((p: any) => p.periode && p.periode.includes(selectedYear));
+      const allInterns = m.raw?.employeeProfile?.internsMentored || [];
+      const matchInternYear = allInterns.some((intern: any) => {
+        const startY = intern?.startDate ? String(new Date(intern.startDate).getFullYear()) : '';
+        const endY = intern?.endDate ? String(new Date(intern.endDate).getFullYear()) : '';
+        return startY === selectedYear || endY === selectedYear;
+      });
+      const matchCreated = m.raw?.createdAt && String(new Date(m.raw.createdAt).getFullYear()) === selectedYear;
+
+      return Boolean(matchPesertaPeriode || matchInternYear || matchCreated);
+    });
+  }, [filteredMentors]);
+
+  const downloadFilteredCount = useMemo(() => {
+    return getFilteredDownloadData(downloadYear).length;
+  }, [getFilteredDownloadData, downloadYear]);
+
+  const handleExecuteDownload = () => {
+    const dataToExport = getFilteredDownloadData(downloadYear);
+    if (dataToExport.length === 0) {
+      toast.warning(`Tidak ada data mentor untuk ${downloadYear === 'all' ? 'semua tahun' : `tahun ${downloadYear}`}.`);
+      return;
+    }
+
+    if (downloadFormat === 'pdf') {
+      exportMentorPdf(dataToExport, downloadYear);
+      toast.success(`Berhasil mengunduh ${dataToExport.length} data mentor (.pdf)`);
+    } else {
+      exportMentorExcel(dataToExport, downloadYear);
+      toast.success(`Berhasil mengunduh ${dataToExport.length} data mentor (.xlsx)`);
+    }
+    setOpenDownloadDialog(false);
+  };
+
   const handleResetFilters = () => {
     setSearchQuery('');
     setFilterDir('all');
@@ -311,7 +418,7 @@ export default function Page() {
           <Stack direction="row" spacing={1.5}>
             <Button
               variant="contained"
-              onClick={() => exportMentorPdf(filteredMentors)}
+              onClick={() => setOpenDownloadDialog(true)}
               sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9' }, fontWeight: 'bold' }}
             >
               <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Data Mentor
@@ -819,6 +926,113 @@ export default function Page() {
           </Button>
           <Button onClick={confirmDeleteMentor} variant="contained" color="error" sx={{ minWidth: 120, boxShadow: 'none' }}>
             Hapus
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG UNDUH DATA MENTOR */}
+      <Dialog
+        open={openDownloadDialog}
+        onClose={() => setOpenDownloadDialog(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ m: 0, px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Unduh Data Mentor
+          </Typography>
+          <IconButton size="small" onClick={() => setOpenDownloadDialog(false)} sx={{ color: 'text.secondary' }}>
+            <Iconify icon="eva:close-fill" />
+          </IconButton>
+        </DialogTitle>
+        <Divider />
+
+        <DialogContent sx={{ px: 3, py: 2.5, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                Periode Tahun
+              </Typography>
+              {downloadYear !== 'all' && (
+                <Button
+                  size="small"
+                  onClick={() => setDownloadYear('all')}
+                  sx={{ p: 0, minWidth: 0, fontSize: '0.75rem', textTransform: 'none', color: 'primary.main' }}
+                >
+                  Pilih Semua Tahun
+                </Button>
+              )}
+            </Box>
+
+            <DatePicker
+              views={['year']}
+              value={downloadYear === 'all' ? null : new Date(Number(downloadYear), 0, 1)}
+              referenceDate={new Date()}
+              onChange={(newVal: Date | null) => {
+                if (newVal && !Number.isNaN(newVal.getTime())) {
+                  setDownloadYear(String(newVal.getFullYear()));
+                } else {
+                  setDownloadYear('all');
+                }
+              }}
+              slots={{
+                textField: YearPickerTextField,
+              }}
+              slotProps={{
+                field: {
+                  clearable: true,
+                  onClear: () => setDownloadYear('all'),
+                },
+                actionBar: {
+                  actions: ['clear', 'accept'],
+                },
+                textField: {
+                  fullWidth: true,
+                  size: 'small',
+                  placeholder: 'Semua Tahun',
+                  isAllYear: downloadYear === 'all',
+                } as any,
+              }}
+              localeText={{
+                clearButtonLabel: 'Semua Tahun',
+                okButtonLabel: 'Pilih',
+                cancelButtonLabel: 'Batal',
+              }}
+            />
+          </Box>
+
+          <FormControl fullWidth size="small">
+            <InputLabel id="download-mentor-format-label">Format File</InputLabel>
+            <Select
+              labelId="download-mentor-format-label"
+              value={downloadFormat}
+              label="Format File"
+              onChange={(e) => setDownloadFormat(e.target.value as 'pdf' | 'excel')}
+            >
+              <MenuItem value="pdf">PDF (.pdf)</MenuItem>
+              <MenuItem value="excel">Excel (.xlsx)</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Typography variant="caption" sx={{ color: 'text.secondary', mt: -1 }}>
+            Total data: <strong>{downloadFilteredCount} mentor</strong>
+          </Typography>
+        </DialogContent>
+
+        <Divider />
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setOpenDownloadDialog(false)} variant="outlined" color="inherit">
+            Batal
+          </Button>
+          <Button
+            onClick={handleExecuteDownload}
+            variant="contained"
+            color="primary"
+            disabled={downloadFilteredCount === 0}
+            startIcon={<Iconify icon="solar:download-minimalistic-bold-duotone" width={18} />}
+          >
+            Unduh
           </Button>
         </DialogActions>
       </Dialog>

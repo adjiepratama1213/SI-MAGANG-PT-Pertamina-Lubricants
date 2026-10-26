@@ -933,7 +933,7 @@ export default function MentorRekapPage() {
                           {selectedItem.nilaiRataRata}
                         </Typography>
                       </Box>
-                      <Stack direction="row" spacing={1}>
+                      <Box>
                         <Chip
                           label={`Kategori: ${selectedItem.kategori}`}
                           size="small"
@@ -950,23 +950,7 @@ export default function MentorRekapPage() {
                             height: 28,
                           }}
                         />
-                        <Chip
-                          label={`Approval VP: ${selectedItem.statusApproval === 'APPROVED' ? 'Disetujui' : 'Menunggu'}`}
-                          size="small"
-                          variant="outlined"
-                          sx={{
-                            bgcolor: '#FFFFFF',
-                            borderColor: selectedItem.statusApproval === 'APPROVED' ? '#16A34A' : '#F59E0B',
-                            borderWidth: 1.5,
-                            borderStyle: 'solid',
-                            color: selectedItem.statusApproval === 'APPROVED' ? '#16A34A' : '#F59E0B',
-                            fontWeight: 700,
-                            fontSize: '0.75rem',
-                            borderRadius: 1,
-                            height: 28,
-                          }}
-                        />
-                      </Stack>
+                      </Box>
                     </Box>
 
                     {/* 7 Aspek Penilaian (Style konsisten dengan dialog mentor-penilaian) */}

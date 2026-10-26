@@ -53,6 +53,7 @@ import UserTableFiltersResult from '../molecules/user-table-filters-result';
 import UserCreateDialog from '../molecules/user-create-dialog';
 import { useSearchUsers } from '../query';
 import { paths } from '../../paths';
+import { logAdminActivity } from 'src/utils/admin-activity-logger';
 
 // ----------------------------------------------------------------------
 
@@ -158,16 +159,32 @@ export default function UserListView({ defaultRole }: Props) {
   const handleDeleteRow = useCallback(
     async (id: string) => {
       try {
+        const targetUser = userSearchData.find((u) => u.id === id);
         await axiosInstance.delete(endpoints.user.edit(id));
         table.onUpdatePageDeleteRow(dataFiltered.length);
         queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
+
+        try {
+          logAdminActivity({
+            title: 'Penghapusan Akun Pengguna',
+            description: `Admin menghapus akun pengguna: ${targetUser?.name || id}`,
+            icon: 'solar:trash-bin-trash-bold-duotone',
+            iconBg: 'rgba(238, 46, 36, 0.1)',
+            iconColor: '#EE2E24',
+            link: paths.userManagement.root,
+            linkText: 'Kelola User',
+          });
+        } catch (logErr) {
+          console.warn('Log activity error:', logErr);
+        }
+
         toast.success('Pengguna berhasil dihapus');
       } catch (error) {
         console.error(error);
         toast.error('Gagal menghapus pengguna');
       }
     },
-    [dataFiltered.length, table, queryClient]
+    [dataFiltered.length, table, queryClient, userSearchData]
   );
 
   const handleDeleteRows = useCallback(async () => {
@@ -182,6 +199,21 @@ export default function UserListView({ defaultRole }: Props) {
       });
       queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
       confirm.onFalse();
+
+      try {
+        logAdminActivity({
+          title: 'Penghapusan Massal Akun',
+          description: `Admin menghapus ${table.selected.length} akun pengguna sekaligus`,
+          icon: 'solar:trash-bin-trash-bold-duotone',
+          iconBg: 'rgba(238, 46, 36, 0.1)',
+          iconColor: '#EE2E24',
+          link: paths.userManagement.root,
+          linkText: 'Kelola User',
+        });
+      } catch (logErr) {
+        console.warn('Log activity error:', logErr);
+      }
+
       toast.success('Beberapa pengguna berhasil dihapus');
     } catch (error) {
       console.error(error);
@@ -192,31 +224,63 @@ export default function UserListView({ defaultRole }: Props) {
   const handleApproveRow = useCallback(
     async (id: string) => {
       try {
+        const targetUser = userSearchData.find((u) => u.id === id);
         await axiosInstance.patch(endpoints.user.edit(id), { status: 'active' });
         await queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
         if (refetchSearch) await refetchSearch();
+
+        try {
+          logAdminActivity({
+            title: 'Verifikasi Akun Peserta',
+            description: `Admin menyetujui pendaftaran peserta: ${targetUser?.name || id}`,
+            icon: 'solar:check-circle-bold-duotone',
+            iconBg: 'rgba(22, 163, 74, 0.1)',
+            iconColor: '#16A34A',
+            link: paths.userManagement.root,
+            linkText: 'Kelola User',
+          });
+        } catch (logErr) {
+          console.warn('Log activity error:', logErr);
+        }
+
         toast.success('Peserta berhasil diterima!');
       } catch (error) {
         console.error(error);
         toast.error('Gagal menerima peserta');
       }
     },
-    [queryClient, refetchSearch]
+    [queryClient, refetchSearch, userSearchData]
   );
 
   const handleRejectRow = useCallback(
     async (id: string) => {
       try {
+        const targetUser = userSearchData.find((u) => u.id === id);
         await axiosInstance.patch(endpoints.user.edit(id), { status: 'rejected' });
         await queryClient.invalidateQueries({ queryKey: ['getUserRequestByTeam'] });
         if (refetchSearch) await refetchSearch();
+
+        try {
+          logAdminActivity({
+            title: 'Penolakan Akun Peserta',
+            description: `Admin menolak pendaftaran peserta: ${targetUser?.name || id}`,
+            icon: 'solar:close-circle-bold-duotone',
+            iconBg: 'rgba(238, 46, 36, 0.1)',
+            iconColor: '#EE2E24',
+            link: paths.userManagement.root,
+            linkText: 'Kelola User',
+          });
+        } catch (logErr) {
+          console.warn('Log activity error:', logErr);
+        }
+
         toast.success('Peserta berhasil ditolak');
       } catch (error) {
         console.error(error);
         toast.error('Gagal menolak peserta');
       }
     },
-    [queryClient, refetchSearch]
+    [queryClient, refetchSearch, userSearchData]
   );
 
 
@@ -464,16 +528,6 @@ function applyFilter({
 }) {
   const { name, status, role } = filters;
 
-  const stabilizedThis = inputData.map((el, index) => [el, index] as const);
-
-  stabilizedThis.sort((a, b) => {
-    const order = comparator(a[0], b[0]);
-    if (order !== 0) return order;
-    return a[1] - b[1];
-  });
-
-  inputData = stabilizedThis.map((el) => el[0]);
-
   if (name) {
     inputData = inputData.filter(
       (user) => user.name.toLowerCase().indexOf(name.toLowerCase()) !== -1
@@ -489,6 +543,34 @@ function applyFilter({
   } else if (role.length) {
     inputData = inputData.filter((user) => role.includes(user.role));
   }
+
+  const getStatusPriority = (st?: string) => {
+    const s = String(st || '').toLowerCase().trim();
+    if (s === 'active') return 1;
+    if (s === 'pending') return 2;
+    if (s === 'banned') return 3;
+    if (s === 'rejected') return 4;
+    return 5;
+  };
+
+  const stabilizedThis = inputData.map((el, index) => [el, index] as const);
+
+  stabilizedThis.sort((a, b) => {
+    // Pada tab 'Semua', prioritaskan status Active di urutan teratas, baru kemudian Pending, Banned, Rejected
+    if (status === 'all') {
+      const priorityA = getStatusPriority(a[0].status);
+      const priorityB = getStatusPriority(b[0].status);
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+    }
+
+    const order = comparator(a[0], b[0]);
+    if (order !== 0) return order;
+    return a[1] - b[1];
+  });
+
+  inputData = stabilizedThis.map((el) => el[0]);
 
   return inputData;
 }

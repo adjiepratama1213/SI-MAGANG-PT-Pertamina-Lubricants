@@ -21,6 +21,7 @@ import AppCurrentDownload from '../app-current-download';
 import axiosInstance from 'src/utils/axios';
 import { endpoints } from 'src/utils/endpoints';
 import { useSearchUsers } from 'src/pages/user-mgmt/query';
+import { getAdminLocalActivities } from 'src/utils/admin-activity-logger';
 
 // ----------------------------------------------------------------------
 
@@ -75,7 +76,7 @@ export default function OverviewAppView() {
   const { user } = useAuthContext();
   const theme = useTheme();
   const router = useRouter();
-  const { userSearchData } = useSearchUsers('');
+  const { userSearchData, refetchSearch } = useSearchUsers('');
 
   const [internsList, setInternsList] = useState<any[]>([]);
   const [presensiData, setPresensiData] = useState<any[]>([]);
@@ -83,6 +84,8 @@ export default function OverviewAppView() {
   const [feedbacksList, setFeedbacksList] = useState<any[]>([]);
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
   const [organizationsList, setOrganizationsList] = useState<any[]>([]);
+  const [extensionsList, setExtensionsList] = useState<any[]>([]);
+  const [localAdminActivities, setLocalAdminActivities] = useState<any[]>(() => getAdminLocalActivities());
   const [activityFilter, setActivityFilter] = useState<'ALL' | 'ADMIN' | 'PESERTA' | 'MENTOR' | 'VP'>('ALL');
 
   // Status VP Approvals tersinkronisasi dengan localStorage
@@ -95,15 +98,25 @@ export default function OverviewAppView() {
     }
   });
 
+  const [vpApprovalTimestamps, setVpApprovalTimestamps] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem('evaluasi_peserta_vp_approvals_timestamps');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
   const fetchDashboardData = async () => {
     try {
-      const [internRes, presensiRes, reminderRes, feedbackRes, notifRes, orgRes] = await Promise.allSettled([
+      const [internRes, presensiRes, reminderRes, feedbackRes, notifRes, orgRes, extRes] = await Promise.allSettled([
         axiosInstance.get('/intern-profile'),
         axiosInstance.get('/presensi/admin/monthly?month=all'),
         axiosInstance.get(endpoints.notification.reminder),
         axiosInstance.get(endpoints.notification.feedback),
         axiosInstance.get('/notification'),
         axiosInstance.get(endpoints.employeeProfile.organizationsHierarchy),
+        axiosInstance.get(endpoints.internProfile.allExtensions),
       ]);
 
       const interns = internRes.status === 'fulfilled' && internRes.value.data?.results ? internRes.value.data.results : [];
@@ -112,6 +125,7 @@ export default function OverviewAppView() {
       const feedbacks = feedbackRes.status === 'fulfilled' && Array.isArray(feedbackRes.value.data) ? feedbackRes.value.data : [];
       const notifs = notifRes.status === 'fulfilled' && notifRes.value.data?.notifications ? notifRes.value.data.notifications : [];
       const orgs = orgRes.status === 'fulfilled' && Array.isArray(orgRes.value.data) ? orgRes.value.data : [];
+      const exts = extRes.status === 'fulfilled' && Array.isArray(extRes.value.data) ? extRes.value.data : [];
 
       setInternsList(interns);
       setPresensiData(presensi);
@@ -119,6 +133,15 @@ export default function OverviewAppView() {
       setFeedbacksList(feedbacks);
       setNotificationsList(notifs);
       setOrganizationsList(orgs);
+      setExtensionsList(exts);
+
+      if (refetchSearch) {
+        try {
+          refetchSearch();
+        } catch (e) {
+          console.error(e);
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch dashboard stats:', err);
     }
@@ -128,10 +151,29 @@ export default function OverviewAppView() {
     fetchDashboardData();
     const interval = setInterval(fetchDashboardData, 10000);
     const handleFocus = () => fetchDashboardData();
+    const handleAdminActivityUpdate = () => {
+      try {
+        setLocalAdminActivities(getAdminLocalActivities());
+      } catch (err) {
+        console.error(err);
+      }
+    };
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'evaluasi_peserta_vp_approvals') {
         try {
           setVpApprovals(e.newValue ? JSON.parse(e.newValue) : {});
+        } catch (err) {
+          console.error(err);
+        }
+      } else if (e.key === 'evaluasi_peserta_vp_approvals_timestamps') {
+        try {
+          setVpApprovalTimestamps(e.newValue ? JSON.parse(e.newValue) : {});
+        } catch (err) {
+          console.error(err);
+        }
+      } else if (e.key === 'admin_recent_activities') {
+        try {
+          setLocalAdminActivities(e.newValue ? JSON.parse(e.newValue) : []);
         } catch (err) {
           console.error(err);
         }
@@ -140,11 +182,13 @@ export default function OverviewAppView() {
 
     window.addEventListener('focus', handleFocus);
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('admin_activity_updated', handleAdminActivityUpdate);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('admin_activity_updated', handleAdminActivityUpdate);
     };
   }, []);
 
@@ -248,10 +292,15 @@ export default function OverviewAppView() {
   const newFeedbacksCount = activeFeedbacksList.filter((f: any) => (f.status || 'Baru') === 'Baru').length;
   const doneFeedbacksCount = activeFeedbacksList.filter((f: any) => (f.status === 'Ditindaklanjuti' || f.status === 'Selesai')).length;
 
-  // Dynamic Yearly Attendance Series for AppAreaInstalled (dengan pilihan tahun sebelumnya & berikutnya)
+  // Dynamic Yearly Attendance Series for AppAreaInstalled (Mendukung semua pilihan tahun)
   const yearlySeries = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const detectedYears = new Set<number>();
+
+    // Tambahkan rentang tahun standar (5 tahun ke belakang hingga 5 tahun ke depan)
+    for (let yr = currentYear - 5; yr <= currentYear + 5; yr++) {
+      detectedYears.add(yr);
+    }
 
     presensiData.forEach((item: any) => {
       if (Array.isArray(item.presensiDetail)) {
@@ -266,11 +315,6 @@ export default function OverviewAppView() {
         });
       }
     });
-
-    // Selalu sediakan tahun sebelumnya, tahun berjalan, dan tahun berikutnya
-    detectedYears.add(currentYear - 1);
-    detectedYears.add(currentYear);
-    detectedYears.add(currentYear + 1);
 
     const sortedYears = Array.from(detectedYears).sort((a, b) => a - b);
 
@@ -322,6 +366,215 @@ export default function OverviewAppView() {
     const list: ActivityItem[] = [];
 
     // 1. ADMIN Activities
+
+    // 1.1 Pembuatan Akun Peserta Magang (Intern Profile & User)
+    const trackedInternUserIds = new Set<string>();
+    internsList.forEach((i: any) => {
+      const d = new Date(i.createdAt || i.user?.createdAt || Date.now());
+      const internName = i.user?.name || 'Peserta';
+      const detailInfo = i.university
+        ? `${i.university}${i.major ? ` - ${i.major}` : ''}`
+        : (i.program || 'Peserta Magang');
+      if (i.userId || i.user?.id) {
+        trackedInternUserIds.add(i.userId || i.user?.id);
+      }
+      list.push({
+        id: `admin-create-intern-${i.id || i.userId}`,
+        role: 'ADMIN',
+        title: 'Pembuatan Akun Peserta',
+        description: `Admin mendaftarkan akun peserta magang baru: ${internName} (${detailInfo})`,
+        time: d,
+        timeStr: formatActivityTime(d),
+        icon: 'solar:user-plus-bold-duotone',
+        iconBg: 'rgba(0, 79, 159, 0.1)',
+        iconColor: '#004F9F',
+        link: '/dashboard/user-management',
+        linkText: 'Kelola User',
+      });
+    });
+
+    // Cek user PESERTA dari userSearchData jika belum terdaftar di internsList
+    (userSearchData || []).forEach((u: any) => {
+      if (u.role === 'PESERTA' && !trackedInternUserIds.has(u.id)) {
+        const d = new Date(u.createdAt || Date.now());
+        list.push({
+          id: `admin-create-user-peserta-${u.id}`,
+          role: 'ADMIN',
+          title: 'Pembuatan Akun Peserta',
+          description: `Admin mendaftarkan akun peserta magang baru: ${u.name || u.email}`,
+          time: d,
+          timeStr: formatActivityTime(d),
+          icon: 'solar:user-plus-bold-duotone',
+          iconBg: 'rgba(0, 79, 159, 0.1)',
+          iconColor: '#004F9F',
+          link: '/dashboard/user-management',
+          linkText: 'Kelola User',
+        });
+      }
+    });
+
+    // 1.2 Pendaftaran Akun Mentor, VP, & Administrator
+    (userSearchData || []).forEach((u: any) => {
+      const d = new Date(u.createdAt || Date.now());
+      const job = u.employeeProfile?.jabatan || u.jobTitle;
+      if (u.role === 'EMPLOYEESTAFF') {
+        list.push({
+          id: `admin-create-mentor-${u.id}`,
+          role: 'ADMIN',
+          title: 'Pembuatan Akun Mentor',
+          description: `Admin mendaftarkan akun mentor baru: ${u.name || u.email}${job ? ` (${job})` : ''}`,
+          time: d,
+          timeStr: formatActivityTime(d),
+          icon: 'solar:user-check-bold-duotone',
+          iconBg: 'rgba(0, 79, 159, 0.1)',
+          iconColor: '#004F9F',
+          link: '/dashboard/user-management',
+          linkText: 'Kelola User',
+        });
+      } else if (u.role === 'EMPLOYEE') {
+        list.push({
+          id: `admin-create-vp-${u.id}`,
+          role: 'ADMIN',
+          title: 'Pembuatan Akun VP',
+          description: `Admin mendaftarkan akun VP baru: ${u.name || u.email}${job ? ` (${job})` : ''}`,
+          time: d,
+          timeStr: formatActivityTime(d),
+          icon: 'solar:user-id-bold-duotone',
+          iconBg: 'rgba(0, 79, 159, 0.1)',
+          iconColor: '#004F9F',
+          link: '/dashboard/user-management',
+          linkText: 'Kelola User',
+        });
+      } else if (u.role === 'SUPERSAIYAN' && u.id !== user?.id) {
+        list.push({
+          id: `admin-create-admin-${u.id}`,
+          role: 'ADMIN',
+          title: 'Pembuatan Akun Administrator',
+          description: `Admin mendaftarkan administrator baru: ${u.name || u.email}`,
+          time: d,
+          timeStr: formatActivityTime(d),
+          icon: 'solar:shield-user-bold-duotone',
+          iconBg: 'rgba(0, 79, 159, 0.1)',
+          iconColor: '#004F9F',
+          link: '/dashboard/user-management',
+          linkText: 'Kelola User',
+        });
+      }
+    });
+
+    // 1.3 Penetapan Mentor Pembimbing untuk Peserta
+    internsList.forEach((i: any) => {
+      if (i.mentor?.user?.name && i.user?.name) {
+        const d = new Date(i.updatedAt || i.createdAt || Date.now());
+        list.push({
+          id: `admin-assign-mentor-${i.id}`,
+          role: 'ADMIN',
+          title: 'Penetapan Mentor Pembimbing',
+          description: `Admin menetapkan ${i.mentor.user.name} sebagai mentor pembimbing untuk ${i.user.name}`,
+          time: d,
+          timeStr: formatActivityTime(d),
+          icon: 'solar:users-group-rounded-bold-duotone',
+          iconBg: 'rgba(0, 79, 159, 0.1)',
+          iconColor: '#004F9F',
+          link: '/dashboard/peserta',
+          linkText: 'Peserta',
+        });
+      }
+    });
+
+    // 1.4 Approval / Penolakan Perpanjangan Masa Magang
+    (extensionsList || []).forEach((ext: any) => {
+      const d = new Date(ext.updatedAt || ext.createdAt || Date.now());
+      const internName = ext.name || 'Peserta';
+      if (ext.status === 'APPROVED') {
+        const newEnd =
+          ext.periodeBaru ||
+          (ext.newEndDate
+            ? new Date(ext.newEndDate).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })
+            : '-');
+        list.push({
+          id: `admin-ext-appr-${ext.id}`,
+          role: 'ADMIN',
+          title: 'Perpanjangan Magang Disetujui',
+          description: `Admin menyetujui perpanjangan masa magang ${internName} hingga ${newEnd}`,
+          time: d,
+          timeStr: formatActivityTime(d),
+          icon: 'solar:calendar-date-bold-duotone',
+          iconBg: 'rgba(22, 163, 74, 0.1)',
+          iconColor: '#16A34A',
+          link: '/dashboard/perpanjangan-magang',
+          linkText: 'Perpanjangan',
+        });
+      } else if (ext.status === 'REJECTED') {
+        list.push({
+          id: `admin-ext-rej-${ext.id}`,
+          role: 'ADMIN',
+          title: 'Perpanjangan Magang Ditolak',
+          description: `Admin menolak permohonan perpanjangan magang ${internName}${
+            ext.adminNote ? `: "${ext.adminNote}"` : ''
+          }`,
+          time: d,
+          timeStr: formatActivityTime(d),
+          icon: 'solar:calendar-cross-bold-duotone',
+          iconBg: 'rgba(238, 46, 36, 0.1)',
+          iconColor: '#EE2E24',
+          link: '/dashboard/perpanjangan-magang',
+          linkText: 'Perpanjangan',
+        });
+      }
+    });
+
+    // 1.5 Penonaktifan Akun Pengguna
+    (userSearchData || []).forEach((u: any) => {
+      if (u.status === 'banned') {
+        const d = new Date(u.updatedAt || Date.now());
+        const roleLabel =
+          u.role === 'PESERTA'
+            ? 'Peserta'
+            : u.role === 'EMPLOYEESTAFF'
+            ? 'Mentor'
+            : u.role === 'EMPLOYEE'
+            ? 'VP'
+            : 'Admin';
+        list.push({
+          id: `admin-ban-${u.id}`,
+          role: 'ADMIN',
+          title: 'Penonaktifan Akun Pengguna',
+          description: `Admin menonaktifkan akun ${u.name || u.email} (${roleLabel})`,
+          time: d,
+          timeStr: formatActivityTime(d),
+          icon: 'solar:user-block-bold-duotone',
+          iconBg: 'rgba(238, 46, 36, 0.1)',
+          iconColor: '#EE2E24',
+          link: '/dashboard/user-management',
+          linkText: 'Kelola User',
+        });
+      }
+    });
+
+    // 1.6 Log Aktivitas Admin Realtime (Tersimpan di LocalStorage)
+    (localAdminActivities || []).forEach((act: any) => {
+      const d = new Date(act.time || act.createdAt || Date.now());
+      list.push({
+        id: act.id || `admin-local-${d.getTime()}`,
+        role: 'ADMIN',
+        title: act.title || 'Aktivitas Admin',
+        description: act.description || '-',
+        time: d,
+        timeStr: formatActivityTime(d),
+        icon: act.icon || 'solar:shield-check-bold-duotone',
+        iconBg: act.iconBg || 'rgba(0, 79, 159, 0.1)',
+        iconColor: act.iconColor || '#004F9F',
+        link: act.link || '/dashboard/user-management',
+        linkText: act.linkText || 'Kelola User',
+      });
+    });
+
+    // 1.7 Broadcast Reminder
     remindersList.forEach((r: any) => {
       const d = new Date(r.createdAt || Date.now());
       list.push({
@@ -378,17 +631,21 @@ export default function OverviewAppView() {
       }
     });
 
+    // 1.8 Pengajuan Approval ke VP oleh Admin
     Object.entries(vpApprovals).forEach(([internId, status]) => {
       const targetIntern = activeInternsList.find((i) => i.id === internId);
       const internName = targetIntern?.user?.name || 'Peserta Magang';
       if (status === 'PENDING') {
+        const storedTs = vpApprovalTimestamps[internId];
+        const evalTime = targetIntern?.evaluation?.updatedAt || targetIntern?.evaluation?.createdAt;
+        const d = storedTs ? new Date(storedTs) : new Date(evalTime || (Date.now() - 30 * 60 * 1000));
         list.push({
           id: `admin-vp-pending-${internId}`,
           role: 'ADMIN',
           title: 'Pengajuan Approval ke VP',
           description: `Admin mengajukan berkas evaluasi kelulusan ${internName} untuk disetujui VP`,
-          time: new Date(),
-          timeStr: 'Baru saja',
+          time: d,
+          timeStr: formatActivityTime(d),
           icon: 'solar:letter-unread-bold-duotone',
           iconBg: 'rgba(0, 79, 159, 0.1)',
           iconColor: '#004F9F',
@@ -398,18 +655,27 @@ export default function OverviewAppView() {
       }
     });
 
-    // 2. VP Activities
+    // 2. VP Activities (Sinkronisasi waktu riil dengan aksi approval)
     Object.entries(vpApprovals).forEach(([internId, status]) => {
       const targetIntern = internsList.find((i) => i.id === internId);
       const internName = targetIntern?.user?.name || 'Peserta Magang';
+      const hasCertificate = Boolean(targetIntern?.evaluation?.certificateUrl);
+      const storedTs = vpApprovalTimestamps[internId];
+      const certTime = targetIntern?.evaluation?.updatedAt ? new Date(targetIntern.evaluation.updatedAt).getTime() : Date.now();
+      // Bila sudah ada sertifikat (diterbitkan Admin), waktu VP Approval terjadi sebelum sertifikat terbit
+      const defaultTime = hasCertificate ? new Date(certTime - 5 * 60 * 1000) : new Date(targetIntern?.evaluation?.updatedAt || (Date.now() - 10 * 60 * 1000));
+      const d = storedTs ? new Date(storedTs) : defaultTime;
+
       if (status === 'APPROVED') {
         list.push({
           id: `vp-approved-${internId}`,
           role: 'VP',
           title: 'Approval Kelulusan Disetujui',
-          description: `VP menyetujui evaluasi kelulusan ${internName}. Menunggu penerbitan sertifikat oleh Admin.`,
-          time: new Date(),
-          timeStr: 'Baru saja',
+          description: hasCertificate
+            ? `VP menyetujui evaluasi kelulusan ${internName} untuk penerbitan sertifikat magang.`
+            : `VP menyetujui evaluasi kelulusan ${internName}. Menunggu penerbitan sertifikat oleh Admin.`,
+          time: d,
+          timeStr: formatActivityTime(d),
           icon: 'solar:check-circle-bold-duotone',
           iconBg: 'rgba(156, 39, 176, 0.1)',
           iconColor: '#9C27B0',
@@ -422,8 +688,8 @@ export default function OverviewAppView() {
           role: 'VP',
           title: 'Revisi Evaluasi oleh VP',
           description: `VP meminta perbaikan pada berkas evaluasi kelulusan ${internName}`,
-          time: new Date(),
-          timeStr: 'Baru saja',
+          time: d,
+          timeStr: formatActivityTime(d),
           icon: 'solar:close-circle-bold-duotone',
           iconBg: 'rgba(238, 46, 36, 0.1)',
           iconColor: '#EE2E24',
@@ -433,7 +699,7 @@ export default function OverviewAppView() {
       }
     });
 
-    // 3. MENTOR Activities
+    // 3. MENTOR Activities (Hanya Penilaian Evaluasi Selesai sesuai permintaan user)
     activeInternsList.forEach((i: any) => {
       if (i.evaluation) {
         const d = new Date(i.evaluation.updatedAt || i.evaluation.createdAt || Date.now());
@@ -451,30 +717,9 @@ export default function OverviewAppView() {
           linkText: 'Evaluasi',
         });
       }
-
-      if (Array.isArray(i.Laporan)) {
-        i.Laporan.forEach((lap: any) => {
-          if (lap.statusFeedback === 'Telah Dievaluasi' || lap.komentar) {
-            const d = new Date(lap.updatedAt || lap.createdAt || Date.now());
-            list.push({
-              id: `mentor-lap-${lap.id}`,
-              role: 'MENTOR',
-              title: 'Review Laporan oleh Mentor',
-              description: `Mentor mengevaluasi berkas laporan milik ${i.user?.name || 'peserta'}${lap.komentar ? `: "${lap.komentar.slice(0, 45)}..."` : ''}`,
-              time: d,
-              timeStr: formatActivityTime(d),
-              icon: 'solar:file-check-bold-duotone',
-              iconBg: 'rgba(238, 46, 36, 0.1)',
-              iconColor: '#EE2E24',
-              link: '/dashboard/evaluasi-peserta',
-              linkText: 'Evaluasi',
-            });
-          }
-        });
-      }
     });
 
-    // 4. PESERTA Activities
+    // 4. PESERTA Activities (Hanya Aspirasi & Laporan Akhir, presensi harian & laporan mingguan dihilangkan sesuai permintaan user)
     activeFeedbacksList.forEach((fb: any) => {
       const d = new Date(fb.createdAt || Date.now());
       const name = fb.isAnonymous ? 'Peserta (Anonim)' : (fb.intern?.user?.name || 'Peserta');
@@ -496,13 +741,15 @@ export default function OverviewAppView() {
     activeInternsList.forEach((i: any) => {
       if (Array.isArray(i.Laporan)) {
         i.Laporan.forEach((lap: any) => {
-          const d = new Date(lap.createdAt || Date.now());
           const isAkhir = (lap.keterangan || '').toLowerCase().includes('akhir');
+          if (!isAkhir) return; // Laporan mingguan dikecualikan sesuai instruksi
+
+          const d = new Date(lap.createdAt || Date.now());
           list.push({
             id: `peserta-lap-${lap.id}`,
             role: 'PESERTA',
-            title: isAkhir ? 'Unggah Laporan Akhir' : 'Unggah Laporan Mingguan',
-            description: `${i.user?.name || 'Peserta'} mengunggah berkas laporan magang`,
+            title: 'Unggah Laporan Akhir',
+            description: `${i.user?.name || 'Peserta'} mengunggah berkas laporan akhir magang`,
             time: d,
             timeStr: formatActivityTime(d),
             icon: 'solar:upload-bold-duotone',
@@ -511,54 +758,6 @@ export default function OverviewAppView() {
             link: '/dashboard/evaluasi-peserta',
             linkText: 'Evaluasi',
           });
-        });
-      }
-    });
-
-    presensiData.forEach((item: any) => {
-      if (Array.isArray(item.presensiDetail)) {
-        item.presensiDetail.slice(-2).forEach((d: any) => {
-          if (d.status !== 'ALPHA' && (d.status === 'HADIR' || d.status === 'HADIR_TERLAMBAT' || (d.masuk && d.masuk !== '-'))) {
-            const isTerlambat = d.status === 'HADIR_TERLAMBAT';
-            let dateObj = new Date();
-            if (d.tanggal && d.tanggal.includes('/')) {
-              const parts = d.tanggal.split('/');
-              const jamParts = (d.masuk && d.masuk.includes(':')) ? d.masuk.split(':') : ['08', '00'];
-              dateObj = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10), parseInt(jamParts[0], 10), parseInt(jamParts[1], 10));
-            }
-            list.push({
-              id: `peserta-in-${item.userId || item.nama}-${d.tanggal}`,
-              role: 'PESERTA',
-              title: isTerlambat ? 'Presensi Masuk (Terlambat)' : 'Presensi Masuk Berhasil',
-              description: `${item.nama || item.userName || 'Peserta'} hadir pukul ${d.masuk || '08:00'} WIB`,
-              time: dateObj,
-              timeStr: formatActivityTime(dateObj),
-              icon: 'solar:login-2-bold-duotone',
-              iconBg: isTerlambat ? 'rgba(245, 158, 11, 0.1)' : 'rgba(22, 163, 74, 0.1)',
-              iconColor: isTerlambat ? '#F59E0B' : '#16A34A',
-              link: '/dashboard/presensi',
-              linkText: 'Presensi',
-            });
-          } else if (d.status === 'IZIN' || d.status === 'SAKIT') {
-            let dateObj = new Date();
-            if (d.tanggal && d.tanggal.includes('/')) {
-              const parts = d.tanggal.split('/');
-              dateObj = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10), 8, 0);
-            }
-            list.push({
-              id: `peserta-izin-${item.userId || item.nama}-${d.tanggal}`,
-              role: 'PESERTA',
-              title: `Pengajuan ${d.status === 'SAKIT' ? 'Sakit' : 'Izin'}`,
-              description: `${item.nama || item.userName || 'Peserta'} mengajukan ${d.status.toLowerCase()}${d.keterangan ? `: ${d.keterangan}` : ''}`,
-              time: dateObj,
-              timeStr: formatActivityTime(dateObj),
-              icon: d.status === 'SAKIT' ? 'solar:medical-kit-bold-duotone' : 'solar:notes-bold-duotone',
-              iconBg: 'rgba(245, 158, 11, 0.1)',
-              iconColor: '#F59E0B',
-              link: '/dashboard/presensi',
-              linkText: 'Presensi',
-            });
-          }
         });
       }
     });
@@ -581,8 +780,29 @@ export default function OverviewAppView() {
       });
     });
 
-    return list.sort((a, b) => b.time.getTime() - a.time.getTime());
-  }, [remindersList, feedbacksList, internsList, vpApprovals, presensiData, notificationsList]);
+    const seenIds = new Set<string>();
+    const uniqueList: ActivityItem[] = [];
+    list.forEach((act) => {
+      if (!seenIds.has(act.id)) {
+        seenIds.add(act.id);
+        uniqueList.push(act);
+      }
+    });
+
+    return uniqueList.sort((a, b) => b.time.getTime() - a.time.getTime());
+  }, [
+    remindersList,
+    feedbacksList,
+    internsList,
+    vpApprovals,
+    vpApprovalTimestamps,
+    presensiData,
+    notificationsList,
+    userSearchData,
+    extensionsList,
+    localAdminActivities,
+    user?.id,
+  ]);
 
   const filteredActivities = useMemo(() => {
     if (activityFilter === 'ALL') return activitiesList;
@@ -1217,7 +1437,7 @@ export default function OverviewAppView() {
               <Divider sx={{ borderStyle: 'dashed' }} />
 
               <List sx={{ p: 2, flex: 1, maxHeight: 420, overflowY: 'auto' }}>
-                {filteredActivities.slice(0, 10).map((act) => (
+                {filteredActivities.slice(0, 25).map((act) => (
                   <ListItem
                     key={act.id}
                     sx={{

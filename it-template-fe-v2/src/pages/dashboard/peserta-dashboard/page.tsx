@@ -181,19 +181,17 @@ export default function PesertaDashboardPage() {
 
   // --- Data Evaluasi ---
   const evalData = user?.internProfile?.evaluation;
+  const hasEvaluation = Boolean(evalData && evalData.nilaiRataRata != null && evalData.nilaiRataRata > 0);
 
   const displayNilaiAkhir = useMemo(() => {
-    if (evalData?.nilaiRataRata != null && evalData.nilaiRataRata > 0) {
+    if (hasEvaluation && evalData?.nilaiRataRata != null) {
       return evalData.nilaiRataRata.toFixed(1);
     }
-    return '83.7';
-  }, [evalData]);
+    return '0';
+  }, [hasEvaluation, evalData]);
 
   const evalAspectScores = useMemo(() => {
-    if (evalData && (
-      evalData.integritas || evalData.ketepatanWaktu || evalData.keahlian ||
-      evalData.kerjasama || evalData.komunikasi || evalData.penggunaanTI || evalData.pengembanganDiri
-    )) {
+    if (hasEvaluation && evalData) {
       return [
         evalData.integritas || 0,
         evalData.ketepatanWaktu || 0,
@@ -204,8 +202,8 @@ export default function PesertaDashboardPage() {
         evalData.pengembanganDiri || 0,
       ];
     }
-    return [85, 81, 80, 80, 80, 80, 100];
-  }, [evalData]);
+    return [0, 0, 0, 0, 0, 0, 0];
+  }, [hasEvaluation, evalData]);
 
   // --- Chart 1: Donut Rekap Kehadiran Bulan Ini ---
   const isAllZeroKehadiran = totalHadir === 0 && totalIzin === 0 && totalAlpha === 0;

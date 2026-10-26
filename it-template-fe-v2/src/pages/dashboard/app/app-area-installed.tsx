@@ -3,15 +3,11 @@ import { useState, useCallback, useEffect } from 'react';
 // @mui
 import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
-import MenuItem from '@mui/material/MenuItem';
 import CardHeader from '@mui/material/CardHeader';
-import ButtonBase from '@mui/material/ButtonBase';
-import IconButton from '@mui/material/IconButton';
 import Card, { CardProps } from '@mui/material/Card';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 // components
-import Iconify from 'src/components/iconify';
 import Chart, { useChart } from 'src/components/chart';
-import CustomPopover, { usePopover } from 'src/components/custom-popover';
 
 // ----------------------------------------------------------------------
 
@@ -47,8 +43,6 @@ export default function AppAreaInstalled({ height, title, subheader, actionButto
     options,
   } = chart;
 
-  const popover = usePopover();
-
   const [seriesData, setSeriesData] = useState(String(new Date().getFullYear()));
 
   useEffect(() => {
@@ -58,20 +52,6 @@ export default function AppAreaInstalled({ height, title, subheader, actionButto
       setSeriesData(hasCurrent ? currentYearStr : series[0].year);
     }
   }, [series, seriesData]);
-
-  const currentIndex = series.findIndex((item) => item.year === seriesData);
-
-  const handlePrevYear = () => {
-    if (currentIndex > 0) {
-      setSeriesData(series[currentIndex - 1].year);
-    }
-  };
-
-  const handleNextYear = () => {
-    if (currentIndex < series.length - 1 && currentIndex !== -1) {
-      setSeriesData(series[currentIndex + 1].year);
-    }
-  };
 
   const dynamicSubheader = subheader
     ? (subheader.includes('tahun') ? subheader.replace(/tahun \d+/, `tahun ${seriesData}`) : `${subheader} (${seriesData})`)
@@ -110,93 +90,81 @@ export default function AppAreaInstalled({ height, title, subheader, actionButto
     ...options,
   });
 
-  const handleChangeSeries = useCallback(
-    (newValue: string) => {
-      popover.onClose();
-      setSeriesData(newValue);
-    },
-    [popover]
-  );
+  const currentSeriesItem = series.find((item) => item.year === seriesData) || {
+    year: seriesData,
+    data: [
+      { name: 'Hadir', data: Array(12).fill(0) },
+      { name: 'Izin', data: Array(12).fill(0) },
+      { name: 'Alpha', data: Array(12).fill(0) },
+    ],
+  };
 
   return (
-    <>
-      <Card {...other}>
-        <CardHeader
-          title={title}
-          subheader={dynamicSubheader}
-          action={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              {actionButton}
-              <IconButton
-                size="small"
-                onClick={handlePrevYear}
-                disabled={currentIndex <= 0}
-                title="Tahun Sebelumnya"
-                sx={{ p: 0.5, borderRadius: 1 }}
-              >
-                <Iconify icon="eva:chevron-left-fill" width={18} />
-              </IconButton>
+    <Card {...other}>
+      <CardHeader
+        title={title}
+        subheader={dynamicSubheader}
+        action={
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {actionButton}
 
-              <ButtonBase
-                onClick={popover.onOpen}
-                sx={{
-                  px: 1,
-                  py: 0.5,
-                  borderRadius: 1,
-                  typography: 'subtitle2',
-                  bgcolor: 'background.neutral',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                {seriesData}
-
-                <Iconify
-                  width={16}
-                  icon={popover.open ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
-                  sx={{ ml: 0.5 }}
-                />
-              </ButtonBase>
-
-              <IconButton
-                size="small"
-                onClick={handleNextYear}
-                disabled={currentIndex >= series.length - 1 || currentIndex === -1}
-                title="Tahun Berikutnya"
-                sx={{ p: 0.5, borderRadius: 1 }}
-              >
-                <Iconify icon="eva:chevron-right-fill" width={18} />
-              </IconButton>
-            </Box>
-          }
-        />
-
-        {series.map((item) => (
-          <Box key={item.year} sx={{ mt: 3, mx: 3 }}>
-            {item.year === seriesData && (
-              <Chart
-                dir="ltr"
-                type="area"
-                series={item.data}
-                options={chartOptions}
-                height={height ?? 340}
-              />
-            )}
+            <DatePicker
+              views={['year']}
+              value={new Date(Number(seriesData) || new Date().getFullYear(), 0, 1)}
+              onChange={(newVal: Date | null) => {
+                if (newVal && !Number.isNaN(newVal.getTime())) {
+                  setSeriesData(String(newVal.getFullYear()));
+                }
+              }}
+              slotProps={{
+                textField: {
+                  size: 'small',
+                  placeholder: 'Pilih Tahun',
+                  sx: {
+                    width: { xs: 110, sm: 125 },
+                    '& .MuiInputBase-root': {
+                      height: 36,
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      borderRadius: 1.5,
+                      bgcolor: '#F8FAFC',
+                      border: '1px solid #CBD5E1',
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        borderColor: '#004F9F',
+                        bgcolor: '#FFFFFF',
+                      },
+                    },
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      border: 'none',
+                    },
+                    '& .MuiInputBase-input': {
+                      py: 0.5,
+                      px: 1.25,
+                      fontWeight: 700,
+                      color: '#0F172A',
+                    },
+                    '& .MuiIconButton-root': {
+                      p: 0.5,
+                      color: '#004F9F',
+                    },
+                  },
+                },
+              }}
+            />
           </Box>
-        ))}
-      </Card>
+        }
+      />
 
-      <CustomPopover open={popover.open} onClose={popover.onClose} sx={{ width: 140 }}>
-        {series.map((option) => (
-          <MenuItem
-            key={option.year}
-            selected={option.year === seriesData}
-            onClick={() => handleChangeSeries(option.year)}
-          >
-            {option.year}
-          </MenuItem>
-        ))}
-      </CustomPopover>
-    </>
+      <Box sx={{ mt: 3, mx: 3 }}>
+        <Chart
+          dir="ltr"
+          type="area"
+          series={currentSeriesItem.data}
+          options={chartOptions}
+          height={height ?? 340}
+        />
+      </Box>
+    </Card>
   );
 }

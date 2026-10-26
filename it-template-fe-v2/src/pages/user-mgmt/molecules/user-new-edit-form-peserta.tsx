@@ -38,6 +38,7 @@ import axiosInstance from 'src/utils/axios';
 import { endpoints } from 'src/utils/endpoints';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { USER_STATUS_OPTIONS } from 'src/_mock';
+import { logAdminActivity } from 'src/utils/admin-activity-logger';
 
 // ----------------------------------------------------------------------
 
@@ -340,6 +341,24 @@ export default function UserNewEditFormPeserta({ currentUser, isViewOnly, onClos
         } catch {
           await axiosInstance.post(`${endpoints.internProfile.list}`, profileData);
         }
+      }
+
+      try {
+        logAdminActivity({
+          id: `admin-create-intern-${userId}`,
+          title: data.id === '' ? 'Pembuatan Akun Peserta' : 'Pembaruan Akun Peserta',
+          description:
+            data.id === ''
+              ? `Admin membuat akun peserta baru: ${data.name} (${university || 'Instansi'})`
+              : `Admin memperbarui profil peserta: ${data.name}`,
+          icon: data.id === '' ? 'solar:user-plus-bold-duotone' : 'solar:user-check-bold-duotone',
+          iconBg: 'rgba(0, 79, 159, 0.1)',
+          iconColor: '#004F9F',
+          link: paths.userManagement.root,
+          linkText: 'Kelola User',
+        });
+      } catch (logErr) {
+        console.warn('Log activity error:', logErr);
       }
 
       toast.update(toastId, {

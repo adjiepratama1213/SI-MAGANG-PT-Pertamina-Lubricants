@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, Component } from 'react';
+import { useState, useMemo, useEffect, useCallback, Component, forwardRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
   Container, Typography, Card, Box, Grid, Stack,
@@ -7,6 +7,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider,
   Collapse, Menu, Autocomplete, LinearProgress, Tooltip,
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import Iconify from 'src/components/iconify';
 import DashboardBreadcrumbs from 'src/components/dashboard-breadcrumbs';
 import { useSearchUsers } from 'src/pages/user-mgmt/query';
@@ -17,6 +18,31 @@ import { UploadAvatar, Upload } from 'src/components/upload';
 import { fData } from 'src/utils/format-number';
 import { toast } from 'react-toastify';
 import { exportPesertaPdf } from 'src/utils/export-pdf';
+import { exportPesertaExcel } from 'src/utils/export-excel';
+
+const YearPickerTextField = forwardRef<HTMLInputElement, any>((props, ref) => {
+  const { isAllYear, inputProps, InputProps, ...otherProps } = props;
+  return (
+    <TextField
+      {...otherProps}
+      ref={ref}
+      value={isAllYear ? 'Semua Tahun' : props.value}
+      inputProps={{
+        ...inputProps,
+        readOnly: true,
+      }}
+      InputProps={InputProps}
+      sx={{
+        cursor: 'pointer',
+        '& .MuiInputBase-input': {
+          cursor: 'pointer',
+        },
+        ...otherProps.sx,
+      }}
+    />
+  );
+});
+
 
 const DUMMY_DATA = [
   { id: 1, name: 'Alyssa Afadila R', nim: '433221088', kampus: 'Universitas Airlangga', jurusan: 'Manajemen Perkantoran Digital', program: 'PKL', status_aktif: 'Aktif', direktorat: 'Direktorat Finance & Business Support', fungsi: 'Sumber Daya Manusia', subFungsi: 'Pengembangan SDM', mentor: 'Gaston Alfonsa', periode: '1 Jul 2025 - 1 Desember 2025', kelamin: 'Perempuan', kontak: '081517981009', tglLahir: '15 Oct 2004', thnLulus: '-', statusMagang: 'PKL', bank: '-', noRek: '-', dokumen: ['Proposal Magang.pdf', 'Surat Pengantar Kampus.pdf', 'MOU Magang.pdf'] },
@@ -368,6 +394,77 @@ export default function Page() {
     return bActive - aActive; // Aktif di depan, Tidak Aktif di belakang
   }), [pesertaList, filterProgram, filterStatus, filterDir, filterFungsi, filterSubFungsi, filterMentor, searchQueryPeserta]);
 
+  // Download Modal States (Pilihan Tahun & Format PDF / Excel)
+  const [openDownloadDialog, setOpenDownloadDialog] = useState(false);
+  const [downloadYear, setDownloadYear] = useState('all');
+  const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'excel'>('pdf');
+
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const yearsSet = new Set<string>();
+
+    pesertaList.forEach((p: any) => {
+      if (p.raw?.internProfile?.startDate) {
+        const y = new Date(p.raw.internProfile.startDate).getFullYear();
+        if (!Number.isNaN(y) && y > 2000 && y < 2100) yearsSet.add(String(y));
+      }
+      if (p.raw?.internProfile?.endDate) {
+        const y = new Date(p.raw.internProfile.endDate).getFullYear();
+        if (!Number.isNaN(y) && y > 2000 && y < 2100) yearsSet.add(String(y));
+      }
+      if (p.raw?.createdAt) {
+        const y = new Date(p.raw.createdAt).getFullYear();
+        if (!Number.isNaN(y) && y > 2000 && y < 2100) yearsSet.add(String(y));
+      }
+      if (p.periode) {
+        const matches = p.periode.match(/\b(20\d{2})\b/g);
+        if (matches) {
+          matches.forEach((m: string) => yearsSet.add(m));
+        }
+      }
+    });
+
+    yearsSet.add(String(currentYear - 1));
+    yearsSet.add(String(currentYear));
+    yearsSet.add(String(currentYear + 1));
+
+    return Array.from(yearsSet).sort((a, b) => Number(b) - Number(a));
+  }, [pesertaList]);
+
+  const getFilteredDownloadData = useCallback((selectedYear: string) => {
+    return filteredPesertaList.filter((p: any) => {
+      if (selectedYear === 'all') return true;
+
+      const matchPeriode = p.periode && p.periode.includes(selectedYear);
+      const matchStart = p.raw?.internProfile?.startDate && String(new Date(p.raw.internProfile.startDate).getFullYear()) === selectedYear;
+      const matchEnd = p.raw?.internProfile?.endDate && String(new Date(p.raw.internProfile.endDate).getFullYear()) === selectedYear;
+      const matchCreated = p.raw?.createdAt && String(new Date(p.raw.createdAt).getFullYear()) === selectedYear;
+
+      return Boolean(matchPeriode || matchStart || matchEnd || matchCreated);
+    });
+  }, [filteredPesertaList]);
+
+  const downloadFilteredCount = useMemo(() => {
+    return getFilteredDownloadData(downloadYear).length;
+  }, [getFilteredDownloadData, downloadYear]);
+
+  const handleExecuteDownload = () => {
+    const dataToExport = getFilteredDownloadData(downloadYear);
+    if (dataToExport.length === 0) {
+      toast.warning(`Tidak ada data peserta untuk ${downloadYear === 'all' ? 'semua tahun' : `tahun ${downloadYear}`}.`);
+      return;
+    }
+
+    if (downloadFormat === 'pdf') {
+      exportPesertaPdf(dataToExport, downloadYear);
+      toast.success(`Berhasil mengunduh ${dataToExport.length} data peserta (.pdf)`);
+    } else {
+      exportPesertaExcel(dataToExport, downloadYear);
+      toast.success(`Berhasil mengunduh ${dataToExport.length} data peserta (.xlsx)`);
+    }
+    setOpenDownloadDialog(false);
+  };
+
   const uniqueDirs = Array.from(new Set((organizations || []).map(o => o.name)));
   const uniqueFungsi = Array.from(new Set((organizations || []).flatMap(o => (o.fungsi || []).map((f: any) => f.name))));
   const uniqueSubFungsi = Array.from(new Set((organizations || []).flatMap(o => (o.fungsi || []).flatMap((f: any) => (f.subFungsi || []).map((sf: any) => sf.name)))));
@@ -703,7 +800,7 @@ export default function Page() {
           <Stack direction="row" spacing={1.5}>
             <Button
               variant="contained"
-              onClick={() => exportPesertaPdf(filteredPesertaList)}
+              onClick={() => setOpenDownloadDialog(true)}
               sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9' }, fontWeight: 'bold' }}
             >
               <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Data Peserta
@@ -1610,6 +1707,113 @@ export default function Page() {
           </Button>
           <Button onClick={confirmDeletePeserta} variant="contained" color="error" sx={{ minWidth: 120, boxShadow: 'none' }}>
             Hapus
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG UNDUH DATA PESERTA */}
+      <Dialog
+        open={openDownloadDialog}
+        onClose={() => setOpenDownloadDialog(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ m: 0, px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Unduh Data Peserta
+          </Typography>
+          <IconButton size="small" onClick={() => setOpenDownloadDialog(false)} sx={{ color: 'text.secondary' }}>
+            <Iconify icon="eva:close-fill" />
+          </IconButton>
+        </DialogTitle>
+        <Divider />
+
+        <DialogContent sx={{ px: 3, py: 2.5, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                Periode Tahun
+              </Typography>
+              {downloadYear !== 'all' && (
+                <Button
+                  size="small"
+                  onClick={() => setDownloadYear('all')}
+                  sx={{ p: 0, minWidth: 0, fontSize: '0.75rem', textTransform: 'none', color: 'primary.main' }}
+                >
+                  Pilih Semua Tahun
+                </Button>
+              )}
+            </Box>
+
+            <DatePicker
+              views={['year']}
+              value={downloadYear === 'all' ? null : new Date(Number(downloadYear), 0, 1)}
+              referenceDate={new Date()}
+              onChange={(newVal: Date | null) => {
+                if (newVal && !Number.isNaN(newVal.getTime())) {
+                  setDownloadYear(String(newVal.getFullYear()));
+                } else {
+                  setDownloadYear('all');
+                }
+              }}
+              slots={{
+                textField: YearPickerTextField,
+              }}
+              slotProps={{
+                field: {
+                  clearable: true,
+                  onClear: () => setDownloadYear('all'),
+                },
+                actionBar: {
+                  actions: ['clear', 'accept'],
+                },
+                textField: {
+                  fullWidth: true,
+                  size: 'small',
+                  placeholder: 'Semua Tahun',
+                  isAllYear: downloadYear === 'all',
+                } as any,
+              }}
+              localeText={{
+                clearButtonLabel: 'Semua Tahun',
+                okButtonLabel: 'Pilih',
+                cancelButtonLabel: 'Batal',
+              }}
+            />
+          </Box>
+
+          <FormControl fullWidth size="small">
+            <InputLabel id="download-format-label">Format File</InputLabel>
+            <Select
+              labelId="download-format-label"
+              value={downloadFormat}
+              label="Format File"
+              onChange={(e) => setDownloadFormat(e.target.value as 'pdf' | 'excel')}
+            >
+              <MenuItem value="pdf">PDF (.pdf)</MenuItem>
+              <MenuItem value="excel">Excel (.xlsx)</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Typography variant="caption" sx={{ color: 'text.secondary', mt: -1 }}>
+            Total data: <strong>{downloadFilteredCount} peserta</strong>
+          </Typography>
+        </DialogContent>
+
+        <Divider />
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setOpenDownloadDialog(false)} variant="outlined" color="inherit">
+            Batal
+          </Button>
+          <Button
+            onClick={handleExecuteDownload}
+            variant="contained"
+            color="primary"
+            disabled={downloadFilteredCount === 0}
+            startIcon={<Iconify icon="solar:download-minimalistic-bold-duotone" width={18} />}
+          >
+            Unduh
           </Button>
         </DialogActions>
       </Dialog>

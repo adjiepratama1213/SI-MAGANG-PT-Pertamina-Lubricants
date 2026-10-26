@@ -85,11 +85,27 @@ export default function VpApprovalPage() {
 
   const handleApproveByVp = (internProfileId: string, internName?: string) => {
     updateVpApproval(internProfileId, 'APPROVED');
+    try {
+      const savedTs = localStorage.getItem('evaluasi_peserta_vp_approvals_timestamps');
+      const timestamps = savedTs ? JSON.parse(savedTs) : {};
+      timestamps[internProfileId] = new Date().toISOString();
+      localStorage.setItem('evaluasi_peserta_vp_approvals_timestamps', JSON.stringify(timestamps));
+    } catch (e) {
+      console.error(e);
+    }
     toast.success(`Evaluasi ${internName || 'peserta'} berhasil disetujui! Status telah diteruskan ke Admin untuk penerbitan sertifikat.`);
   };
 
   const handleRejectByVp = (internProfileId: string, internName?: string) => {
     updateVpApproval(internProfileId, 'REJECTED');
+    try {
+      const savedTs = localStorage.getItem('evaluasi_peserta_vp_approvals_timestamps');
+      const timestamps = savedTs ? JSON.parse(savedTs) : {};
+      timestamps[internProfileId] = new Date().toISOString();
+      localStorage.setItem('evaluasi_peserta_vp_approvals_timestamps', JSON.stringify(timestamps));
+    } catch (e) {
+      console.error(e);
+    }
     toast.warning(`Evaluasi ${internName || 'peserta'} telah ditolak / diminta perbaikan.`);
   };
 

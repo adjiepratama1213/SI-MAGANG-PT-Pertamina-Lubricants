@@ -40,6 +40,7 @@ import { endpoints } from 'src/utils/endpoints';
 import { useAuthContext } from 'src/auth/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { USER_STATUS_OPTIONS } from 'src/_mock';
+import { logAdminActivity } from 'src/utils/admin-activity-logger';
 
 // ----------------------------------------------------------------------
 
@@ -154,6 +155,24 @@ export default function UserNewEditFormAdmin({ currentUser, isViewOnly, onClose 
 
       if (initialize && user?.id === data.id) {
         await initialize();
+      }
+
+      try {
+        logAdminActivity({
+          id: `admin-create-admin-${data.id || res.data?.id}`,
+          title: data.id === '' ? 'Pembuatan Akun Administrator' : 'Pembaruan Akun Administrator',
+          description:
+            data.id === ''
+              ? `Admin mendaftarkan administrator baru: ${data.name}`
+              : `Admin memperbarui data administrator: ${data.name}`,
+          icon: 'solar:shield-user-bold-duotone',
+          iconBg: 'rgba(0, 79, 159, 0.1)',
+          iconColor: '#004F9F',
+          link: paths.userManagement.root,
+          linkText: 'Kelola User',
+        });
+      } catch (logErr) {
+        console.warn('Log activity error:', logErr);
       }
 
       toast.update(toastId, {

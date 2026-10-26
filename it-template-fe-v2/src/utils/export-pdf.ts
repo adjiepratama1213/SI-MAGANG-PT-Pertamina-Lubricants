@@ -89,9 +89,10 @@ const addPertaminaFooter = (doc: jsPDF) => {
 /**
  * 1. Unduh Data Peserta ke PDF
  */
-export const exportPesertaPdf = (data: any[]) => {
+export const exportPesertaPdf = (data: any[], year?: string) => {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  addPertaminaHeader(doc, 'Laporan Data Peserta Magang', `Total Data: ${data.length} Peserta`);
+  const docTitle = year && year !== 'all' ? `Laporan Data Peserta Magang (Tahun ${year})` : 'Laporan Data Peserta Magang';
+  addPertaminaHeader(doc, docTitle, `Total Data: ${data.length} Peserta`);
 
   const tableHead = [
     ['No', 'Nama Peserta', 'NIM / ID', 'Program', 'Universitas / Instansi', 'Direktorat', 'Fungsi & Sub Fungsi', 'Mentor', 'Periode', 'Status']
@@ -148,15 +149,17 @@ export const exportPesertaPdf = (data: any[]) => {
   });
 
   addPertaminaFooter(doc);
-  doc.save(`Data_Peserta_PTPL_${new Date().toISOString().slice(0, 10)}.pdf`);
+  const fileYearSuffix = year && year !== 'all' ? `${year}_` : '';
+  doc.save(`Data_Peserta_PTPL_${fileYearSuffix}${new Date().toISOString().slice(0, 10)}.pdf`);
 };
 
 /**
  * 2. Unduh Data Mentor ke PDF
  */
-export const exportMentorPdf = (data: any[]) => {
+export const exportMentorPdf = (data: any[], year?: string) => {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  addPertaminaHeader(doc, 'Laporan Data Mentor Pembimbing', `Total Data: ${data.length} Mentor`);
+  const docTitle = year && year !== 'all' ? `Laporan Data Mentor Pembimbing (Tahun ${year})` : 'Laporan Data Mentor Pembimbing';
+  addPertaminaHeader(doc, docTitle, `Total Data: ${data.length} Mentor`);
 
   const tableHead = [
     ['No', 'Nama Mentor', 'Email', 'Jabatan', 'Direktorat', 'Fungsi', 'Sub Fungsi', 'Bimbingan', 'Status']
@@ -208,15 +211,17 @@ export const exportMentorPdf = (data: any[]) => {
   });
 
   addPertaminaFooter(doc);
-  doc.save(`Data_Mentor_PTPL_${new Date().toISOString().slice(0, 10)}.pdf`);
+  const fileYearSuffix = year && year !== 'all' ? year : 'Semua_Tahun';
+  doc.save(`Data_Mentor_PTPL_${fileYearSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`);
 };
 
 /**
  * 3. Unduh Data Evaluasi Peserta ke PDF
  */
-export const exportEvaluasiPesertaPdf = (data: any[]) => {
+export const exportEvaluasiPesertaPdf = (data: any[], year?: string) => {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  addPertaminaHeader(doc, 'Laporan Rekapitulasi Evaluasi Peserta', `Total Data: ${data.length} Peserta`);
+  const docTitle = year && year !== 'all' ? `Laporan Rekapitulasi Evaluasi Peserta (Tahun ${year})` : 'Laporan Rekapitulasi Evaluasi Peserta';
+  addPertaminaHeader(doc, docTitle, `Total Data: ${data.length} Peserta`);
 
   const tableHead = [
     ['No', 'Nama Peserta', 'ID Peserta', 'Program & Instansi', 'Hadir', 'Izin', 'Alpha', 'Laporan Akhir', 'Nilai', 'Kategori', 'Status', 'Approval VP']
@@ -330,7 +335,8 @@ export const exportEvaluasiPesertaPdf = (data: any[]) => {
   });
 
   addPertaminaFooter(doc);
-  doc.save(`Evaluasi_Peserta_PTPL_${new Date().toISOString().slice(0, 10)}.pdf`);
+  const fileYearSuffix = year && year !== 'all' ? year : 'Semua_Tahun';
+  doc.save(`Evaluasi_Peserta_PTPL_${fileYearSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`);
 };
 
 /**

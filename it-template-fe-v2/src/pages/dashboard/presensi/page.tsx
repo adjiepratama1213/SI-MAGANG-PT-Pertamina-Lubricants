@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, forwardRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
   Container, Typography, Card, Box, Grid, Stack,
@@ -7,13 +7,40 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider, LinearProgress,
   Tooltip, CircularProgress, InputAdornment
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import Iconify from 'src/components/iconify';
 import DashboardBreadcrumbs from 'src/components/dashboard-breadcrumbs';
 import axiosInstance from 'src/utils/axios';
 import { endpoints } from 'src/utils/endpoints';
 import { useSearchUsers } from 'src/pages/user-mgmt/query';
 import { HOST_API } from 'src/config-global';
+import { toast } from 'react-toastify';
 import { exportPresensiPdf } from 'src/utils/export-pdf';
+import { exportPresensiExcel } from 'src/utils/export-excel';
+
+const MonthYearPickerTextField = forwardRef<HTMLInputElement, any>((props, ref) => {
+  const { isAllPeriod, allText = 'Semua Periode', inputProps, InputProps, ...otherProps } = props;
+  return (
+    <TextField
+      {...otherProps}
+      ref={ref}
+      value={isAllPeriod ? allText : props.value}
+      inputProps={{
+        ...inputProps,
+        readOnly: true,
+      }}
+      InputProps={InputProps}
+      sx={{
+        cursor: 'pointer',
+        '& .MuiInputBase-input': {
+          cursor: 'pointer',
+        },
+        ...otherProps.sx,
+      }}
+    />
+  );
+});
+
 
 // Helper render status presensi konsisten (Desain outlined seperti kolom aksi pada data-bimbingan, pertahankan warna status)
 const renderPresensiStatusChip = (status: string | null | undefined) => {
@@ -287,6 +314,75 @@ export default function Page() {
     setPage(0);
   };
 
+  // Download Modal States (Pilihan Bulan & Tahun, Format PDF / Excel)
+  const [openDownloadDialog, setOpenDownloadDialog] = useState(false);
+  const [downloadBulan, setDownloadBulan] = useState(filterBulan);
+  const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'excel'>('pdf');
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleOpenDownload = () => {
+    setDownloadBulan(filterBulan);
+    setOpenDownloadDialog(true);
+  };
+
+  const handleExecuteDownload = async () => {
+    try {
+      setIsDownloading(true);
+      let dataToExport = filteredData;
+
+      if (downloadBulan !== filterBulan) {
+        const res = await axiosInstance.get('/presensi/admin/monthly', {
+          params: { month: downloadBulan }
+        });
+        const rawData = Array.isArray(res.data) ? res.data : [];
+        const activeOnly = rawData.filter((item: any) => item?.mentor && item.mentor !== '-');
+
+        dataToExport = activeOnly.filter((row: any) => {
+          const isRowActive = row?.isActive !== undefined
+            ? row.isActive
+            : (row?.userStatus === 'active' || !row?.userStatus) && (!row?.endDate || new Date(row.endDate) >= new Date());
+
+          const matchStatusPeserta =
+            filterStatusPeserta === 'all' ||
+            (filterStatusPeserta === 'active' && isRowActive) ||
+            (filterStatusPeserta === 'inactive' && !isRowActive);
+
+          const matchProgram = filterProgram === 'all' || row?.program === filterProgram;
+          const matchDirektorat = filterDirektorat === 'all' || row?.direktorat === filterDirektorat;
+          const matchFungsi = filterFungsi === 'all' || row?.fungsi === filterFungsi;
+          const matchSubFungsi = filterSubFungsi === 'all' || row?.subFungsi === filterSubFungsi;
+          const matchMentor = filterMentor === 'all' || row?.mentor === filterMentor;
+          const matchSearch =
+            searchQuery === '' ||
+            (row?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (row?.nim || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (row?.kampus || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+          return matchStatusPeserta && matchProgram && matchDirektorat && matchFungsi && matchSubFungsi && matchMentor && matchSearch;
+        });
+      }
+
+      if (dataToExport.length === 0) {
+        toast.warning('Tidak ada data presensi untuk periode yang dipilih.');
+        return;
+      }
+
+      if (downloadFormat === 'pdf') {
+        exportPresensiPdf(dataToExport, downloadBulan);
+        toast.success(`Berhasil mengunduh ${dataToExport.length} data presensi (.pdf)`);
+      } else {
+        exportPresensiExcel(dataToExport, downloadBulan);
+        toast.success(`Berhasil mengunduh ${dataToExport.length} data presensi (.xlsx)`);
+      }
+      setOpenDownloadDialog(false);
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal mengunduh rekap presensi.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <>
       <Helmet>
@@ -310,7 +406,7 @@ export default function Page() {
           <Stack direction="row" spacing={1.5}>
             <Button
               variant="contained"
-              onClick={() => exportPresensiPdf(filteredData, filterBulan)}
+              onClick={handleOpenDownload}
               sx={{ bgcolor: 'white', color: '#004F9F', '&:hover': { bgcolor: '#f1f5f9' }, fontWeight: 'bold' }}
             >
               <Iconify icon="solar:download-minimalistic-bold-duotone" sx={{ mr: 1 }} /> Unduh Rekap Presensi
@@ -383,19 +479,50 @@ export default function Page() {
         <Card sx={{ p: 3, mb: 3, border: '1px solid #e2e8f0', boxShadow: '0px 8px 30px rgba(0,0,0,0.05)' }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Periode Presensi</InputLabel>
-                <Select
-                  label="Periode Presensi"
-                  value={filterBulan}
-                  onChange={(e) => setFilterBulan(e.target.value)}
-                >
-                  <MenuItem value="all">Semua Periode (Akumulasi Total)</MenuItem>
-                  <MenuItem value="2026-10">Oktober 2026 (Bulan Ini)</MenuItem>
-                  <MenuItem value="2026-09">September 2026</MenuItem>
-                  <MenuItem value="2026-08">Agustus 2026</MenuItem>
-                </Select>
-              </FormControl>
+              <DatePicker
+                views={['year', 'month']}
+                format="MMMM yyyy"
+                label="Periode Presensi"
+                value={filterBulan === 'all' ? null : new Date(parseInt(filterBulan.split('-')[0], 10), parseInt(filterBulan.split('-')[1], 10) - 1, 1)}
+                referenceDate={new Date()}
+                onChange={(newVal: Date | null) => {
+                  if (newVal && !Number.isNaN(newVal.getTime())) {
+                    const y = newVal.getFullYear();
+                    const m = String(newVal.getMonth() + 1).padStart(2, '0');
+                    setFilterBulan(`${y}-${m}`);
+                  } else {
+                    setFilterBulan('all');
+                  }
+                  setPage(0);
+                }}
+                slots={{
+                  textField: MonthYearPickerTextField,
+                }}
+                slotProps={{
+                  field: {
+                    clearable: true,
+                    onClear: () => {
+                      setFilterBulan('all');
+                      setPage(0);
+                    },
+                  },
+                  actionBar: {
+                    actions: ['clear', 'accept'],
+                  },
+                  textField: {
+                    fullWidth: true,
+                    size: 'small',
+                    placeholder: 'Semua Periode',
+                    isAllPeriod: filterBulan === 'all',
+                    allText: 'Semua Periode',
+                  } as any,
+                }}
+                localeText={{
+                  clearButtonLabel: 'Semua Periode',
+                  okButtonLabel: 'Pilih',
+                  cancelButtonLabel: 'Batal',
+                }}
+              />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
@@ -874,6 +1001,121 @@ export default function Page() {
           </>
         );
       })()}
+      </Dialog>
+
+      {/* DIALOG UNDUH REKAP PRESENSI */}
+      <Dialog
+        open={openDownloadDialog}
+        onClose={() => !isDownloading && setOpenDownloadDialog(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ m: 0, px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Unduh Rekap Presensi
+          </Typography>
+          <IconButton size="small" onClick={() => setOpenDownloadDialog(false)} disabled={isDownloading} sx={{ color: 'text.secondary' }}>
+            <Iconify icon="eva:close-fill" />
+          </IconButton>
+        </DialogTitle>
+        <Divider />
+
+        <DialogContent sx={{ px: 3, py: 2.5, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                Periode Presensi (Bulan & Tahun)
+              </Typography>
+              {downloadBulan !== 'all' && (
+                <Button
+                  size="small"
+                  onClick={() => setDownloadBulan('all')}
+                  sx={{ p: 0, minWidth: 0, fontSize: '0.75rem', textTransform: 'none', color: 'primary.main' }}
+                >
+                  Pilih Semua Periode
+                </Button>
+              )}
+            </Box>
+
+            <DatePicker
+              views={['year', 'month']}
+              format="MMMM yyyy"
+              value={downloadBulan === 'all' ? null : new Date(parseInt(downloadBulan.split('-')[0], 10), parseInt(downloadBulan.split('-')[1], 10) - 1, 1)}
+              referenceDate={new Date()}
+              onChange={(newVal: Date | null) => {
+                if (newVal && !Number.isNaN(newVal.getTime())) {
+                  const y = newVal.getFullYear();
+                  const m = String(newVal.getMonth() + 1).padStart(2, '0');
+                  setDownloadBulan(`${y}-${m}`);
+                } else {
+                  setDownloadBulan('all');
+                }
+              }}
+              slots={{
+                textField: MonthYearPickerTextField,
+              }}
+              slotProps={{
+                field: {
+                  clearable: true,
+                  onClear: () => setDownloadBulan('all'),
+                },
+                actionBar: {
+                  actions: ['clear', 'accept'],
+                },
+                textField: {
+                  fullWidth: true,
+                  size: 'small',
+                  placeholder: 'Semua Periode',
+                  isAllPeriod: downloadBulan === 'all',
+                  allText: 'Semua Periode (Akumulasi Total)',
+                } as any,
+              }}
+              localeText={{
+                clearButtonLabel: 'Semua Periode',
+                okButtonLabel: 'Pilih',
+                cancelButtonLabel: 'Batal',
+              }}
+            />
+          </Box>
+
+          <FormControl fullWidth size="small">
+            <InputLabel id="download-presensi-format-label">Format File</InputLabel>
+            <Select
+              labelId="download-presensi-format-label"
+              value={downloadFormat}
+              label="Format File"
+              onChange={(e) => setDownloadFormat(e.target.value as 'pdf' | 'excel')}
+            >
+              <MenuItem value="pdf">PDF (.pdf)</MenuItem>
+              <MenuItem value="excel">Excel (.xlsx)</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Typography variant="caption" sx={{ color: 'text.secondary', mt: -1 }}>
+            {downloadBulan === filterBulan ? (
+              <>Total data: <strong>{filteredData.length} peserta</strong></>
+            ) : (
+              <>Data akan disinkronkan untuk periode yang dipilih.</>
+            )}
+          </Typography>
+        </DialogContent>
+
+        <Divider />
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setOpenDownloadDialog(false)} disabled={isDownloading} variant="outlined" color="inherit">
+            Batal
+          </Button>
+          <Button
+            onClick={handleExecuteDownload}
+            variant="contained"
+            color="primary"
+            disabled={isDownloading}
+            startIcon={isDownloading ? <CircularProgress size={18} color="inherit" /> : <Iconify icon="solar:download-minimalistic-bold-duotone" width={18} />}
+          >
+            {isDownloading ? 'Mengunduh...' : 'Unduh'}
+          </Button>
+        </DialogActions>
       </Dialog>
     </>
   );

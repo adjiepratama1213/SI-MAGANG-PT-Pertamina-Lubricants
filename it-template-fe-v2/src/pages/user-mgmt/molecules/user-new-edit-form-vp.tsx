@@ -39,6 +39,7 @@ import axiosInstance from 'src/utils/axios';
 import { endpoints } from 'src/utils/endpoints';
 import { useQueryClient } from '@tanstack/react-query';
 import { USER_STATUS_OPTIONS } from 'src/_mock';
+import { logAdminActivity } from 'src/utils/admin-activity-logger';
 
 // ----------------------------------------------------------------------
 
@@ -216,6 +217,24 @@ export default function UserNewEditFormVp({ currentUser, isViewOnly, onClose }: 
       } else {
         // Create new profile
         await axiosInstance.post(`${endpoints.employeeProfile.list}`, profileData);
+      }
+
+      try {
+        logAdminActivity({
+          id: `admin-create-vp-${userId}`,
+          title: data.id === '' ? 'Pembuatan Akun VP' : 'Pembaruan Akun VP',
+          description:
+            data.id === ''
+              ? `Admin mendaftarkan akun VP baru: ${data.name}${jabatan ? ` (${jabatan})` : ''}`
+              : `Admin memperbarui data VP: ${data.name}`,
+          icon: 'solar:user-id-bold-duotone',
+          iconBg: 'rgba(0, 79, 159, 0.1)',
+          iconColor: '#004F9F',
+          link: paths.userManagement.root,
+          linkText: 'Kelola User',
+        });
+      } catch (logErr) {
+        console.warn('Log activity error:', logErr);
       }
 
       toast.update(toastId, {
